@@ -1,6 +1,13 @@
+using GeCom.Following.Preload.Application;
+using GeCom.Following.Preload.Infrastructure;
+
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add application services.
+builder.Services.AddPreloadApplication();
+
+// Add infrastructure services.
+builder.Services.AddPreloadInfrastructure();
 
 builder.Services.AddControllers();
 
