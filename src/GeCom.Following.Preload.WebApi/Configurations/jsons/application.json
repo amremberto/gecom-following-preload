@@ -1,0 +1,9 @@
+{
+  "ApplicationProperties": {
+    "Product": "GeCom Following Preload",
+    "Name": "GeCom Following Preload API",
+    "Description": "API for managing Preload operations.",
+    "Company": "Gestión Compartida",
+    "Version": "1.0.0"
+  }
+}

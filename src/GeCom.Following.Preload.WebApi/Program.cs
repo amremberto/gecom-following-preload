@@ -1,7 +1,17 @@
 using GeCom.Following.Preload.Application;
 using GeCom.Following.Preload.Infrastructure;
+using GeCom.Following.Preload.WebApi.Configurations;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
+
+#region Add services to the container.
+
+// Loads the configuration from the appsettings.json and configuration json files.
+ConfigurationsLoader.AddConfigurationJsonFiles(builder.Configuration, builder.Environment);
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(true);
+}
 
 // Add application services.
 builder.Services.AddPreloadApplication();
@@ -10,6 +20,8 @@ builder.Services.AddPreloadApplication();
 builder.Services.AddPreloadInfrastructure();
 
 builder.Services.AddControllers();
+
+#endregion
 
 WebApplication? app = builder.Build();
 
