@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\GeCom.Following.Preload.SharedKernel\GeCom.Following.Preload.SharedKernel.csproj" />
+  </ItemGroup>
+</Project>

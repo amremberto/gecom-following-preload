@@ -1,0 +1,130 @@
+# === Cursor Rules for .NET 9 / C# 13 ===
+
+project_context:
+  tech_stack: |
+    .NET 9, C# 13, ASP.NET Core Web API (controllers), EF Core, Serilog,
+    AutoMapper, FluentValidation, MediatR (CQRS), IOptions, JWT auth,
+    API versioning, ProblemDetails, HealthChecks, Caching, Unit/Integration tests.
+
+coding_guidelines:
+  instructions: |
+    - Usar C# 13 y nullability enabled.
+    - Favor Guid como identificador.
+    - Usar records para DTOs inmutables; classes para entidades/agregados.
+    - Inyección de dependencias con primary constructors cuando aplique.
+    - Seguir SOLID y Clean Architecture (Domain, Application, Infrastructure, WebAPI, SharedKernel/Contracts).
+    - Preferir controladores a Minimal APIs.
+    - Validar modelos con FluentValidation + filtros automáticos.
+    - Manejo de errores con ProblemDetails y middleware.
+    - Logging con Serilog (structured logging, no logs en controladores salvo contexto).
+    - Configuración tipada (IOptions<T>) y archivos por entorno.
+    - Autenticación/Autorización con JWT/Policies/Roles; [Authorize] por defecto.
+    - EF Core: No lógica de negocio en DbContext; usar repositorios o UoW sólo si agregan valor.
+    - Async/await para I/O; evitar .Result/.Wait().
+    - `is null` / `is not null` en vez de `== null`/`!= null`.
+    - Validar argumentos con `ArgumentNullException.ThrowIfNull(...)`.
+    - Evitar magia: tipos explícitos (no `var` salvo obvio).
+    - Versionado de API (e.g., v1, v2) y Swagger con auth.
+
+architecture_guards:
+  instructions: |
+    - WebAPI no referencia Infrastructure directamente si Application ya lo abstrae.
+    - Domain no referencia a ningún otro proyecto.
+    - Application sólo referencia Domain y Contracts/SharedKernel.
+    - Infrastructure referencia Application/Domain para implementaciones.
+    - Prohibido usar DateTime.Now directamente; usar IClock/TimeProvider.
+    - No acceder a HttpContext en capa Application/Domain.
+    - Evitar estáticos con estado compartido.
+
+commit_message:
+  instructions: |
+    Formato estricto:
+    1. Una línea de título breve con un emoji representativo y una descripción general corta.
+       Usa uno de estos emojis según el tipo de cambio:
+       - ✨  (nueva funcionalidad o feature)
+       - 🐛  (fix de bug)
+       - 🔧  (configuración, setup, ajustes)
+       - ♻️  (refactor)
+       - 🚀  (mejora de rendimiento, despliegue, optimización)
+       - 📦  (dependencias, paquetes, build)
+    2. Luego deja una lìnea por medio y crea una lista con viñetas (máximo 7 puntos) describiendo cambios más específicos:
+       - Usa "-" como viñeta
+       - Sé conciso, directo y en inglés preferiblemente
+       - No repitas el título, solo detalla
+    3. Finalmente, deja una linea por medio e incluye la firma con este formato exacto:
+       Changes made by Remberto Aguilar.
+    Ejemplo:
+    ✨ Enhance AutoMapper and nullable handling in controllers
+
+    - Refactored ApiScopesController to handle nullable search parameters
+    - Improved ApplicationDependencyInjection with dynamic profile registration
+    - Removed PersistedGrantMapperProfile and centralized mapping logic
+    - Updated PersistedGrantMappers to align with new mapping structure
+    - Adjusted namespaces and dependencies for better maintainability
+    
+    Changes made by Remberto Aguilar.
+
+code_generation:
+  instructions: |
+    - Crear controladores heredando de ControllerBase con [ApiController] y [Route("api/v{version:apiVersion}/[controller]")].
+    - Incluir Summary XML-docs en clases públicas/métodos de API.
+    - Endpoints devuelven ActionResult<T> y usan Results/ProblemDetails en errores.
+    - Para DTOs usar record sealed; mapear con AutoMapper (perfiles por agregado).
+    - Validaciones con FluentValidation y pipeline behavior en MediatR.
+    - Servicios y casos de uso como clases internal sealed con primary constructor.
+    - Excepciones de dominio específicas; nunca exponer mensajes internos.
+    - Middleware de excepciones, correlación, logging y validación.
+    - Health checks en /health y readiness en /health/ready.
+    - Respuestas cacheables con [ResponseCache] o IMemoryCache/DistributedCache donde aplique.
+
+refactor_requests:
+  instructions: |
+    - Sugerir refactors seguros (extracción de métodos, inmutabilidad, early returns, pattern matching).
+    - Introducir interfaces sólo si hay dos implementaciones o claro beneficio testable.
+    - Migrar switch anidados a switch expressions cuando mejore legibilidad.
+    - Reducir parámetros con records/options; aplicar SRP.
+
+testing:
+  instructions: |
+    - Unit tests: xUnit + FluentAssertions + NSubstitute/Moq.
+    - Integration tests: WebApplicationFactory, testcontainers (SQL Server/PG) o EFCore InMemory sólo para escenarios controlados.
+    - Nombrado: MethodName_ShouldExpectedBehavior_WhenCondition.
+    - Cubrir: validadores, handlers MediatR, mapeos AutoMapper (AssertConfigurationIsValid), repositorios.
+    - Usar Bogus para datos; AutoFixture opcional.
+
+ef_core:
+  instructions: |
+    - Configurar entidades con TypeConfigurations separados por archivo.
+    - Usar Guid como PK, generated by client/server según estrategia.
+    - Concurrencia con RowVersion cuando aplique.
+    - No filtrar soft delete en consultas sin QueryFilters.
+    - Migrations en proyecto dedicado; nombrar descriptivo; no editar a mano salvo necesidad.
+    - Consultas asíncronas y `AsNoTracking` en lecturas.
+
+observability:
+  instructions: |
+    - Serilog con Enrich.FromLogContext y enricher de correlation-id.
+    - LogLevel: Information por defecto; Debug/Verbose solo en Dev.
+    - Estructurar logs (no cadenas concatenadas).
+    - Opcional: OpenTelemetry (traces/metrics) si está habilitado.
+
+security:
+  instructions: |
+    - Requerir HTTPS. HSTS en Prod.
+    - Sanitizar entradas; no interpolar SQL.
+    - No exponer stack traces en Prod.
+    - Policies finas por recurso/acción; Authorize por defecto.
+
+api_surface:
+  instructions: |
+    - Habilitar API Versioning (media type o URL).
+    - Swagger/Swashbuckle con esquema de seguridad JWT (Bearer).
+    - ProblemDetails RFC7807 para errores; 400s con detalle de validación.
+    - CORS por entorno (orígenes explícitos).
+
+prompts:
+  examples: |
+    - "Create a v1 controller for Books with CRUD, FluentValidation, AutoMapper, and ProblemDetails-ready error handling."
+    - "Generate a MediatR command/handler to CreateBook with unit tests and validator."
+    - "Add Serilog + Seq sink with IOptions-bound configuration and environment-based overrides."
+    - "Introduce HealthChecks for DB and an external URL; wire endpoints /health and /health/ready."

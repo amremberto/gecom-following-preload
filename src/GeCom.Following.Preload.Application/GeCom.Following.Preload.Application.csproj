@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\GeCom.Following.Preload.Domain\GeCom.Following.Preload.Domain.csproj" />
+  </ItemGroup>
+</Project>
