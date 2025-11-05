@@ -1,0 +1,15 @@
+{
+  "IdentityServer": {
+    "Authority": "https://accounts.gcgestion.com.ar",
+    "MetadataAddress": "https://accounts.gcgestion.com.ar/.well-known/openid-configuration",
+    "ApiAudience": "gecom.following.preload.api",
+    "RequiredScopes": [ "gecom.following.preload.api" ],
+    "RequireHttpsMetadata": false,
+    "SwaggerClientId": "gecom.following.preload.api.swaggerui",
+    "SwaggerUsePkce": true,
+    "OidcSwaggerUIClientId": "gecom.following.preload.api.swaggerui",
+    "OidcApiName": "gecom.following.preload.api"
+  }
+}
+
+

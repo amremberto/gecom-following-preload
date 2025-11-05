@@ -1,0 +1,7 @@
+{
+  "Authority": "https://qa-accounts.gcgestion.com.ar",
+  "Audience": "gecom.following.preload.api",
+  "RequireHttpsMetadata": true
+}
+
+

@@ -23,7 +23,13 @@ internal static class ConfigurationsLoader
         // lista de archivos de configuración por dominio
         string[] configNames =
         [
-            "application"
+            "application",
+            "authentication",
+            "cors",
+            "database",
+            "identityServer",
+            "logger",
+            "nswag"
         ];
 
         foreach (string name in configNames)

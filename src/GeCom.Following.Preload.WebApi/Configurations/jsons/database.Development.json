@@ -1,0 +1,6 @@
+{
+  "ConnectionStrings": {
+    "PreloadConnection": "Server=GCPADB206\\SPD2;Database=Precarga;User Id=adminmonitores;Password=Password03;MultipleActiveResultSets=True;persist security info=True;TrustServerCertificate=True;",
+    "SpdSapConnection": "Server=GCPADB206\\SPD2;Database=SPD_SAP;User Id=adminmonitores;Password=Password03;MultipleActiveResultSets=True;persist security info=True;TrustServerCertificate=True;"
+  }
+}

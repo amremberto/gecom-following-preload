@@ -1,0 +1,22 @@
+{
+  "Cors": {
+    "PolicyName": "GeComPreloadCorsPolicy",
+    "AllowedOrigins": [
+      "https://fw-preload.gcgestion.com.ar"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "AllowCredentials": true,
+    "ExposedHeaders": [
+      "Content-Disposition"
+    ]
+  }
+} 

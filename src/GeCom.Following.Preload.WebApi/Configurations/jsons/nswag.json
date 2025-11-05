@@ -1,0 +1,13 @@
+{
+  "Swagger": {
+    "Enabled": true,
+    "Title": "GeCom Following Preload API",
+    "Version": "v1",
+    "DocumentName": "v1",
+    "Route": "/swagger",
+    "JsonRoute": "/swagger/v1/swagger.json",
+    "EnableOAuth2Security": true
+  }
+}
+
+
