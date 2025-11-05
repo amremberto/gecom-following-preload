@@ -37,7 +37,7 @@ try
     builder.Services.AddPreloadApplication();
 
     // Add infrastructure services.
-    builder.Services.AddPreloadInfrastructure();
+    builder.Services.AddPreloadInfrastructure(builder.Configuration);
 
     builder.Services.AddControllers();
 

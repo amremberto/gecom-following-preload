@@ -1,0 +1,100 @@
+using GeCom.Following.Preload.Domain.Preloads.Documents;
+using GeCom.Following.Preload.SharedKernel.Interfaces;
+
+namespace GeCom.Following.Preload.Application.Abstractions.Repositories;
+
+/// <summary>
+/// Repository interface for Document entities.
+/// </summary>
+public interface IDocumentRepository : IRepository<Document>
+{
+    /// <summary>
+    /// Gets documents by provider CUIT.
+    /// </summary>
+    /// <param name="proveedorCuit">Provider CUIT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByProveedorCuitAsync(string proveedorCuit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by society CUIT.
+    /// </summary>
+    /// <param name="sociedadCuit">Society CUIT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetBySociedadCuitAsync(string sociedadCuit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by document type ID.
+    /// </summary>
+    /// <param name="tipoDocId">Document type ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByTipoDocIdAsync(int tipoDocId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by state ID.
+    /// </summary>
+    /// <param name="estadoId">State ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByEstadoIdAsync(int estadoId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by currency code.
+    /// </summary>
+    /// <param name="moneda">Currency code.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByMonedaAsync(string moneda, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by document number.
+    /// </summary>
+    /// <param name="numeroComprobante">Document number.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByNumeroComprobanteAsync(string numeroComprobante, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by barcode.
+    /// </summary>
+    /// <param name="codigoDeBarras">Barcode.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByCodigoDeBarrasAsync(string codigoDeBarras, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by CAECAI.
+    /// </summary>
+    /// <param name="caecai">CAECAI code.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByCaecaiAsync(string caecai, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by user who created them.
+    /// </summary>
+    /// <param name="userCreate">User who created the document.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByUserCreateAsync(string userCreate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents created within a date range.
+    /// </summary>
+    /// <param name="startDate">Start date.</param>
+    /// <param name="endDate">End date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by amount range.
+    /// </summary>
+    /// <param name="minAmount">Minimum amount.</param>
+    /// <param name="maxAmount">Maximum amount.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByAmountRangeAsync(decimal minAmount, decimal maxAmount, CancellationToken cancellationToken = default);
+}
