@@ -3,6 +3,10 @@
     <PackageReference Include="MediatR" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\GeCom.Following.Preload.Contracts\GeCom.Following.Preload.Contracts.csproj" />
     <ProjectReference Include="..\GeCom.Following.Preload.Domain\GeCom.Following.Preload.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Preload\Societies\GetAllSocieties\" />
   </ItemGroup>
 </Project>
