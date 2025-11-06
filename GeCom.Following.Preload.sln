@@ -18,6 +18,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{0BF59419-E9EE-4F89-BC07-9A6B7425F95A}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
+		docs\Societies-UseCases.md = docs\Societies-UseCases.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeCom.Following.Preload.WebApi", "src\GeCom.Following.Preload.WebApi\GeCom.Following.Preload.WebApi.csproj", "{134E7EE4-9EB7-480E-8959-00B17348CAF6}"
