@@ -2,6 +2,7 @@ using GeCom.Following.Preload.Application;
 using GeCom.Following.Preload.Infrastructure;
 using GeCom.Following.Preload.Infrastructure.Logging.Serilog;
 using GeCom.Following.Preload.WebApi.Configurations;
+using GeCom.Following.Preload.WebApi.Extensions.Authorization;
 using GeCom.Following.Preload.WebApi.Extensions.OpenApi;
 using GeCom.Following.Preload.WebApi.Extensions.Versioning;
 using GeCom.Following.Preload.WebApi.Middlewares;
@@ -81,12 +82,75 @@ try
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ClockSkew = TimeSpan.FromMinutes(2)
+                ClockSkew = TimeSpan.FromMinutes(2),
+                // Map roles from JWT claims
+                // IdentityServer typically uses "role" claim, but also supports "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+                RoleClaimType = AuthorizationConstants.RoleClaimType,
+                // Map permissions from JWT claims
+                // IdentityServer can include permissions in "permission" claim or as scopes
+                NameClaimType = "name"
+            };
+
+            // Configure events to map claims correctly
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = context =>
+                {
+                    // Ensure roles are mapped correctly
+                    // IdentityServer may send roles in different claim types
+                    if (context.Principal is not null)
+                    {
+                        // Map roles from various claim types to "role" claim
+                        var identity = context.Principal.Identity as System.Security.Claims.ClaimsIdentity;
+                        if (identity is not null)
+                        {
+                            // Check for roles in standard claim types
+                            string[] roleClaimTypes = [
+                                "role",
+                                "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+                                System.Security.Claims.ClaimTypes.Role
+                            ];
+
+                            foreach (string roleClaimType in roleClaimTypes)
+                            {
+                                System.Security.Claims.Claim[] roleClaims = identity.FindAll(roleClaimType).ToArray();
+                                foreach (System.Security.Claims.Claim roleClaim in roleClaims)
+                                {
+                                    if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleClaim.Value))
+                                    {
+                                        identity.AddClaim(new System.Security.Claims.Claim(AuthorizationConstants.RoleClaimType, roleClaim.Value));
+                                    }
+                                }
+                            }
+
+                            // Map permissions from various claim types to "permission" claim
+                            string[] permissionClaimTypes = [
+                                "permission",
+                                "scope",
+                                "http://schemas.microsoft.com/ws/2008/06/identity/claims/permission"
+                            ];
+
+                            foreach (string permissionClaimType in permissionClaimTypes)
+                            {
+                                System.Security.Claims.Claim[] permissionClaims = identity.FindAll(permissionClaimType).ToArray();
+                                foreach (System.Security.Claims.Claim permissionClaim in permissionClaims)
+                                {
+                                    if (!identity.HasClaim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value))
+                                    {
+                                        identity.AddClaim(new System.Security.Claims.Claim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return Task.CompletedTask;
+                }
             };
         });
 
-    // Add authorization services
-    builder.Services.AddAuthorization();
+    // Add authorization services with custom policies
+    builder.Services.AddPreloadAuthorization();
 
     // Add health checks
     string? authorizationConnectionString = builder.Configuration.GetConnectionString("PreloadConnection");
@@ -102,7 +166,7 @@ try
     }
     else
     {
-        builder.Services.AddHealthChecks(); // sin checks si no hay connection string aún
+        builder.Services.AddHealthChecks(); // sin checks si no hay connection string aï¿½n
     }
 
     #endregion
