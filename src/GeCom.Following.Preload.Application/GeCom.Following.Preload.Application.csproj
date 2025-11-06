@@ -7,6 +7,7 @@
     <ProjectReference Include="..\GeCom.Following.Preload.Domain\GeCom.Following.Preload.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Preload\Societies\GetAllSocieties\" />
+    <Folder Include="Features\" />
+    <Folder Include="Features\Preload\Societies\GetAllSocieties\" />
   </ItemGroup>
 </Project>
