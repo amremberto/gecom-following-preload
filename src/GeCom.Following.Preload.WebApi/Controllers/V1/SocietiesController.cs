@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocieties;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocietiesPaged;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCodigo;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Preload.Societies.GetAll;
 using GeCom.Following.Preload.SharedKernel.Results;
@@ -65,6 +66,30 @@ public sealed class SocietiesController : VersionedApiController
 
         Result<PagedResponse<SocietyResponse>> result =
             await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
+    /// Gets a society by its code.
+    /// </summary>
+    /// <param name="codigo">Society code.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The society if found.</returns>
+    /// <response code="200">Returns the society.</response>
+    /// <response code="400">If the codigo parameter is invalid.</response>
+    /// <response code="404">If the society was not found.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("{codigo}")]
+    [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<SocietyResponse>> GetByCodigo(string codigo, CancellationToken cancellationToken)
+    {
+        GetSocietyByCodigoQuery query = new(codigo);
+
+        Result<SocietyResponse> result = await Mediator.Send(query, cancellationToken);
 
         return result.Match(this);
     }
