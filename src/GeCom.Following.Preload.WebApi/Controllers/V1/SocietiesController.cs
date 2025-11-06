@@ -1,9 +1,11 @@
 using Asp.Versioning;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.CreateSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocieties;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocietiesPaged;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCodigo;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCuit;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
+using GeCom.Following.Preload.Contracts.Preload.Societies.Create;
 using GeCom.Following.Preload.Contracts.Preload.Societies.GetAll;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
@@ -117,6 +119,36 @@ public sealed class SocietiesController : VersionedApiController
         Result<SocietyResponse> result = await Mediator.Send(query, cancellationToken);
 
         return result.Match(this);
+    }
+
+    /// <summary>
+    /// Creates a new society.
+    /// </summary>
+    /// <param name="request">The society data to create.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created society.</returns>
+    /// <response code="201">Returns the created society.</response>
+    /// <response code="400">If the request data is invalid.</response>
+    /// <response code="409">If a society with the same code or CUIT already exists.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpPost]
+    [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<SocietyResponse>> Create(
+        [FromBody] CreateSocietyRequest request,
+        CancellationToken cancellationToken)
+    {
+        CreateSocietyCommand command = new(
+            request.Codigo,
+            request.Descripcion,
+            request.Cuit,
+            request.EsPrecarga);
+
+        Result<SocietyResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchCreated(this, nameof(GetByCodigo), new { codigo = request.Codigo });
     }
 }
 
