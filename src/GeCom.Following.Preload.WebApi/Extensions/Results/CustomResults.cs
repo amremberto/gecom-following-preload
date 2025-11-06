@@ -1,15 +1,22 @@
 ﻿using System.Diagnostics;
 using GeCom.Following.Preload.SharedKernel.Errors;
 using GeCom.Following.Preload.SharedKernel.Results;
-
-
-//using Microsoft.AspNetCore.Mvc;          // IActionResult, ControllerBase, ProblemDetails
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 
 namespace GeCom.Following.Preload.WebApi.Extensions.Results;
 
-internal static class CustomResults
+/// <summary>
+/// Provides custom result helpers for converting Result types to ProblemDetails responses.
+/// </summary>
+public static class CustomResults
 {
+    /// <summary>
+    /// Converts a Result to a ProblemDetails response.
+    /// </summary>
+    /// <param name="controller">The controller instance.</param>
+    /// <param name="result">The result to convert.</param>
+    /// <returns>A ProblemDetails response.</returns>
     public static IActionResult Problem(ControllerBase controller, Result result)
     {
         if (result.IsSuccess)
@@ -54,8 +61,68 @@ internal static class CustomResults
         };
     }
 
+    /// <summary>
+    /// Converts a Result&lt;T&gt; to a ProblemDetails response.
+    /// </summary>
+    /// <typeparam name="T">The type of the result value.</typeparam>
+    /// <param name="controller">The controller instance.</param>
+    /// <param name="result">The result to convert.</param>
+    /// <returns>A ProblemDetails response.</returns>
     public static IActionResult Problem<T>(ControllerBase controller, Result<T> result)
         => Problem(controller, (Result)result);
+
+    /// <summary>
+    /// Converts a Result&lt;T&gt; to an ActionResult&lt;T&gt; with ProblemDetails on failure.
+    /// </summary>
+    /// <typeparam name="T">The type of the result value.</typeparam>
+    /// <param name="controller">The controller instance.</param>
+    /// <param name="result">The result to convert.</param>
+    /// <returns>An ActionResult&lt;T&gt; with ProblemDetails on failure.</returns>
+    public static ActionResult<T> ProblemActionResult<T>(ControllerBase controller, Result<T> result)
+    {
+        if (result.IsSuccess)
+        {
+            throw new InvalidOperationException("ProblemActionResult called with a successful result.");
+        }
+
+        Error error = result.Error;
+        int status = GetStatusCode(error.Type);
+
+        ProblemDetails pd = new()
+        {
+            Title = GetTitle(error),
+            Detail = GetDetail(error),
+            Type = GetTypeLink(error.Type),
+            Status = status,
+            Instance = controller.HttpContext?.Request?.Path.Value
+        };
+
+        string? traceId = Activity.Current?.Id ?? controller.HttpContext?.TraceIdentifier;
+        if (!string.IsNullOrWhiteSpace(traceId))
+        {
+            pd.Extensions["traceId"] = traceId;
+        }
+
+        if (controller.HttpContext?.Request?.Headers.TryGetValue("X-Correlation-ID", out StringValues corr) is true)
+        {
+            pd.Extensions["correlationId"] = corr.ToString();
+        }
+
+        if (error is ValidationError validation)
+        {
+            pd.Extensions["errors"] = validation.Errors;
+        }
+
+        ObjectResult objectResult = new(pd)
+        {
+            StatusCode = status,
+            ContentTypes = { "application/problem+json" }
+        };
+
+        // ActionResult<T> tiene conversión implícita desde ObjectResult
+        return objectResult;
+    }
+
 
     // --- helpers privados ---
 

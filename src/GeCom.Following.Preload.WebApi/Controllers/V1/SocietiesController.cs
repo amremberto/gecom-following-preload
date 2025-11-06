@@ -4,6 +4,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocie
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Preload.Societies.GetAll;
 using GeCom.Following.Preload.SharedKernel.Results;
+using GeCom.Following.Preload.WebApi.Extensions.Results;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
@@ -28,18 +29,10 @@ public sealed class SocietiesController : VersionedApiController
     {
         GetAllSocietiesQuery query = new();
 
-        Result<IEnumerable<SocietyResponse>>? result =
+        Result<IEnumerable<SocietyResponse>> result =
             await Mediator.Send(query, cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return Problem(
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: result.Error.Code);
-        }
-
-        return Ok(result.Value);
+        return result.Match(this);
     }
 
     /// <summary>
@@ -70,18 +63,10 @@ public sealed class SocietiesController : VersionedApiController
 
         GetAllSocietiesPagedQuery query = new(page, pageSize);
 
-        Result<PagedResponse<SocietyResponse>>? result =
+        Result<PagedResponse<SocietyResponse>> result =
             await Mediator.Send(query, cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return Problem(
-                detail: result.Error.Description,
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: result.Error.Code);
-        }
-
-        return Ok(result.Value);
+        return result.Match(this);
     }
 }
 
