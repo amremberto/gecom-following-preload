@@ -108,4 +108,13 @@ public interface IRepository<TEntity> where TEntity : BaseEntity
     /// <param name="id">The unique identifier of the entity to remove.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     Task RemoveByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a paged collection of entities along with the total count.
+    /// </summary>
+    /// <param name="page">The page number (1-based).</param>
+    /// <param name="pageSize">The size of the page.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A tuple containing the items and total count.</returns>
+    Task<(IReadOnlyList<TEntity> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
 }

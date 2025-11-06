@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
     <PackageReference Include="MediatR" />
   </ItemGroup>
   <ItemGroup>
@@ -7,7 +9,6 @@
     <ProjectReference Include="..\GeCom.Following.Preload.Domain\GeCom.Following.Preload.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Features\" />
     <Folder Include="Features\Preload\Societies\GetAllSocieties\" />
   </ItemGroup>
 </Project>

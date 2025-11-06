@@ -23,4 +23,23 @@ internal sealed class SocietyRepository : GenericRepository<Society, PreloadDbCo
         return await GetQueryable()
             .FirstOrDefaultAsync(s => s.Cuit == cuit, cancellationToken);
     }
+
+    public override async Task<(IReadOnlyList<Society> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+        IQueryable<Society> query = GetQueryable();
+
+        int totalCount = await query.CountAsync(cancellationToken);
+
+        List<Society> items = await query
+            .OrderBy(s => s.SocId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }

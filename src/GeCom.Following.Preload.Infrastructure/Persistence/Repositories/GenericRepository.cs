@@ -157,6 +157,25 @@ internal class GenericRepository<TEntity, TContext> : IRepository<TEntity>
         }
     }
 
+    /// <inheritdoc />
+    public virtual async Task<(IReadOnlyList<TEntity> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+        IQueryable<TEntity> query = GetQueryable();
+
+        int totalCount = await query.CountAsync(cancellationToken);
+
+        List<TEntity> items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     /// <summary>
     /// Gets a queryable for the entity set with no tracking.
     /// </summary>
