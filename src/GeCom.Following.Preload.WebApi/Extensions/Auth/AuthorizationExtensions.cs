@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 
-namespace GeCom.Following.Preload.WebApi.Extensions.Authorization;
+namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 /// <summary>
 /// Extension methods for configuring authorization policies.

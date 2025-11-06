@@ -1,4 +1,4 @@
-namespace GeCom.Following.Preload.WebApi.Extensions.Authorization;
+namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 /// <summary>
 /// Constants for authorization roles and permissions.

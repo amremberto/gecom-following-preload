@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
-namespace GeCom.Following.Preload.WebApi.Extensions.Authorization;
+namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 /// <summary>
 /// Authorization handler for PermissionOrRoleRequirement.

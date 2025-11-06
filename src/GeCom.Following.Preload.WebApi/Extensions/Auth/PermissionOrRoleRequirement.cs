@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 
-namespace GeCom.Following.Preload.WebApi.Extensions.Authorization;
+namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 /// <summary>
 /// Authorization requirement that allows access if the user has a specific permission OR a specific role.

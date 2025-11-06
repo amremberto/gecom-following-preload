@@ -12,9 +12,9 @@ using GeCom.Following.Preload.Contracts.Preload.Societies.Create;
 using GeCom.Following.Preload.Contracts.Preload.Societies.GetAll;
 using GeCom.Following.Preload.Contracts.Preload.Societies.Update;
 using GeCom.Following.Preload.SharedKernel.Results;
-using GeCom.Following.Preload.WebApi.Extensions.Authorization;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
+using GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
