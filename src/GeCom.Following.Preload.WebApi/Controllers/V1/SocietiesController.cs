@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.CreateSociety;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.DeleteSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocieties;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocietiesPaged;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCodigo;
@@ -149,6 +150,30 @@ public sealed class SocietiesController : VersionedApiController
         Result<SocietyResponse> result = await Mediator.Send(command, cancellationToken);
 
         return result.MatchCreated(this, nameof(GetByCodigo), new { codigo = request.Codigo });
+    }
+
+    /// <summary>
+    /// Deletes a society by its ID.
+    /// </summary>
+    /// <param name="id">Society ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content if successful.</returns>
+    /// <response code="204">Society deleted successfully.</response>
+    /// <response code="400">If the id parameter is invalid.</response>
+    /// <response code="404">If the society was not found.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        DeleteSocietyCommand command = new(id);
+
+        Result result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchDeleted(this);
     }
 }
 
