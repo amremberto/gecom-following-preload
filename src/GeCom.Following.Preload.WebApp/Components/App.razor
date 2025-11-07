@@ -1,20 +1,68 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html 
+    lang="es" 
+    data-layout-mode="fluid" 
+    data-sidenav-size="default" 
+    data-bs-theme="light" 
+    data-menu-color="light"
+    data-topbar-color="light">
+
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adminto - Responsive Bootstrap 5 Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
+    <meta content="Coderthemes" name="author" />
+    <link rel="icon" type="image/png" href="images/favicon.ico" />
     <base href="/" />
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["GeCom.Following.Preload.WebApp.styles.css"]" />
-    <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet @rendermode="InteractiveServer" />
+
+    <!-- Config JS debe cargarse primero -->
+    <script src="/js/config.min.js"></script>
+
+    <!-- Vendor CSS - Orden de carga importante -->
+    <link href="/css/vendor-core.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/vendor-forms.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/vendor-tables.min.css" rel="stylesheet" type="text/css" />
+   @*  <link href="/css/vendor-charts.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/vendor-maps.min.css" rel="stylesheet" type="text/css" /> *@
+    <link href="/css/vendor-ui.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/vendor-grid.min.css" rel="stylesheet" type="text/css" />
+    
+    <!-- App CSS -->
+    <link href="/css/app.min.css" rel="stylesheet" type="text/css" id="app-style" />
+    <link href="/css/icons.min.css" rel="stylesheet" type="text/css" />
+
+    <HeadOutlet />
+
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes />
+
+    <!-- Google Maps API -->
+    @* <script src="https://maps.google.com/maps/api/js"></script> *@
+
+    <!-- ApexCharts Sample Data -->
+    @* <script src="https://apexcharts.com/samples/assets/stock-prices.js"></script>
+    <script src="https://apexcharts.com/samples/assets/series1000.js"></script>
+    <script src="https://apexcharts.com/samples/assets/github-data.js"></script>
+    <script src="https://apexcharts.com/samples/assets/irregular-data-series.js"></script> *@
+
+    <!-- Vendor JS - Orden de carga importante (jQuery y Bootstrap primero) -->
+    <script src="/js/vendor-core.min.js"></script>
+    <script src="/js/vendor-forms.min.js"></script>
+    <script src="/js/vendor-tables.min.js"></script>
+    @* <script src="/js/vendor-charts.min.js"></script>
+    <script src="/js/vendor-maps.min.js"></script> *@
+    <script src="/js/vendor-ui.min.js"></script>
+    <script src="/js/vendor-calendar.min.js"></script>
+    <script src="/js/vendor-grid.min.js"></script>
+    <script src="/js/vendor-utils.min.js"></script>
+
+    <!-- App JS -->
+    <script src="/js/app.min.js"></script>
+
     <script src="_framework/blazor.web.js"></script>
 </body>
 

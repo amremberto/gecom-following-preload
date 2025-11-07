@@ -296,21 +296,52 @@ const vendors = parallel(
 
 // ============================================
 // SCRIPTS - Compilar JS desde Scripts/ a wwwroot/js/
+// Manteniendo la estructura de carpetas
 // ============================================
 
 const scripts = function () {
   const outJS = paths.distJS;
 
-  return src([
-    paths.srcScripts + "**/*.js",
-    "!" + paths.srcScripts + "**/*.min.js", // Excluir archivos ya minificados
-  ])
+  // Compilar app.js y config.js en la raíz
+  src([paths.srcScripts + "app.js", paths.srcScripts + "config.js"])
     .pipe(sourcemaps.init())
-    .pipe(concat("app.js"))
     .pipe(terser())
     .pipe(rename({ suffix: ".min" }))
     .pipe(sourcemaps.write("."))
     .pipe(dest(outJS));
+
+  // Compilar archivos de components/ manteniendo la estructura
+  src([
+    paths.srcScripts + "components/**/*.js",
+    "!" + paths.srcScripts + "components/**/*.min.js",
+  ])
+    .pipe(sourcemaps.init())
+    .pipe(terser())
+    .pipe(rename({ suffix: ".min" }))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest(outJS + "components/"));
+
+  // Compilar archivos de maps/ manteniendo la estructura
+  src([
+    paths.srcScripts + "maps/**/*.js",
+    "!" + paths.srcScripts + "maps/**/*.min.js",
+  ])
+    .pipe(sourcemaps.init())
+    .pipe(terser())
+    .pipe(rename({ suffix: ".min" }))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest(outJS + "maps/"));
+
+  // Compilar archivos de pages/ manteniendo la estructura
+  return src([
+    paths.srcScripts + "pages/**/*.js",
+    "!" + paths.srcScripts + "pages/**/*.min.js",
+  ])
+    .pipe(sourcemaps.init())
+    .pipe(terser())
+    .pipe(rename({ suffix: ".min" }))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest(outJS + "pages/"));
 };
 
 // ============================================
@@ -389,8 +420,14 @@ function watchFiles() {
     series(scss)
   );
 
-  // Watch JS
-  watch(paths.srcScripts + "**/*.js", series(scripts));
+  // Watch JS - Observar todos los archivos JS en Scripts/
+  watch(
+    [
+      paths.srcScripts + "**/*.js",
+      "!" + paths.srcScripts + "**/*.min.js", // Excluir archivos ya minificados
+    ],
+    series(scripts)
+  );
 }
 
 // ============================================
