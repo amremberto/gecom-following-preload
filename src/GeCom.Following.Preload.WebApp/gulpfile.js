@@ -49,8 +49,10 @@ const vendorCore = function () {
   const outCSS = paths.distCSS;
   const outJS = paths.distJS;
 
-  // vendor-core.css (solo estilos base si es necesario)
-  src([])
+  // vendor-core.css
+  src([
+    paths.nodeModules + "bootstrap/dist/css/bootstrap.min.css",
+  ])
     .pipe(concat("vendor-core.css"))
     .pipe(CleanCSS())
     .pipe(rename({ suffix: ".min" }))
@@ -82,7 +84,6 @@ const vendorForms = function () {
     paths.nodeModules + "quill/dist/quill.snow.css",
     paths.nodeModules + "quill/dist/quill.bubble.css",
     paths.nodeModules + "dropzone/dist/dropzone.css",
-    paths.nodeModules + "inputmask/dist/inputmask.css",
   ])
     .pipe(concat("vendor-forms.css"))
     .pipe(CleanCSS())
@@ -129,7 +130,7 @@ const vendorTables = function () {
 
   // vendor-tables.js
   return src([
-    paths.nodeModules + "datatables.net/js/jquery.dataTables.min.js",
+    paths.nodeModules + "datatables.net/js/dataTables.min.js",
     paths.nodeModules + "datatables.net-bs5/js/dataTables.bootstrap5.min.js",
     paths.nodeModules +
       "datatables.net-responsive/js/dataTables.responsive.min.js",
@@ -157,8 +158,8 @@ const vendorCharts = function () {
   const outCSS = paths.distCSS;
   const outJS = paths.distJS;
 
-  // vendor-charts.css (si es necesario)
-  src([])
+  // vendor-charts.css
+  src([paths.nodeModules + "apexcharts/dist/apexcharts.css"])
     .pipe(concat("vendor-charts.css"))
     .pipe(CleanCSS())
     .pipe(rename({ suffix: ".min" }))
@@ -224,7 +225,7 @@ const vendorUI = function () {
     paths.nodeModules + "nouislider/dist/nouislider.min.js",
     paths.nodeModules + "simplebar/dist/simplebar.min.js",
     paths.nodeModules + "dragula/dist/dragula.min.js",
-    paths.nodeModules + "vanilla-wizard/js/wizard.min.js",
+    paths.nodeModules + "vanilla-wizard/dist/js/wizard.min.js",
   ])
     .pipe(concat("vendor-ui.js"))
     .pipe(terser())
@@ -234,15 +235,7 @@ const vendorUI = function () {
 
 // Calendar: FullCalendar
 const vendorCalendar = function () {
-  const outCSS = paths.distCSS;
   const outJS = paths.distJS;
-
-  // vendor-calendar.css (si es necesario)
-  src([])
-    .pipe(concat("vendor-calendar.css"))
-    .pipe(CleanCSS())
-    .pipe(rename({ suffix: ".min" }))
-    .pipe(dest(outCSS));
 
   // vendor-calendar.js
   return src([paths.nodeModules + "fullcalendar/index.global.min.js"])
@@ -274,15 +267,7 @@ const vendorGrid = function () {
 
 // Utils: Utilidades varias (waypoints, counterup, etc.)
 const vendorUtils = function () {
-  const outCSS = paths.distCSS;
   const outJS = paths.distJS;
-
-  // vendor-utils.css (si es necesario)
-  src([])
-    .pipe(concat("vendor-utils.css"))
-    .pipe(CleanCSS())
-    .pipe(rename({ suffix: ".min" }))
-    .pipe(dest(outCSS));
 
   // vendor-utils.js
   return src([
@@ -405,7 +390,7 @@ function watchFiles() {
   );
 
   // Watch JS
-  watch(paths.srcScripts + "js/**/*.js", series(scripts));
+  watch(paths.srcScripts + "**/*.js", series(scripts));
 }
 
 // ============================================
