@@ -34,6 +34,7 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+Web_UI_Template/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
