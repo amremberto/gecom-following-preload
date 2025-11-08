@@ -6,6 +6,12 @@ WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Habilitar DetailedErrors en desarrollo para ver excepciones detalladas
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddServerSideBlazor().AddCircuitOptions(options => options.DetailedErrors = true);
+}
+
 WebApplication? app = builder.Build();
 
 // Configure the HTTP request pipeline.
