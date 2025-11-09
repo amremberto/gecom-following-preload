@@ -365,7 +365,62 @@
 
             <!-- User Dropdown -->
             <AuthorizeView>
-                <Authorized>
+                <Authorized Context="authContext">
+                    @{
+                        // Try to get the user name from various claim types
+                        // Priority: 1) name from OpenIdConnect, 2) preferred_username, 3) given_name + family_name, 4) fallback
+                        string? userName = null;
+                        
+                        // First, try to find the "name" claim from OpenIdConnect (IdentityServer)
+                        // This is the most reliable source
+                        System.Security.Claims.Claim[] allNameClaims = authContext.User.FindAll("name").ToArray();
+                        
+                        // Prioritize name claim from OpenIdConnect issuer
+                        System.Security.Claims.Claim? openIdConnectNameClaim = allNameClaims.FirstOrDefault(c => 
+                            c.Issuer.Contains("OpenIdConnect", StringComparison.OrdinalIgnoreCase) ||
+                            c.Issuer.Contains("localhost:7100", StringComparison.OrdinalIgnoreCase) ||
+                            c.Issuer.Contains("IdentityServer", StringComparison.OrdinalIgnoreCase) ||
+                            !c.Issuer.Contains("LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase) && 
+                            !c.Value.StartsWith("Usuario ", StringComparison.OrdinalIgnoreCase) &&
+                            !string.IsNullOrWhiteSpace(c.Value));
+                        
+                        if (openIdConnectNameClaim is not null && !string.IsNullOrWhiteSpace(openIdConnectNameClaim.Value))
+                        {
+                            userName = openIdConnectNameClaim.Value;
+                        }
+                        
+                        // If no name from OpenIdConnect, try preferred_username
+                        if (string.IsNullOrWhiteSpace(userName))
+                        {
+                            userName = authContext.User.FindFirst("preferred_username")?.Value;
+                        }
+                        
+                        // If no name found, try combining given_name and family_name
+                        if (string.IsNullOrWhiteSpace(userName))
+                        {
+                            string? givenName = authContext.User.FindFirst("given_name")?.Value;
+                            string? familyName = authContext.User.FindFirst("family_name")?.Value;
+                            if (!string.IsNullOrWhiteSpace(givenName) || !string.IsNullOrWhiteSpace(familyName))
+                            {
+                                userName = $"{givenName} {familyName}".Trim();
+                            }
+                        }
+                        
+                        // If still no name found, try Identity.Name (which should be set by AuthenticationExtensions)
+                        if (string.IsNullOrWhiteSpace(userName))
+                        {
+                            userName = authContext.User.Identity?.Name;
+                        }
+                        
+                        // If still no name found, try ClaimTypes.Name
+                        if (string.IsNullOrWhiteSpace(userName))
+                        {
+                            userName = authContext.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+                        }
+                        
+                        // Final fallback
+                        userName ??= "Usuario";
+                    }
                     <div class="topbar-item nav-user">
                         <div class="dropdown">
                             <a class="topbar-link dropdown-toggle drop-arrow-none px-2" data-bs-toggle="dropdown"
@@ -373,14 +428,14 @@
                                 <img src="/images/users/avatar-1.jpg" width="32" class="rounded-circle me-lg-2 d-flex"
                                     alt="user-image">
                                 <span class="d-lg-flex flex-column gap-1 d-none">
-                                    <h5 class="my-0">@context.User.Identity?.Name ?? "Usuario"</h5>
+                                    <h5 class="my-0">@userName</h5>
                                 </span>
                                 <i class="ri-arrow-down-s-line d-none d-lg-block align-middle ms-1"></i>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
                                 <!-- item-->
                                 <div class="dropdown-header noti-title">
-                                    <h6 class="text-overflow m-0">Bienvenido, @context.User.Identity?.Name!</h6>
+                                    <h6 class="text-overflow m-0">Bienvenido, @userName!</h6>
                                 </div>
 
                                 <!-- item-->

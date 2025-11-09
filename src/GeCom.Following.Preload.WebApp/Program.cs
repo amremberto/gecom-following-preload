@@ -1,6 +1,7 @@
 using GeCom.Following.Preload.WebApp.Components;
 using GeCom.Following.Preload.WebApp.Configurations;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
+using Microsoft.AspNetCore.Components.Authorization;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,10 @@ builder.Services.AddConfigurationValidators(builder.Environment);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Add authentication state provider for Blazor Server
+// This automatically configures the AuthenticationStateProvider needed for AuthorizeView
+builder.Services.AddCascadingAuthenticationState();
 
 // Add controllers for API endpoints (e.g., logout)
 builder.Services.AddControllers();

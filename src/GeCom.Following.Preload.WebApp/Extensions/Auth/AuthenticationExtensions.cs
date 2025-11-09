@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -63,6 +64,9 @@ public static class AuthenticationExtensions
                 options.RequireHttpsMetadata = identityServerSettings.RequireHttpsMetadata;
                 options.ResponseType = identityServerSettings.ResponseType;
                 options.SaveTokens = identityServerSettings.SaveTokens;
+                
+                // Enable UserInfo endpoint to get additional claims
+                options.GetClaimsFromUserInfoEndpoint = true;
 
                 // Configure scopes
                 foreach (string scope in identityServerSettings.RequiredScopes)
@@ -111,6 +115,122 @@ public static class AuthenticationExtensions
                             var identity = context.Principal.Identity as ClaimsIdentity;
                             if (identity is not null)
                             {
+                                // Log all claims for debugging (remove in production)
+                                System.Diagnostics.Debug.WriteLine("=== Claims from IdentityServer ===");
+                                foreach (Claim claim in identity.Claims)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}, Issuer: {claim.Issuer}");
+                                }
+                                System.Diagnostics.Debug.WriteLine("=== End Claims ===");
+
+                                // Map name from various claim types to "name" claim
+                                // Priority: 1) name from OpenIdConnect, 2) preferred_username, 3) given_name + family_name, 4) fallback
+                                
+                                // First, try to find the "name" claim from OpenIdConnect (IdentityServer)
+                                // This is the most reliable source
+                                string? userName = null;
+                                Claim[] allNameClaims = [.. identity.FindAll("name")];
+                                
+                                // Prioritize name claim from OpenIdConnect issuer
+                                // The issuer from IdentityServer is typically "OpenIdConnect" or the Authority URL
+                                Claim? openIdConnectNameClaim = allNameClaims.FirstOrDefault(c => 
+                                    c.Issuer.Contains("OpenIdConnect", StringComparison.OrdinalIgnoreCase) ||
+                                    c.Issuer.Contains("localhost:7100", StringComparison.OrdinalIgnoreCase) ||
+                                    c.Issuer.Contains("IdentityServer", StringComparison.OrdinalIgnoreCase) ||
+                                    !c.Issuer.Contains("LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase) && 
+                                    !c.Value.StartsWith("Usuario ", StringComparison.OrdinalIgnoreCase) &&
+                                    !string.IsNullOrWhiteSpace(c.Value));
+                                
+                                if (openIdConnectNameClaim is not null && !string.IsNullOrWhiteSpace(openIdConnectNameClaim.Value))
+                                {
+                                    userName = openIdConnectNameClaim.Value;
+                                    System.Diagnostics.Debug.WriteLine($"Found name claim from OpenIdConnect: {userName}");
+                                }
+                                
+                                // If no name from OpenIdConnect, try preferred_username
+                                if (string.IsNullOrWhiteSpace(userName))
+                                {
+                                    Claim? preferredUsernameClaim = identity.FindFirst("preferred_username");
+                                    if (preferredUsernameClaim is not null && !string.IsNullOrWhiteSpace(preferredUsernameClaim.Value))
+                                    {
+                                        userName = preferredUsernameClaim.Value;
+                                        System.Diagnostics.Debug.WriteLine($"Found preferred_username claim: {userName}");
+                                    }
+                                }
+
+                                // If no name found, try combining given_name and family_name
+                                if (string.IsNullOrWhiteSpace(userName))
+                                {
+                                    string? givenName = identity.FindFirst("given_name")?.Value;
+                                    string? familyName = identity.FindFirst("family_name")?.Value;
+                                    if (!string.IsNullOrWhiteSpace(givenName) || !string.IsNullOrWhiteSpace(familyName))
+                                    {
+                                        userName = $"{givenName} {familyName}".Trim();
+                                        System.Diagnostics.Debug.WriteLine($"Combined name from given_name and family_name: {userName}");
+                                    }
+                                }
+
+                                // If still no name found, try to get it from nameidentifier as fallback
+                                if (string.IsNullOrWhiteSpace(userName))
+                                {
+                                    Claim? nameIdentifierClaim = identity.FindFirst(ClaimTypes.NameIdentifier);
+                                    if (nameIdentifierClaim is not null && !string.IsNullOrWhiteSpace(nameIdentifierClaim.Value))
+                                    {
+                                        // Use a formatted version of the nameidentifier as fallback
+                                        // Extract a short identifier from the GUID
+                                        string shortId = nameIdentifierClaim.Value.Length > 8 
+                                            ? nameIdentifierClaim.Value.Substring(0, 8).ToUpperInvariant()
+                                            : nameIdentifierClaim.Value.ToUpperInvariant();
+                                        userName = $"Usuario {shortId}";
+                                        System.Diagnostics.Debug.WriteLine($"Using nameidentifier as fallback: {userName}");
+                                    }
+                                }
+                                
+                                // Final fallback: use "Usuario" if nothing else is available
+                                if (string.IsNullOrWhiteSpace(userName))
+                                {
+                                    userName = "Usuario";
+                                    System.Diagnostics.Debug.WriteLine("Using default 'Usuario' as fallback");
+                                }
+
+                                // If we found a name, ensure it's set as the "name" and ClaimTypes.Name claims
+                                // But only if we don't already have a valid name from OpenIdConnect
+                                if (!string.IsNullOrWhiteSpace(userName))
+                                {
+                                    // Remove existing "name" claims that are NOT from OpenIdConnect (fallbacks)
+                                    Claim[] existingNameClaims = [.. identity.FindAll("name")];
+                                    foreach (Claim existingClaim in existingNameClaims)
+                                    {
+                                        // Only remove fallback claims, keep OpenIdConnect claims
+                                        if (existingClaim.Issuer.Contains("LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase) ||
+                                            existingClaim.Value.StartsWith("Usuario ", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            identity.RemoveClaim(existingClaim);
+                                            System.Diagnostics.Debug.WriteLine($"Removed fallback name claim: {existingClaim.Value}");
+                                        }
+                                    }
+                                    
+                                    // Only add if we don't already have a valid name from OpenIdConnect
+                                    if (openIdConnectNameClaim is null || openIdConnectNameClaim.Value != userName)
+                                    {
+                                        identity.AddClaim(new Claim("name", userName));
+                                        System.Diagnostics.Debug.WriteLine($"Added 'name' claim: {userName}");
+                                    }
+
+                                    // Always ensure ClaimTypes.Name is set for Blazor compatibility
+                                    Claim[] existingClaimTypesName = [.. identity.FindAll(ClaimTypes.Name)];
+                                    foreach (Claim existingClaim in existingClaimTypesName)
+                                    {
+                                        identity.RemoveClaim(existingClaim);
+                                    }
+                                    identity.AddClaim(new Claim(ClaimTypes.Name, userName));
+                                    System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Name claim: {userName}");
+                                }
+                                else
+                                {
+                                    System.Diagnostics.Debug.WriteLine("WARNING: No name claim found in token!");
+                                }
+
                                 // Map roles from various claim types to "role" claim
                                 string[] roleClaimTypes =
                                 [
@@ -153,6 +273,107 @@ public static class AuthenticationExtensions
                             }
                         }
 
+                        return Task.CompletedTask;
+                    },
+                    OnUserInformationReceived = context =>
+                    {
+                        // This event is called after the UserInfo endpoint is called
+                        // The claims from UserInfo endpoint are automatically added to context.Principal
+                        // when GetClaimsFromUserInfoEndpoint is true, so we just need to map them
+                        if (context.Principal is not null)
+                        {
+                            var identity = context.Principal.Identity as ClaimsIdentity;
+                            if (identity is not null)
+                            {
+                                // Log all claims after UserInfo endpoint call
+                                System.Diagnostics.Debug.WriteLine("=== Claims after UserInfo Endpoint ===");
+                                foreach (Claim claim in identity.Claims)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}, Issuer: {claim.Issuer}");
+                                }
+                                System.Diagnostics.Debug.WriteLine("=== End Claims ===");
+                                
+                                // Now try to map the name again with the new claims from UserInfo
+                                // Use the same priority logic as OnTokenValidated
+                                
+                                // First, try to find the "name" claim from OpenIdConnect (IdentityServer)
+                                string? userName = null;
+                                Claim[] allNameClaims = [.. identity.FindAll("name")];
+                                
+                                // Prioritize name claim from OpenIdConnect issuer
+                                // The issuer from IdentityServer is typically "OpenIdConnect" or the Authority URL
+                                Claim? openIdConnectNameClaim = allNameClaims.FirstOrDefault(c => 
+                                    c.Issuer.Contains("OpenIdConnect", StringComparison.OrdinalIgnoreCase) ||
+                                    c.Issuer.Contains("localhost:7100", StringComparison.OrdinalIgnoreCase) ||
+                                    c.Issuer.Contains("IdentityServer", StringComparison.OrdinalIgnoreCase) ||
+                                    !c.Issuer.Contains("LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase) && 
+                                    !c.Value.StartsWith("Usuario ", StringComparison.OrdinalIgnoreCase) &&
+                                    !string.IsNullOrWhiteSpace(c.Value));
+                                
+                                if (openIdConnectNameClaim is not null && !string.IsNullOrWhiteSpace(openIdConnectNameClaim.Value))
+                                {
+                                    userName = openIdConnectNameClaim.Value;
+                                    System.Diagnostics.Debug.WriteLine($"Found name claim from OpenIdConnect (UserInfo): {userName}");
+                                }
+                                
+                                // If no name from OpenIdConnect, try preferred_username
+                                if (string.IsNullOrWhiteSpace(userName))
+                                {
+                                    Claim? preferredUsernameClaim = identity.FindFirst("preferred_username");
+                                    if (preferredUsernameClaim is not null && !string.IsNullOrWhiteSpace(preferredUsernameClaim.Value))
+                                    {
+                                        userName = preferredUsernameClaim.Value;
+                                        System.Diagnostics.Debug.WriteLine($"Found preferred_username claim from UserInfo: {userName}");
+                                    }
+                                }
+
+                                // If no name found, try combining given_name and family_name
+                                if (string.IsNullOrWhiteSpace(userName))
+                                {
+                                    string? givenName = identity.FindFirst("given_name")?.Value;
+                                    string? familyName = identity.FindFirst("family_name")?.Value;
+                                    if (!string.IsNullOrWhiteSpace(givenName) || !string.IsNullOrWhiteSpace(familyName))
+                                    {
+                                        userName = $"{givenName} {familyName}".Trim();
+                                        System.Diagnostics.Debug.WriteLine($"Combined name from UserInfo: {userName}");
+                                    }
+                                }
+
+                                // If we found a name, ensure it's set as the "name" and ClaimTypes.Name claims
+                                // But only if we don't already have a valid name from OpenIdConnect
+                                if (!string.IsNullOrWhiteSpace(userName))
+                                {
+                                    // Remove existing "name" claims that are NOT from OpenIdConnect (fallbacks)
+                                    Claim[] existingNameClaims = [.. identity.FindAll("name")];
+                                    foreach (Claim existingClaim in existingNameClaims)
+                                    {
+                                        // Only remove fallback claims, keep OpenIdConnect claims
+                                        if (existingClaim.Issuer.Contains("LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase) ||
+                                            existingClaim.Value.StartsWith("Usuario ", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            identity.RemoveClaim(existingClaim);
+                                            System.Diagnostics.Debug.WriteLine($"Removed fallback name claim from UserInfo: {existingClaim.Value}");
+                                        }
+                                    }
+                                    
+                                    // Only add if we don't already have a valid name from OpenIdConnect
+                                    if (openIdConnectNameClaim is null || openIdConnectNameClaim.Value != userName)
+                                    {
+                                        identity.AddClaim(new Claim("name", userName));
+                                        System.Diagnostics.Debug.WriteLine($"Added 'name' claim from UserInfo: {userName}");
+                                    }
+
+                                    // Always ensure ClaimTypes.Name is set for Blazor compatibility
+                                    Claim[] existingClaimTypesName = [.. identity.FindAll(ClaimTypes.Name)];
+                                    foreach (Claim existingClaim in existingClaimTypesName)
+                                    {
+                                        identity.RemoveClaim(existingClaim);
+                                    }
+                                    identity.AddClaim(new Claim(ClaimTypes.Name, userName));
+                                    System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Name claim from UserInfo: {userName}");
+                                }
+                            }
+                        }
                         return Task.CompletedTask;
                     },
                     OnAuthenticationFailed = context =>
@@ -198,6 +419,10 @@ public static class AuthenticationExtensions
                             context.ProtocolMessage.RedirectUri = identityServerSettings.RedirectUri;
                         }
 
+                        // Request additional claims explicitly
+                        // This ensures IdentityServer includes name, email, and profile claims
+                        context.ProtocolMessage.SetParameter("claims", "{\"id_token\":{\"name\":null,\"email\":null,\"given_name\":null,\"family_name\":null,\"preferred_username\":null}}");
+
                         return Task.CompletedTask;
                     },
                     OnRedirectToIdentityProviderForSignOut = context =>
@@ -208,7 +433,72 @@ public static class AuthenticationExtensions
                             context.ProtocolMessage.PostLogoutRedirectUri = identityServerSettings.PostLogoutRedirectUri;
                         }
 
+                        // Get the id_token from multiple sources to ensure we have it
+                        string? idToken = null;
+                        
+                        // First, try to get it from the authentication properties (stored in AuthController)
+                        if (context.Properties.Items.TryGetValue("id_token", out string? idTokenFromItems))
+                        {
+                            idToken = idTokenFromItems;
+                            System.Diagnostics.Debug.WriteLine("IdToken found in Properties.Items");
+                        }
+                        
+                        // If not in items, try to get it from the token store
+                        if (string.IsNullOrWhiteSpace(idToken))
+                        {
+                            idToken = context.Properties.GetTokenValue("id_token");
+                            if (!string.IsNullOrWhiteSpace(idToken))
+                            {
+                                System.Diagnostics.Debug.WriteLine("IdToken found in Properties.GetTokenValue");
+                            }
+                        }
+                        
+                        // If still not found, try to get it from HttpContext
+                        if (string.IsNullOrWhiteSpace(idToken))
+                        {
+                            try
+                            {
+                                idToken = context.HttpContext.GetTokenAsync(OpenIdConnectDefaults.AuthenticationScheme, "id_token").GetAwaiter().GetResult();
+                                if (!string.IsNullOrWhiteSpace(idToken))
+                                {
+                                    System.Diagnostics.Debug.WriteLine("IdToken found in HttpContext");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error getting id_token from HttpContext: {ex.Message}");
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(idToken))
+                        {
+                            context.ProtocolMessage.IdTokenHint = idToken;
+                            System.Diagnostics.Debug.WriteLine("IdTokenHint set for logout");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine("WARNING: IdToken not found for logout - logout may not work correctly");
+                        }
+
                         return Task.CompletedTask;
+                    },
+                    OnSignedOutCallbackRedirect = async context =>
+                    {
+                        // Sign out from cookie scheme to clear all authentication cookies
+                        // This ensures the user is fully logged out from the application
+                        await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                        
+                        // Also manually delete the cookie to ensure it's removed
+                        // Use the same cookie options as configured to ensure proper deletion
+                        context.Response.Cookies.Delete("GeCom.Following.Preload.WebApp.Auth", new CookieOptions
+                        {
+                            Path = "/",
+                            HttpOnly = true,
+                            Secure = context.Request.IsHttps,
+                            SameSite = SameSiteMode.Lax
+                        });
+                        
+                        System.Diagnostics.Debug.WriteLine("Cookies cleared after logout callback");
                     }
                 };
             });
