@@ -23,6 +23,12 @@ builder.Services.AddConfigurationValidators(builder.Environment);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Add controllers for API endpoints (e.g., logout)
+builder.Services.AddControllers();
+
+// Add HttpContextAccessor for accessing HttpContext in Blazor Server components
+builder.Services.AddHttpContextAccessor();
+
 // Habilitar DetailedErrors en desarrollo para ver excepciones detalladas
 if (builder.Environment.IsDevelopment())
 {
@@ -62,6 +68,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+// Map API controllers
+app.MapControllers();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
