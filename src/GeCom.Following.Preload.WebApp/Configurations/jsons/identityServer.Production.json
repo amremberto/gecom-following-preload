@@ -1,0 +1,15 @@
+{
+  "IdentityServer": {
+    "Authority": "https://accounts.gcgestion.com.ar",
+    "MetadataAddress": "https://accounts.gcgestion.com.ar/.well-known/openid-configuration",
+    "ClientId": "gecom.following.preload.webapp",
+    "RequiredScopes": ["openid", "profile", "gecom.following.preload.api"],
+    "RequireHttpsMetadata": true,
+    "RedirectUri": "https://preload.gcgestion.com.ar/signin-oidc",
+    "PostLogoutRedirectUri": "https://preload.gcgestion.com.ar/",
+    "ResponseType": "code",
+    "UsePkce": true,
+    "SaveTokens": true
+  }
+}
+
