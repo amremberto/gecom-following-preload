@@ -3,7 +3,7 @@
     "Authority": "https://qa-accounts.gcgestion.com.ar",
     "MetadataAddress": "https://qa-accounts.gcgestion.com.ar/.well-known/openid-configuration",
     "ClientId": "gecom.following.preload.webapp",
-    "RequiredScopes": ["openid", "profile", "gecom.following.preload.api"],
+    "RequiredScopes": ["openid", "email", "profile", "gecom.following.preload.api", "offline_access"],
     "RequireHttpsMetadata": true,
     "RedirectUri": "https://qa-preload.gcgestion.com.ar/signin-oidc",
     "PostLogoutRedirectUri": "https://qa-preload.gcgestion.com.ar/",

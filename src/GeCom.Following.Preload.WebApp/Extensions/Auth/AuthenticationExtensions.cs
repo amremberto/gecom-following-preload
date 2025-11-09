@@ -24,10 +24,10 @@ public static class AuthenticationExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         // Bind strongly-typed options
-        services.Configure<IdentityServerSettings>(configuration.GetSection(nameof(IdentityServerSettings)));
+        services.Configure<IdentityServerSettings>(configuration.GetSection("IdentityServer"));
 
         IdentityServerSettings identityServerSettings = configuration
-            .GetSection(nameof(IdentityServerSettings))
+            .GetSection("IdentityServer")
             .Get<IdentityServerSettings>() ?? new();
 
         services
@@ -53,6 +53,13 @@ public static class AuthenticationExtensions
             {
                 options.Authority = identityServerSettings.Authority;
                 options.ClientId = identityServerSettings.ClientId;
+
+                // Configure client secret if provided
+                if (!string.IsNullOrWhiteSpace(identityServerSettings.ClientSecret))
+                {
+                    options.ClientSecret = identityServerSettings.ClientSecret;
+                }
+
                 options.RequireHttpsMetadata = identityServerSettings.RequireHttpsMetadata;
                 options.ResponseType = identityServerSettings.ResponseType;
                 options.SaveTokens = identityServerSettings.SaveTokens;
@@ -92,7 +99,7 @@ public static class AuthenticationExtensions
                     NameClaimType = "name"
                 };
 
-                // Configure events to map claims correctly
+                // Configure events to map claims correctly and handle token refresh
                 options.Events = new OpenIdConnectEvents
                 {
                     OnTokenValidated = context =>
@@ -114,7 +121,7 @@ public static class AuthenticationExtensions
 
                                 foreach (string roleClaimType in roleClaimTypes)
                                 {
-                                    Claim[] roleClaims = identity.FindAll(roleClaimType).ToArray();
+                                    Claim[] roleClaims = [.. identity.FindAll(roleClaimType)];
                                     foreach (Claim roleClaim in roleClaims)
                                     {
                                         if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleClaim.Value))
@@ -134,7 +141,7 @@ public static class AuthenticationExtensions
 
                                 foreach (string permissionClaimType in permissionClaimTypes)
                                 {
-                                    Claim[] permissionClaims = identity.FindAll(permissionClaimType).ToArray();
+                                    Claim[] permissionClaims = [.. identity.FindAll(permissionClaimType)];
                                     foreach (Claim permissionClaim in permissionClaims)
                                     {
                                         if (!identity.HasClaim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value))
@@ -146,6 +153,41 @@ public static class AuthenticationExtensions
                             }
                         }
 
+                        return Task.CompletedTask;
+                    },
+                    OnAuthenticationFailed = context =>
+                    {
+                        // Log the error for debugging
+                        Exception? exception = context.Exception;
+                        if (exception is not null)
+                        {
+                            // Log the error (you can use ILogger here if needed)
+                            System.Diagnostics.Debug.WriteLine($"Authentication failed: {exception.Message}");
+                        }
+
+                        // If authentication fails, don't handle the response automatically
+                        // Let the middleware handle it or redirect to error page
+                        return Task.CompletedTask;
+                    },
+                    OnRemoteFailure = context =>
+                    {
+                        // Handle remote failures (e.g., invalid_client, invalid_grant, etc.)
+                        Exception? exception = context.Failure;
+                        if (exception is not null)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Remote authentication failure: {exception.Message}");
+
+                            // If it's an invalid_client error, it means the client is not configured in IdentityServer
+                            if (exception.Message.Contains("invalid_client", StringComparison.OrdinalIgnoreCase))
+                            {
+                                context.HandleResponse();
+                                context.Response.Redirect("/unauthorized?error=invalid_client");
+                                return Task.CompletedTask;
+                            }
+                        }
+
+                        context.HandleResponse();
+                        context.Response.Redirect("/unauthorized?error=authentication_failed");
                         return Task.CompletedTask;
                     },
                     OnRedirectToIdentityProvider = context =>

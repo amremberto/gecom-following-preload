@@ -21,6 +21,11 @@ public sealed class IdentityServerSettings
     public string ClientId { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the client secret for the WebApp (optional, required if client is not public).
+    /// </summary>
+    public string? ClientSecret { get; set; }
+
+    /// <summary>
     /// Gets or sets the required scopes for authentication.
     /// </summary>
     public string[] RequiredScopes { get; set; } = Array.Empty<string>();
