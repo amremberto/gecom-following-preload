@@ -4,10 +4,10 @@
     "MetadataAddress": "https://localhost:7100/.well-known/openid-configuration",
     "ClientId": "gecom.following.preload.webapp",
     "ClientSecret": "4fe8rJlyLD7kiJUQZgYwExs",
-    "RequiredScopes": ["openid", "email", "profile", "gecom.following.preload.api", "offline_access"],
+    "RequiredScopes": [ "openid", "email", "profile", "gecom.following.preload.api", "offline_access" ],
     "RequireHttpsMetadata": false,
     "RedirectUri": "https://localhost:7310/signin-oidc",
-    "PostLogoutRedirectUri": "https://localhost:7310/",
+    "PostLogoutRedirectUri": "https://localhost:7310/signout-callback-oidc",
     "ResponseType": "code",
     "UsePkce": true,
     "SaveTokens": true

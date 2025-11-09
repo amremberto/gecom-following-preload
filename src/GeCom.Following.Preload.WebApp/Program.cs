@@ -28,7 +28,7 @@ builder.Services.AddRazorComponents()
 // This automatically configures the AuthenticationStateProvider needed for AuthorizeView
 builder.Services.AddCascadingAuthenticationState();
 
-// Add controllers for API endpoints (e.g., logout)
+// Add controllers for API endpoints (if needed)
 builder.Services.AddControllers();
 
 // Add HttpContextAccessor for accessing HttpContext in Blazor Server components

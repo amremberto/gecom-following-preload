@@ -1,5 +1,6 @@
 @rendermode InteractiveServer
 @inject IJSRuntime JsRuntime;
+@inject NavigationManager NavigationManager;
 <!-- Topbar Start -->
 <header class="app-topbar" id="header">
     <div class="page-container topbar-menu">
@@ -453,10 +454,14 @@
                                 <div class="dropdown-divider"></div>
 
                                 <!-- item-->
-                                <a href="/logout" class="dropdown-item active fw-semibold text-danger">
+                                <button 
+                                    type="button"
+                                    @onclick="OnLogoutClicked"
+                                    class="dropdown-item active fw-semibold text-danger"
+                                    style="border: none; background: none; width: 100%; text-align: left;">
                                     <i class="ri-logout-box-line me-1 fs-16 align-middle"></i>
                                     <span class="align-middle">Cerrar Sesión</span>
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -496,5 +501,11 @@
   private async Task toggleSidenav()
 	{
 		await JsRuntime.InvokeVoidAsync("toggleSidenav");
+	}
+
+	private void OnLogoutClicked()
+	{
+		// Navegación forzada a través de la pipeline completa (no solo router Blazor)
+		NavigationManager.NavigateTo("Account/Logout", forceLoad: true);
 	}
 }
