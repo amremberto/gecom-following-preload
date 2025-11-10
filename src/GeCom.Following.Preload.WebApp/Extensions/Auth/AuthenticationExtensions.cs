@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -232,6 +234,7 @@ public static class AuthenticationExtensions
                                 }
 
                                 // Map roles from various claim types to "role" claim
+                                System.Diagnostics.Debug.WriteLine("=== Mapping roles from token ===");
                                 string[] roleClaimTypes =
                                 [
                                     "role",
@@ -239,16 +242,47 @@ public static class AuthenticationExtensions
                                     ClaimTypes.Role
                                 ];
 
+                                int rolesAdded = 0;
                                 foreach (string roleClaimType in roleClaimTypes)
                                 {
                                     Claim[] roleClaims = [.. identity.FindAll(roleClaimType)];
+                                    System.Diagnostics.Debug.WriteLine($"Found {roleClaims.Length} claims of type '{roleClaimType}'");
                                     foreach (Claim roleClaim in roleClaims)
                                     {
+                                        System.Diagnostics.Debug.WriteLine($"  - Role claim: Type={roleClaim.Type}, Value={roleClaim.Value}, Issuer={roleClaim.Issuer}");
                                         if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleClaim.Value))
                                         {
                                             identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleClaim.Value));
+                                            System.Diagnostics.Debug.WriteLine($"Added 'role' claim from token: {roleClaim.Value}");
+                                            rolesAdded++;
+                                        }
+                                        else
+                                        {
+                                            System.Diagnostics.Debug.WriteLine($"Role claim '{roleClaim.Value}' already exists, skipping");
                                         }
                                     }
+                                }
+                                System.Diagnostics.Debug.WriteLine($"=== Total roles added from token: {rolesAdded} ===");
+
+                                // Extract roles from access_token
+                                // The access_token contains roles but is not automatically processed by OpenIdConnect middleware
+                                if (context.Properties is not null)
+                                {
+                                    string? accessToken = context.Properties.GetTokenValue("access_token");
+                                    if (!string.IsNullOrWhiteSpace(accessToken))
+                                    {
+                                        System.Diagnostics.Debug.WriteLine("=== Extracting roles from access_token ===");
+                                        int accessTokenRolesAdded = ExtractRolesFromAccessToken(accessToken, identity);
+                                        System.Diagnostics.Debug.WriteLine($"=== Total roles added from access_token: {accessTokenRolesAdded} ===");
+                                    }
+                                    else
+                                    {
+                                        System.Diagnostics.Debug.WriteLine("WARNING: access_token not found in authentication properties");
+                                    }
+                                }
+                                else
+                                {
+                                    System.Diagnostics.Debug.WriteLine("WARNING: Authentication properties are null");
                                 }
 
                                 // Map permissions from various claim types to "permission" claim
@@ -372,6 +406,38 @@ public static class AuthenticationExtensions
                                     identity.AddClaim(new Claim(ClaimTypes.Name, userName));
                                     System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Name claim from UserInfo: {userName}");
                                 }
+
+                                // Map roles from UserInfo endpoint
+                                // IdentityServer may send roles in different claim types
+                                System.Diagnostics.Debug.WriteLine("=== Mapping roles from UserInfo endpoint ===");
+                                string[] roleClaimTypes =
+                                [
+                                    "role",
+                                    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+                                    ClaimTypes.Role
+                                ];
+
+                                int rolesAdded = 0;
+                                foreach (string roleClaimType in roleClaimTypes)
+                                {
+                                    Claim[] roleClaims = [.. identity.FindAll(roleClaimType)];
+                                    System.Diagnostics.Debug.WriteLine($"Found {roleClaims.Length} claims of type '{roleClaimType}'");
+                                    foreach (Claim roleClaim in roleClaims)
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"  - Role claim: Type={roleClaim.Type}, Value={roleClaim.Value}, Issuer={roleClaim.Issuer}");
+                                        if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleClaim.Value))
+                                        {
+                                            identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleClaim.Value));
+                                            System.Diagnostics.Debug.WriteLine($"Added 'role' claim from UserInfo: {roleClaim.Value}");
+                                            rolesAdded++;
+                                        }
+                                        else
+                                        {
+                                            System.Diagnostics.Debug.WriteLine($"Role claim '{roleClaim.Value}' already exists, skipping");
+                                        }
+                                    }
+                                }
+                                System.Diagnostics.Debug.WriteLine($"=== Total roles added from UserInfo: {rolesAdded} ===");
                             }
                         }
                         return Task.CompletedTask;
@@ -420,8 +486,8 @@ public static class AuthenticationExtensions
                         }
 
                         // Request additional claims explicitly
-                        // This ensures IdentityServer includes name, email, and profile claims
-                        context.ProtocolMessage.SetParameter("claims", "{\"id_token\":{\"name\":null,\"email\":null,\"given_name\":null,\"family_name\":null,\"preferred_username\":null}}");
+                        // This ensures IdentityServer includes name, email, profile, and role claims
+                        context.ProtocolMessage.SetParameter("claims", "{\"id_token\":{\"name\":null,\"email\":null,\"given_name\":null,\"family_name\":null,\"preferred_username\":null,\"role\":null},\"userinfo\":{\"name\":null,\"email\":null,\"given_name\":null,\"family_name\":null,\"preferred_username\":null,\"role\":null}}");
 
                         return Task.CompletedTask;
                     },
@@ -504,6 +570,110 @@ public static class AuthenticationExtensions
             });
 
         return services;
+    }
+
+    /// <summary>
+    /// Extracts roles from the access_token JWT and adds them to the ClaimsIdentity.
+    /// </summary>
+    /// <param name="accessToken">The access token JWT string.</param>
+    /// <param name="identity">The ClaimsIdentity to add roles to.</param>
+    /// <returns>The number of roles added.</returns>
+    private static int ExtractRolesFromAccessToken(string accessToken, ClaimsIdentity identity)
+    {
+        int rolesAdded = 0;
+
+        try
+        {
+            // JWT format: header.payload.signature
+            string[] parts = accessToken.Split('.');
+            if (parts.Length < 2)
+            {
+                System.Diagnostics.Debug.WriteLine("Invalid JWT format: access_token does not have the expected structure");
+                return 0;
+            }
+
+            // Decode the payload (second part)
+            string payloadBase64 = parts[1];
+
+            // Add padding if necessary (Base64URL encoding may omit padding)
+            switch (payloadBase64.Length % 4)
+            {
+                case 2:
+                    payloadBase64 += "==";
+                    break;
+                case 3:
+                    payloadBase64 += "=";
+                    break;
+            }
+
+            // Replace Base64URL characters with Base64 characters
+            payloadBase64 = payloadBase64.Replace('-', '+').Replace('_', '/');
+
+            // Decode from Base64
+            byte[] payloadBytes = Convert.FromBase64String(payloadBase64);
+            string payloadJson = Encoding.UTF8.GetString(payloadBytes);
+
+            System.Diagnostics.Debug.WriteLine($"Access token payload: {payloadJson}");
+
+            // Parse JSON
+            using var doc = JsonDocument.Parse(payloadJson);
+            JsonElement root = doc.RootElement;
+
+            // Extract roles from the "role" claim
+            // Roles can be a single string or an array of strings
+            if (root.TryGetProperty("role", out JsonElement roleElement))
+            {
+                if (roleElement.ValueKind == JsonValueKind.Array)
+                {
+                    // Roles are in an array
+                    foreach (JsonElement roleItem in roleElement.EnumerateArray())
+                    {
+                        string? roleValue = roleItem.GetString();
+                        if (!string.IsNullOrWhiteSpace(roleValue))
+                        {
+                            if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleValue))
+                            {
+                                identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleValue));
+                                System.Diagnostics.Debug.WriteLine($"Added 'role' claim from access_token: {roleValue}");
+                                rolesAdded++;
+                            }
+                            else
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Role claim '{roleValue}' already exists, skipping");
+                            }
+                        }
+                    }
+                }
+                else if (roleElement.ValueKind == JsonValueKind.String)
+                {
+                    // Single role as string
+                    string? roleValue = roleElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(roleValue))
+                    {
+                        if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleValue))
+                        {
+                            identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleValue));
+                            System.Diagnostics.Debug.WriteLine($"Added 'role' claim from access_token: {roleValue}");
+                            rolesAdded++;
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Role claim '{roleValue}' already exists, skipping");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("No 'role' claim found in access_token payload");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error extracting roles from access_token: {ex.Message}");
+        }
+
+        return rolesAdded;
     }
 }
 
