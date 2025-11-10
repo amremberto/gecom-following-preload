@@ -440,17 +440,12 @@ public static class AuthenticationExtensions
                         if (context.Properties.Items.TryGetValue("id_token", out string? idTokenFromItems))
                         {
                             idToken = idTokenFromItems;
-                            System.Diagnostics.Debug.WriteLine("IdToken found in Properties.Items");
                         }
 
                         // If not in items, try to get it from the token store
                         if (string.IsNullOrWhiteSpace(idToken))
                         {
                             idToken = context.Properties.GetTokenValue("id_token");
-                            if (!string.IsNullOrWhiteSpace(idToken))
-                            {
-                                System.Diagnostics.Debug.WriteLine("IdToken found in Properties.GetTokenValue");
-                            }
                         }
 
                         // If still not found, try to get it from HttpContext
@@ -459,25 +454,16 @@ public static class AuthenticationExtensions
                             try
                             {
                                 idToken = context.HttpContext.GetTokenAsync(OpenIdConnectDefaults.AuthenticationScheme, "id_token").GetAwaiter().GetResult();
-                                if (!string.IsNullOrWhiteSpace(idToken))
-                                {
-                                    System.Diagnostics.Debug.WriteLine("IdToken found in HttpContext");
-                                }
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error getting id_token from HttpContext: {ex.Message}");
+                                // Token not available, continue without it
                             }
                         }
 
                         if (!string.IsNullOrWhiteSpace(idToken))
                         {
                             context.ProtocolMessage.IdTokenHint = idToken;
-                            System.Diagnostics.Debug.WriteLine("IdTokenHint set for logout");
-                        }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine("WARNING: IdToken not found for logout - logout may not work correctly");
                         }
 
                         return Task.CompletedTask;
@@ -488,8 +474,7 @@ public static class AuthenticationExtensions
                         // This ensures the user is fully logged out from the application
                         await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-                        // Also manually delete the cookie to ensure it's removed
-                        // Use the same cookie options as configured to ensure proper deletion
+                        // Delete the main authentication cookie
                         context.Response.Cookies.Delete("GeCom.Following.Preload.WebApp.Auth", new CookieOptions
                         {
                             Path = "/",
@@ -498,7 +483,22 @@ public static class AuthenticationExtensions
                             SameSite = SameSiteMode.Lax
                         });
 
-                        System.Diagnostics.Debug.WriteLine("Cookies cleared after logout callback");
+                        // Clean up fragmented cookies (if cookie was too large and got fragmented)
+                        context.Response.Cookies.Delete("GeCom.Following.Preload.WebApp.AuthC1", new CookieOptions
+                        {
+                            Path = "/",
+                            HttpOnly = true,
+                            Secure = context.Request.IsHttps,
+                            SameSite = SameSiteMode.Lax
+                        });
+
+                        context.Response.Cookies.Delete("GeCom.Following.Preload.WebApp.AuthC2", new CookieOptions
+                        {
+                            Path = "/",
+                            HttpOnly = true,
+                            Secure = context.Request.IsHttps,
+                            SameSite = SameSiteMode.Lax
+                        });
                     }
                 };
             });

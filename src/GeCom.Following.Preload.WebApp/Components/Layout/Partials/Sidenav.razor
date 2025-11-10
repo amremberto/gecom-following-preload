@@ -89,10 +89,14 @@
                     </a>
 
                     <!-- item-->
-                    <a href="javascript:void(0);" class="dropdown-item active fw-semibold text-danger">
+                    <button 
+                        type="button"
+                        @onclick="OnLogoutClicked"
+                        class="dropdown-item active fw-semibold text-danger"
+                        style="border: none; background: none; width: 100%; text-align: left;">
                         <i class="ri-logout-box-line me-1 fs-16 align-middle"></i>
                         <span class="align-middle">Sign Out</span>
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -281,11 +285,6 @@
                         <li class="side-nav-item">
                             <a href="auth-register" class="side-nav-link">
                                 <span class="menu-text">Register</span>
-                            </a>
-                        </li>
-                        <li class="side-nav-item">
-                            <a href="auth-logout" class="side-nav-link">
-                                <span class="menu-text">Logout</span>
                             </a>
                         </li>
                         <li class="side-nav-item">
@@ -940,5 +939,11 @@
         {
             NavigationManager.NavigateTo(route);
         }
+    }
+
+    private void OnLogoutClicked()
+    {
+        // Navegación forzada a través de la pipeline completa (no solo router Blazor)
+        NavigationManager.NavigateTo("Account/Logout", forceLoad: true);
     }
 }

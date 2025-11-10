@@ -24,7 +24,6 @@ public sealed class AccountController(ILogger<AccountController> logger) : Contr
         // If user is not authenticated, just redirect to home 
         if (User?.Identity?.IsAuthenticated is not true)
         {
-            // Si ya no est� autenticado, a la home y listo
             return LocalRedirect("~/");
         }
 
@@ -40,4 +39,3 @@ public sealed class AccountController(ILogger<AccountController> logger) : Contr
         return SignOut(authProperties, OpenIdConnectDefaults.AuthenticationScheme);
     }
 }
-
