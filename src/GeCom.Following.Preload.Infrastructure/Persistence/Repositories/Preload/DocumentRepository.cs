@@ -10,6 +10,20 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
     {
     }
 
+    /// <inheritdoc />
+    public override async Task<IEnumerable<Document>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Document>> GetByProveedorCuitAsync(string proveedorCuit, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(proveedorCuit);
