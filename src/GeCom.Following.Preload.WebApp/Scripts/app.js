@@ -799,8 +799,10 @@ class ThemeCustomizer {
       themeColorToggle.addEventListener("click", function (e) {
         if (self.config.theme === "light") {
           self.changeLayoutColor("dark");
+          self.changeMenuColor("dark");
         } else {
           self.changeLayoutColor("light");
+          self.changeMenuColor("light");
         }
       });
     }
