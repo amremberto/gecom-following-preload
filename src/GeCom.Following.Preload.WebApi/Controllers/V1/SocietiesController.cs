@@ -3,18 +3,18 @@ using GeCom.Following.Preload.Application.Features.Preload.Societies.CreateSocie
 using GeCom.Following.Preload.Application.Features.Preload.Societies.DeleteSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocieties;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocietiesPaged;
-using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyById;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCodigo;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCuit;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyById;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.UpdateSociety;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Preload.Societies.Create;
 using GeCom.Following.Preload.Contracts.Preload.Societies.GetAll;
 using GeCom.Following.Preload.Contracts.Preload.Societies.Update;
 using GeCom.Following.Preload.SharedKernel.Results;
+using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
-using GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
@@ -36,7 +36,7 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="403">If the user does not have the required permissions.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
+    //[Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
     [ProducesResponseType(typeof(IEnumerable<SocietyResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
