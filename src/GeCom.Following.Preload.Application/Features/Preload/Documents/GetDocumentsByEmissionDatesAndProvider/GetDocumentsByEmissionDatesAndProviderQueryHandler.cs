@@ -2,13 +2,12 @@ using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Application.Mappings;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
-using GeCom.Following.Preload.Domain.Preloads.Documents;
 using GeCom.Following.Preload.SharedKernel.Results;
 
 namespace GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
 
 /// <summary>
-/// Handler for the GetDocumentsByFechaEmisionAndProveedorQuery.
+/// Handler for the GetDocumentsByEmissionDatesAndProviderQuery.
 /// </summary>
 internal sealed class GetDocumentsByEmissionDatesAndProviderQueryHandler
     : IQueryHandler<GetDocumentsByEmissionDatesAndProviderQuery, IEnumerable<DocumentResponse>>
@@ -31,7 +30,7 @@ internal sealed class GetDocumentsByEmissionDatesAndProviderQueryHandler
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        IEnumerable<Document> documents =
+        IEnumerable<Domain.Preloads.Documents.Document> documents =
             await _documentRepository.GetByEmissionDatesAndProviderCuitAsync(
                 request.DateFrom,
                 request.DateTo,
@@ -43,4 +42,3 @@ internal sealed class GetDocumentsByEmissionDatesAndProviderQueryHandler
         return Result.Success(response);
     }
 }
-

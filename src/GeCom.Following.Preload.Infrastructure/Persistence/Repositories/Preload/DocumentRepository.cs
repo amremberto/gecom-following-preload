@@ -119,20 +119,25 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<Document>> GetByEmissionDatesAndProviderCuitAsync(DateOnly dateFrom, DateOnly dateTo, string providerCuit, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Document>> GetByEmissionDatesAndProviderCuitAsync(DateOnly dateFrom, DateOnly dateTo, string? providerCuit, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
-        return await GetQueryable()
+        IQueryable<Document> query = GetQueryable()
             .Include(d => d.Provider)
             .Include(d => d.Society)
             .Include(d => d.DocumentType)
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
-            .Where(d => d.ProveedorCuit == providerCuit
-                && d.FechaEmisionComprobante.HasValue
+            .Where(d => d.FechaEmisionComprobante.HasValue
                 && d.FechaEmisionComprobante >= dateFrom
-                && d.FechaEmisionComprobante <= dateTo)
+                && d.FechaEmisionComprobante <= dateTo);
+
+        if (!string.IsNullOrWhiteSpace(providerCuit))
+        {
+            query = query.Where(d => d.ProveedorCuit == providerCuit);
+        }
+
+        return await query
             .OrderByDescending(d => d.FechaEmisionComprobante)
             .AsNoTracking()
             .ToListAsync(cancellationToken);

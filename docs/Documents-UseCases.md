@@ -6,7 +6,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
 
 - [Queries (Consultas)](#queries-consultas)
   - [GetAllDocuments](#getalldocuments)
-  - [GetDocumentsByFechaEmisionAndProveedor](#getdocumentsbyfechaemisionandproveedor)
+  - [GetDocumentsByEmissionDatesAndProvider](#getdocumentsbyemissiondatesandprovider)
 - [Commands (Comandos)](#commands-comandos)
   - _(Pendiente de implementar)_
 
@@ -99,34 +99,40 @@ Authorization: Bearer {token}
 
 ---
 
-### GetDocumentsByFechaEmisionAndProveedor
+### GetDocumentsByEmissionDatesAndProvider
 
-**Descripción:** Obtiene documentos filtrados por rango de fechas de emisión y CUIT del proveedor.
+**Descripción:** Obtiene documentos filtrados por rango de fechas de emisión y opcionalmente por CUIT del proveedor. Si no se proporciona el CUIT del proveedor, retorna todos los documentos de todos los proveedores en el rango de fechas especificado.
 
 **Archivos:**
-- `GetDocumentsByFechaEmisionAndProveedorQuery.cs`
-- `GetDocumentsByFechaEmisionAndProveedorQueryHandler.cs`
-- `GetDocumentsByFechaEmisionAndProveedorValidator.cs`
+- `GetDocumentsByEmissionDatesAndProviderQuery.cs`
+- `GetDocumentsByEmissionDatesAndProviderQueryHandler.cs`
+- `GetDocumentsByEmissionDatesAndProviderValidator.cs`
 
 **Endpoint:**
 ```
-GET /api/v1/Documents/by-fecha-emision-and-proveedor?fechaDesde={fechaDesde}&fechaHasta={fechaHasta}&proveedorCuit={proveedorCuit}
+GET /api/v1/Documents/by-dates-and-provider?dateFrom={dateFrom}&dateTo={dateTo}&providerCuit={providerCuit}
 ```
 
 **Parámetros:**
-- `fechaDesde` (requerido) - Fecha de inicio del rango (DateOnly, formato: YYYY-MM-DD)
-- `fechaHasta` (requerido) - Fecha de fin del rango (DateOnly, formato: YYYY-MM-DD)
-- `proveedorCuit` (requerido) - CUIT del proveedor (string)
+- `dateFrom` (requerido) - Fecha de inicio del rango (DateOnly, formato: YYYY-MM-DD)
+- `dateTo` (requerido) - Fecha de fin del rango (DateOnly, formato: YYYY-MM-DD)
+- `providerCuit` (opcional) - CUIT del proveedor (string). Si no se proporciona, retorna documentos de todos los proveedores.
 
 **Respuestas:**
 - `200 OK` - Lista de documentos que cumplen los criterios
-- `400 BadRequest` - Parámetros inválidos (fechas o CUIT vacío, fechaHasta menor que fechaDesde)
+- `400 BadRequest` - Parámetros inválidos (fechas inválidas, dateTo menor que dateFrom)
 - `401 Unauthorized` - Usuario no autenticado
 - `500 InternalServerError` - Error del servidor
 
-**Ejemplo de uso:**
+**Ejemplo de uso con proveedor:**
 ```http
-GET /api/v1/Documents/by-fecha-emision-and-proveedor?fechaDesde=2024-01-01&fechaHasta=2024-12-31&proveedorCuit=20123456789
+GET /api/v1/Documents/by-dates-and-provider?dateFrom=2024-01-01&dateTo=2024-12-31&providerCuit=20123456789
+Authorization: Bearer {token}
+```
+
+**Ejemplo de uso sin proveedor (todos los proveedores):**
+```http
+GET /api/v1/Documents/by-dates-and-provider?dateFrom=2024-01-01&dateTo=2024-12-31
 Authorization: Bearer {token}
 ```
 
@@ -168,7 +174,8 @@ Authorization: Bearer {token}
 **Nota:** Este endpoint requiere autenticación. Solo se retornan documentos que:
 - Tengan un valor en `FechaEmisionComprobante` (no nulo)
 - Su `FechaEmisionComprobante` esté dentro del rango especificado (inclusive)
-- Su `ProveedorCuit` coincida exactamente con el parámetro proporcionado
+- Si se proporciona `providerCuit`, su `ProveedorCuit` debe coincidir exactamente con el parámetro proporcionado
+- Si no se proporciona `providerCuit`, se retornan documentos de todos los proveedores en el rango de fechas
 
 Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (más recientes primero). El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
 
@@ -185,7 +192,7 @@ _(Pendiente de implementar)_
 | Método | Endpoint | Descripción | Códigos de Respuesta |
 |--------|----------|-------------|---------------------|
 | GET | `/api/v1/Documents` | Obtener todos los documentos | 200, 401, 500 |
-| GET | `/api/v1/Documents/by-fecha-emision-and-proveedor` | Obtener documentos por rango de fechas de emisión y proveedor | 200, 400, 401, 500 |
+| GET | `/api/v1/Documents/by-dates-and-provider` | Obtener documentos por rango de fechas de emisión y opcionalmente por proveedor | 200, 400, 401, 500 |
 
 ---
 
@@ -353,8 +360,9 @@ Documento creado: 2024-12-19
 
 ### Cambios Recientes
 
-- **2024-12-19**: Implementado GetDocumentsByFechaEmisionAndProveedor - Query para obtener documentos por rango de fechas de emisión y proveedor CUIT
-- **2024-12-19**: Agregado método GetByFechaEmisionAndProveedorCuitAsync al repositorio con Include de relaciones y AsNoTracking
+- **2024-12-19**: Implementado GetDocumentsByEmissionDatesAndProvider - Query para obtener documentos por rango de fechas de emisión y opcionalmente por proveedor CUIT
+- **2024-12-19**: Modificado para que el proveedor sea opcional - si no se proporciona, retorna documentos de todos los proveedores
+- **2024-12-19**: Agregado método GetByEmissionDatesAndProviderCuitAsync al repositorio con Include de relaciones y AsNoTracking
 - **2024-12-19**: Agregados campos de relaciones (ProveedorRazonSocial, SociedadDescripcion, TipoDocDescripcion, EstadoDescripcion)
 - **2024-12-19**: Agregadas colecciones PurchaseOrders y Notes al DocumentResponse
 - **2024-12-19**: Implementado Include de relaciones en el repositorio para optimizar consultas
