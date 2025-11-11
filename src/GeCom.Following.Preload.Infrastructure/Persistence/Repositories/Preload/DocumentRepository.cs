@@ -118,4 +118,23 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .OrderByDescending(d => d.FechaCreacion)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IEnumerable<Document>> GetByEmissionDatesAndProviderCuitAsync(DateOnly dateFrom, DateOnly dateTo, string providerCuit, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
+        return await GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.ProveedorCuit == providerCuit
+                && d.FechaEmisionComprobante.HasValue
+                && d.FechaEmisionComprobante >= dateFrom
+                && d.FechaEmisionComprobante <= dateTo)
+            .OrderByDescending(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
 }

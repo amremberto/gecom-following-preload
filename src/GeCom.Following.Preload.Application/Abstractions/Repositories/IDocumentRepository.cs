@@ -97,4 +97,14 @@ public interface IDocumentRepository : IRepository<Document>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of documents.</returns>
     Task<IEnumerable<Document>> GetByAmountRangeAsync(decimal minAmount, decimal maxAmount, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by emission date range and provider CUIT.
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="providerCuit">Provider CUIT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByEmissionDatesAndProviderCuitAsync(DateOnly dateFrom, DateOnly dateTo, string providerCuit, CancellationToken cancellationToken = default);
 }

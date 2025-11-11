@@ -6,6 +6,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
 
 - [Queries (Consultas)](#queries-consultas)
   - [GetAllDocuments](#getalldocuments)
+  - [GetDocumentsByFechaEmisionAndProveedor](#getdocumentsbyfechaemisionandproveedor)
 - [Commands (Comandos)](#commands-comandos)
   - _(Pendiente de implementar)_
 
@@ -98,6 +99,81 @@ Authorization: Bearer {token}
 
 ---
 
+### GetDocumentsByFechaEmisionAndProveedor
+
+**Descripción:** Obtiene documentos filtrados por rango de fechas de emisión y CUIT del proveedor.
+
+**Archivos:**
+- `GetDocumentsByFechaEmisionAndProveedorQuery.cs`
+- `GetDocumentsByFechaEmisionAndProveedorQueryHandler.cs`
+- `GetDocumentsByFechaEmisionAndProveedorValidator.cs`
+
+**Endpoint:**
+```
+GET /api/v1/Documents/by-fecha-emision-and-proveedor?fechaDesde={fechaDesde}&fechaHasta={fechaHasta}&proveedorCuit={proveedorCuit}
+```
+
+**Parámetros:**
+- `fechaDesde` (requerido) - Fecha de inicio del rango (DateOnly, formato: YYYY-MM-DD)
+- `fechaHasta` (requerido) - Fecha de fin del rango (DateOnly, formato: YYYY-MM-DD)
+- `proveedorCuit` (requerido) - CUIT del proveedor (string)
+
+**Respuestas:**
+- `200 OK` - Lista de documentos que cumplen los criterios
+- `400 BadRequest` - Parámetros inválidos (fechas o CUIT vacío, fechaHasta menor que fechaDesde)
+- `401 Unauthorized` - Usuario no autenticado
+- `500 InternalServerError` - Error del servidor
+
+**Ejemplo de uso:**
+```http
+GET /api/v1/Documents/by-fecha-emision-and-proveedor?fechaDesde=2024-01-01&fechaHasta=2024-12-31&proveedorCuit=20123456789
+Authorization: Bearer {token}
+```
+
+**Respuesta exitosa:**
+```json
+[
+  {
+    "docId": 1,
+    "proveedorCuit": "20123456789",
+    "proveedorRazonSocial": "Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Ejemplo",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0001",
+    "numeroComprobante": "00001234",
+    "fechaEmisionComprobante": "2024-01-15",
+    "moneda": "ARS",
+    "montoBruto": 100000.50,
+    "codigoDeBarras": "1234567890123",
+    "caecai": "12345678901234",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 1,
+    "estadoDescripcion": "Pendiente",
+    "fechaCreacion": "2024-01-15T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 123,
+    "nombreSolicitante": "Juan Pérez",
+    "idDetalleDePago": 1,
+    "idMetodoDePago": 1,
+    "fechaPago": "2024-01-20T14:00:00Z",
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  }
+]
+```
+
+**Nota:** Este endpoint requiere autenticación. Solo se retornan documentos que:
+- Tengan un valor en `FechaEmisionComprobante` (no nulo)
+- Su `FechaEmisionComprobante` esté dentro del rango especificado (inclusive)
+- Su `ProveedorCuit` coincida exactamente con el parámetro proporcionado
+
+Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (más recientes primero). El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
+
+---
+
 ## Commands (Comandos)
 
 _(Pendiente de implementar)_
@@ -109,6 +185,7 @@ _(Pendiente de implementar)_
 | Método | Endpoint | Descripción | Códigos de Respuesta |
 |--------|----------|-------------|---------------------|
 | GET | `/api/v1/Documents` | Obtener todos los documentos | 200, 401, 500 |
+| GET | `/api/v1/Documents/by-fecha-emision-and-proveedor` | Obtener documentos por rango de fechas de emisión y proveedor | 200, 400, 401, 500 |
 
 ---
 
@@ -276,6 +353,8 @@ Documento creado: 2024-12-19
 
 ### Cambios Recientes
 
+- **2024-12-19**: Implementado GetDocumentsByFechaEmisionAndProveedor - Query para obtener documentos por rango de fechas de emisión y proveedor CUIT
+- **2024-12-19**: Agregado método GetByFechaEmisionAndProveedorCuitAsync al repositorio con Include de relaciones y AsNoTracking
 - **2024-12-19**: Agregados campos de relaciones (ProveedorRazonSocial, SociedadDescripcion, TipoDocDescripcion, EstadoDescripcion)
 - **2024-12-19**: Agregadas colecciones PurchaseOrders y Notes al DocumentResponse
 - **2024-12-19**: Implementado Include de relaciones en el repositorio para optimizar consultas

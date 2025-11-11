@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocuments;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
@@ -30,6 +31,40 @@ public sealed class DocumentsController : VersionedApiController
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetAll(CancellationToken cancellationToken)
     {
         GetAllDocumentsQuery query = new();
+
+        Result<IEnumerable<DocumentResponse>> result =
+            await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
+    /// Gets documents by emission date range and provider CUIT.
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="providerCuit">Provider CUIT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of documents matching the criteria.</returns>
+    /// <response code="200">Returns the list of documents.</response>
+    /// <response code="400">If the request parameters are invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("by-dates-and-provider")]
+    [ProducesResponseType(typeof(IEnumerable<DocumentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetByDatesAndProviderAsync(
+        [FromQuery] DateOnly dateFrom,
+        [FromQuery] DateOnly dateTo,
+        [FromQuery] string providerCuit,
+        CancellationToken cancellationToken)
+    {
+        GetDocumentsByEmissionDatesAndProviderQuery query = new(
+            dateFrom,
+            dateTo,
+            providerCuit);
 
         Result<IEnumerable<DocumentResponse>> result =
             await Mediator.Send(query, cancellationToken);
