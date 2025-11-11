@@ -4,6 +4,8 @@ namespace GeCom.Following.Preload.Contracts.Preload.Dashboard;
 /// Response DTO for Dashboard information.
 /// </summary>
 public sealed record DashboardResponse(
-    int TotalDocuments
+    int TotalDocuments,
+    int TotalPurchaseOrders,
+    int TotalPendingsDocuments
 );
 
