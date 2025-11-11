@@ -284,26 +284,6 @@ public static class AuthenticationExtensions
                                 {
                                     System.Diagnostics.Debug.WriteLine("WARNING: Authentication properties are null");
                                 }
-
-                                // Map permissions from various claim types to "permission" claim
-                                string[] permissionClaimTypes =
-                                [
-                                    "permission",
-                                    "scope",
-                                    "http://schemas.microsoft.com/ws/2008/06/identity/claims/permission"
-                                ];
-
-                                foreach (string permissionClaimType in permissionClaimTypes)
-                                {
-                                    Claim[] permissionClaims = [.. identity.FindAll(permissionClaimType)];
-                                    foreach (Claim permissionClaim in permissionClaims)
-                                    {
-                                        if (!identity.HasClaim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value))
-                                        {
-                                            identity.AddClaim(new Claim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value));
-                                        }
-                                    }
-                                }
                             }
                         }
 

@@ -1,7 +1,7 @@
 namespace GeCom.Following.Preload.WebApp.Extensions.Auth;
 
 /// <summary>
-/// Constants for authorization roles and permissions.
+/// Constants for authorization roles.
 /// </summary>
 public static class AuthorizationConstants
 {
@@ -11,9 +11,9 @@ public static class AuthorizationConstants
     public const string RoleClaimType = "role";
 
     /// <summary>
-    /// Claim type for permissions in OIDC tokens.
+    /// Claim type for society CUIT in JWT tokens.
     /// </summary>
-    public const string PermissionClaimType = "permission";
+    public const string SocietyCuitClaimType = "following.society.cuit";
 
     /// <summary>
     /// Available roles in the system.
@@ -21,60 +21,24 @@ public static class AuthorizationConstants
     public static class Roles
     {
         /// <summary>
-        /// Administrator role with full access.
+        /// Administrator role with full access to all module options.
         /// </summary>
-        public const string Administrator = "Administrator";
+        public const string Administrator = "Following.Administrator";
 
         /// <summary>
-        /// Manager role with elevated permissions.
+        /// Read-only role with access to view documents from all societies.
         /// </summary>
-        public const string Manager = "Manager";
+        public const string PreloadReadOnly = "Following.Preload.ReadOnly";
 
         /// <summary>
-        /// User role with standard permissions.
+        /// Role with CRUD access to all documents from all societies.
         /// </summary>
-        public const string User = "User";
+        public const string PreloadAllSocieties = "Following.Preload.AllSocieties";
 
         /// <summary>
-        /// Viewer role with read-only permissions.
+        /// Role with CRUD access to documents from a single society (identified by CUIT claim).
         /// </summary>
-        public const string Viewer = "Viewer";
-    }
-
-    /// <summary>
-    /// Available permissions in the system.
-    /// </summary>
-    public static class Permissions
-    {
-        /// <summary>
-        /// Permission to read societies.
-        /// </summary>
-        public const string SocietiesRead = "societies:read";
-
-        /// <summary>
-        /// Permission to create societies.
-        /// </summary>
-        public const string SocietiesCreate = "societies:create";
-
-        /// <summary>
-        /// Permission to update societies.
-        /// </summary>
-        public const string SocietiesUpdate = "societies:update";
-
-        /// <summary>
-        /// Permission to delete societies.
-        /// </summary>
-        public const string SocietiesDelete = "societies:delete";
-
-        /// <summary>
-        /// Permission to read all preload data.
-        /// </summary>
-        public const string PreloadRead = "preload:read";
-
-        /// <summary>
-        /// Permission to manage all preload data.
-        /// </summary>
-        public const string PreloadManage = "preload:manage";
+        public const string PreloadSingleSociety = "Following.Preload.SingleSociety";
     }
 
     /// <summary>
@@ -93,39 +57,14 @@ public static class AuthorizationConstants
         public const string RequireAdministrator = "RequireAdministrator";
 
         /// <summary>
-        /// Policy requiring manager or administrator role.
-        /// </summary>
-        public const string RequireManagerOrAdministrator = "RequireManagerOrAdministrator";
-
-        /// <summary>
-        /// Policy requiring societies read permission.
-        /// </summary>
-        public const string RequireSocietiesRead = "RequireSocietiesRead";
-
-        /// <summary>
-        /// Policy requiring societies create permission.
-        /// </summary>
-        public const string RequireSocietiesCreate = "RequireSocietiesCreate";
-
-        /// <summary>
-        /// Policy requiring societies update permission.
-        /// </summary>
-        public const string RequireSocietiesUpdate = "RequireSocietiesUpdate";
-
-        /// <summary>
-        /// Policy requiring societies delete permission.
-        /// </summary>
-        public const string RequireSocietiesDelete = "RequireSocietiesDelete";
-
-        /// <summary>
-        /// Policy requiring preload read permission.
+        /// Policy requiring preload read access (ReadOnly, AllSocieties, SingleSociety, or Administrator).
         /// </summary>
         public const string RequirePreloadRead = "RequirePreloadRead";
 
         /// <summary>
-        /// Policy requiring preload manage permission.
+        /// Policy requiring preload write access (AllSocieties, SingleSociety, or Administrator).
         /// </summary>
-        public const string RequirePreloadManage = "RequirePreloadManage";
+        public const string RequirePreloadWrite = "RequirePreloadWrite";
     }
 }
 

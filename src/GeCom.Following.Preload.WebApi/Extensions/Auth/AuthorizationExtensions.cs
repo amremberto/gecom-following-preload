@@ -8,14 +8,14 @@ namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 public static class AuthorizationExtensions
 {
     /// <summary>
-    /// Adds authorization policies based on roles and permissions.
+    /// Adds authorization policies based on roles.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddPreloadAuthorization(this IServiceCollection services)
     {
-        // Register the custom authorization handler
-        services.AddSingleton<IAuthorizationHandler, PermissionOrRoleHandler>();
+        // Register the custom authorization handler for SingleSociety role validation
+        services.AddSingleton<IAuthorizationHandler, SingleSocietyHandler>();
 
         AuthorizationBuilder authorizationBuilder = services.AddAuthorizationBuilder();
 
@@ -37,113 +37,30 @@ public static class AuthorizationExtensions
                 .RequireAuthenticatedUser()
                 .RequireRole(AuthorizationConstants.Roles.Administrator));
 
-        // Policy: Require Manager or Administrator role
-        authorizationBuilder.AddPolicy(
-            AuthorizationConstants.Policies.RequireManagerOrAdministrator,
-            policy => policy
-                .RequireAuthenticatedUser()
-                .RequireRole(
-                    AuthorizationConstants.Roles.Manager,
-                    AuthorizationConstants.Roles.Administrator));
-
-        // Policy: Require societies read permission OR specific roles
-        authorizationBuilder.AddPolicy(
-            AuthorizationConstants.Policies.RequireSocietiesRead,
-            policy => policy
-                .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionOrRoleRequirement(
-                    AuthorizationConstants.PermissionClaimType,
-                    [
-                        AuthorizationConstants.Permissions.SocietiesRead,
-                        AuthorizationConstants.Permissions.PreloadRead,
-                        AuthorizationConstants.Permissions.PreloadManage
-                    ],
-                    [
-                        AuthorizationConstants.Roles.Administrator,
-                        AuthorizationConstants.Roles.Manager,
-                        AuthorizationConstants.Roles.User,
-                        AuthorizationConstants.Roles.Viewer
-                    ])));
-
-        // Policy: Require societies create permission OR specific roles
-        authorizationBuilder.AddPolicy(
-            AuthorizationConstants.Policies.RequireSocietiesCreate,
-            policy => policy
-                .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionOrRoleRequirement(
-                    AuthorizationConstants.PermissionClaimType,
-                    [
-                        AuthorizationConstants.Permissions.SocietiesCreate,
-                        AuthorizationConstants.Permissions.PreloadManage
-                    ],
-                    [
-                        AuthorizationConstants.Roles.Administrator,
-                        AuthorizationConstants.Roles.Manager
-                    ])));
-
-        // Policy: Require societies update permission OR specific roles
-        authorizationBuilder.AddPolicy(
-            AuthorizationConstants.Policies.RequireSocietiesUpdate,
-            policy => policy
-                .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionOrRoleRequirement(
-                    AuthorizationConstants.PermissionClaimType,
-                    [
-                        AuthorizationConstants.Permissions.SocietiesUpdate,
-                        AuthorizationConstants.Permissions.PreloadManage
-                    ],
-                    [
-                        AuthorizationConstants.Roles.Administrator,
-                        AuthorizationConstants.Roles.Manager
-                    ])));
-
-        // Policy: Require societies delete permission OR Administrator role
-        authorizationBuilder.AddPolicy(
-            AuthorizationConstants.Policies.RequireSocietiesDelete,
-            policy => policy
-                .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionOrRoleRequirement(
-                    AuthorizationConstants.PermissionClaimType,
-                    [
-                        AuthorizationConstants.Permissions.SocietiesDelete,
-                        AuthorizationConstants.Permissions.PreloadManage
-                    ],
-                    [
-                        AuthorizationConstants.Roles.Administrator
-                    ])));
-
-        // Policy: Require preload read permission OR specific roles
+        // Policy: Require preload read access
+        // Allows: Administrator, ReadOnly, AllSocieties, SingleSociety
         authorizationBuilder.AddPolicy(
             AuthorizationConstants.Policies.RequirePreloadRead,
             policy => policy
                 .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionOrRoleRequirement(
-                    AuthorizationConstants.PermissionClaimType,
-                    [
-                        AuthorizationConstants.Permissions.PreloadRead,
-                        AuthorizationConstants.Permissions.PreloadManage
-                    ],
-                    [
-                        AuthorizationConstants.Roles.Administrator,
-                        AuthorizationConstants.Roles.Manager,
-                        AuthorizationConstants.Roles.User,
-                        AuthorizationConstants.Roles.Viewer
-                    ])));
+                .RequireRole(
+                    AuthorizationConstants.Roles.Administrator,
+                    AuthorizationConstants.Roles.PreloadReadOnly,
+                    AuthorizationConstants.Roles.PreloadAllSocieties,
+                    AuthorizationConstants.Roles.PreloadSingleSociety)
+                .AddRequirements(new SingleSocietyRequirement()));
 
-        // Policy: Require preload manage permission OR specific roles
+        // Policy: Require preload write access
+        // Allows: Administrator, AllSocieties, SingleSociety
         authorizationBuilder.AddPolicy(
-            AuthorizationConstants.Policies.RequirePreloadManage,
+            AuthorizationConstants.Policies.RequirePreloadWrite,
             policy => policy
                 .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionOrRoleRequirement(
-                    AuthorizationConstants.PermissionClaimType,
-                    [
-                        AuthorizationConstants.Permissions.PreloadManage
-                    ],
-                    [
-                        AuthorizationConstants.Roles.Administrator,
-                        AuthorizationConstants.Roles.Manager
-                    ])));
+                .RequireRole(
+                    AuthorizationConstants.Roles.Administrator,
+                    AuthorizationConstants.Roles.PreloadAllSocieties,
+                    AuthorizationConstants.Roles.PreloadSingleSociety)
+                .AddRequirements(new SingleSocietyRequirement()));
 
         return services;
     }

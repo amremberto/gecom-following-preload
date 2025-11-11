@@ -57,8 +57,6 @@ public static class AuthenticationExtensions
                     // Map roles from JWT claims
                     // IdentityServer typically uses "role" claim, but also supports "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
                     RoleClaimType = AuthorizationConstants.RoleClaimType,
-                    // Map permissions from JWT claims
-                    // IdentityServer can include permissions in "permission" claim or as scopes
                     NameClaimType = "name"
                 };
 
@@ -179,25 +177,6 @@ public static class AuthenticationExtensions
                                         if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleClaim.Value))
                                         {
                                             identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleClaim.Value));
-                                        }
-                                    }
-                                }
-
-                                // Map permissions from various claim types to "permission" claim
-                                string[] permissionClaimTypes = [
-                                    "permission",
-                                    "scope",
-                                    "http://schemas.microsoft.com/ws/2008/06/identity/claims/permission"
-                                ];
-
-                                foreach (string permissionClaimType in permissionClaimTypes)
-                                {
-                                    Claim[] permissionClaims = identity.FindAll(permissionClaimType).ToArray();
-                                    foreach (Claim permissionClaim in permissionClaims)
-                                    {
-                                        if (!identity.HasClaim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value))
-                                        {
-                                            identity.AddClaim(new Claim(AuthorizationConstants.PermissionClaimType, permissionClaim.Value));
                                         }
                                     }
                                 }

@@ -36,7 +36,6 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="403">If the user does not have the required permissions.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet]
-    //[Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
     [ProducesResponseType(typeof(IEnumerable<SocietyResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -63,7 +62,6 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="403">If the user does not have the required permissions.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet("paged")]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
     [ProducesResponseType(typeof(PagedResponse<SocietyResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -103,7 +101,6 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="404">If the society was not found.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet("id/{id}")]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
     [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -132,7 +129,6 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="404">If the society was not found.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet("{codigo}")]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
     [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -161,7 +157,6 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="404">If the society was not found.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet("cuit/{cuit}")]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesRead)]
     [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -190,7 +185,7 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="409">If a society with the same code or CUIT already exists.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpPost]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesCreate)]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequireAdministrator)]
     [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -226,7 +221,7 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="409">If a society with the same code or CUIT already exists.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpPut]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesUpdate)]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequireAdministrator)]
     [ProducesResponseType(typeof(SocietyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -263,7 +258,7 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="404">If the society was not found.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpDelete("{id}")]
-    [Authorize(Policy = AuthorizationConstants.Policies.RequireSocietiesDelete)]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequireAdministrator)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
