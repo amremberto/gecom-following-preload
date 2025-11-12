@@ -1131,3 +1131,157 @@ window.updateHtmlAttributes = function (attr, value) {
 window.updateBodyAttributes = function (attr, value) {
   document.body.setAttribute(attr, value);
 };
+
+window.showBlazorToast = function (toastId) {
+    var toastEl = document.getElementById(toastId);
+    if (toastEl) {
+        var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+        toast.show();
+    }
+};
+
+window.blurElementById = function (id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.blur();
+        // Forzar evento change para Blazor
+        var event = new Event('change', { bubbles: true });
+        el.dispatchEvent(event);
+    }
+};
+
+window.initFlatpickrWithStrictValidation = function (selector, options) {
+    options.allowInput = true;
+    options.altInput = true;
+    options.altFormat = "d/m/Y";
+    options.dateFormat = "Y-m-d";
+    options.locale = "es";
+    options.onChange = [
+        function (selectedDates, dateStr, instance) {
+            if (instance.altInput) {
+                // Si el campo queda vacío, marcar como inválido
+                if (!instance.altInput.value || instance.altInput.value.trim() === "") {
+                    instance.altInput.classList.add("is-invalid");
+                } else {
+                    instance.altInput.classList.remove("is-invalid");
+                }
+            }
+        }
+    ];
+    options.onClose = [
+        function (selectedDates, dateStr, instance) {
+            var input = instance.altInput;
+            var val = input ? input.value : "";
+            var isValid = false;
+            if (val.length === 10) {
+                var parts = val.split("/");
+                if (parts.length === 3) {
+                    var day = parseInt(parts[0], 10);
+                    var month = parseInt(parts[1], 10);
+                    var year = parseInt(parts[2], 10);
+                    var date = new Date(year, month - 1, day);
+                    isValid =
+                        date.getFullYear() === year &&
+                        (date.getMonth() + 1) === month &&
+                        date.getDate() === day;
+                }
+            }
+            // Marcar como inválido si está vacío o es inválido
+            if (!val || !isValid) {
+                input.classList.add("is-invalid");
+                instance.input.value = '';
+                input.value = '';
+                instance.clear();
+            } else {
+                input.classList.remove("is-invalid");
+            }
+        }
+    ];
+    var fp = flatpickr(selector, options);
+
+    setTimeout(function () {
+        if (fp && fp.altInput && window.Inputmask) {
+            fp.altInput.removeAttribute('readonly');
+            Inputmask('99/99/9999').mask(fp.altInput);
+
+            // Validación en input: marca como inválido si está vacío o es inválido
+            fp.altInput.addEventListener('input', function () {
+                var val = fp.altInput.value;
+                var isValid = false;
+                if (val.length === 10) {
+                    var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
+                    if (match) {
+                        var day = parseInt(match[1], 10);
+                        var month = parseInt(match[2], 10);
+                        var year = parseInt(match[3], 10);
+                        var date = new Date(year, month - 1, day);
+                        isValid =
+                            date.getFullYear() === year &&
+                            (date.getMonth() + 1) === month &&
+                            date.getDate() === day;
+                    }
+                }
+                if (!val || val.length < 10 || !isValid) {
+                    fp.altInput.classList.add('is-invalid');
+                } else {
+                    fp.altInput.classList.remove('is-invalid');
+                }
+            });
+
+            // Intercepta Enter y Tab para evitar que Flatpickr ajuste la fecha inválida o vacía
+            fp.altInput.addEventListener('keydown', function (e) {
+                var val = fp.altInput.value;
+                var isValid = false;
+                if (val.length === 10) {
+                    var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
+                    if (match) {
+                        var day = parseInt(match[1], 10);
+                        var month = parseInt(match[2], 10);
+                        var year = parseInt(match[3], 10);
+                        var date = new Date(year, month - 1, day);
+                        isValid =
+                            date.getFullYear() === year &&
+                            (date.getMonth() + 1) === month &&
+                            date.getDate() === day;
+                    }
+                }
+                if ((e.key === 'Enter' || e.key === 'Tab') && (!val || val.length < 10 || !isValid)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    fp.altInput.classList.add('is-invalid');
+                    fp.input.value = '';
+                    fp.altInput.value = '';
+                    if (fp) fp.clear();
+                    return false;
+                }
+            }, true);
+
+            // Validación final al perder el foco
+            fp.altInput.addEventListener('blur', function () {
+                var val = fp.altInput.value;
+                var isValid = false;
+                if (val.length === 10) {
+                    var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
+                    if (match) {
+                        var day = parseInt(match[1], 10);
+                        var month = parseInt(match[2], 10);
+                        var year = parseInt(match[3], 10);
+                        var date = new Date(year, month - 1, day);
+                        isValid =
+                            date.getFullYear() === year &&
+                            (date.getMonth() + 1) === month &&
+                            date.getDate() === day;
+                    }
+                }
+                if (!val || val.length < 10 || !isValid) {
+                    fp.altInput.classList.add('is-invalid');
+                    fp.input.value = '';
+                    fp.altInput.value = '';
+                    if (fp) fp.clear();
+                } else {
+                    fp.altInput.classList.remove('is-invalid');
+                }
+            });
+        }
+    }, 100);
+};
