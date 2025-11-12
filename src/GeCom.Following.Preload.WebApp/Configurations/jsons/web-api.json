@@ -1,0 +1,6 @@
+{
+  "PreloadApi": {
+    "BaseUrl": "https://localhost:7210",
+    "Version": "v1"
+  }
+}

@@ -36,6 +36,7 @@ bld/
 [Ll]ogs/
 [Ww]eb-ui-template/
 [Gg]ecom-identityserver/
+[Gg]ecom-fw-helpdesk/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

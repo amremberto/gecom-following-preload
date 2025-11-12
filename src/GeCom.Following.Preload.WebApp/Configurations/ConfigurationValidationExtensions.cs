@@ -1,6 +1,5 @@
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using GeCom.Following.Preload.WebApp.Configurations.Validators;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace GeCom.Following.Preload.WebApp.Configurations;
@@ -25,6 +24,9 @@ public static class ConfigurationValidationExtensions
 
         // Register IdentityServer settings
         services.Configure<IdentityServerSettings>(configuration.GetSection("IdentityServer"));
+
+        // Register Api settings
+        services.Configure<PreloadApiSettings>(configuration.GetSection("PreloadApi"));
 
         return services;
     }

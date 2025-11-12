@@ -26,7 +26,8 @@ internal static class ConfigurationsLoader
         // lista de archivos de configuración por dominio
         string[] configNames =
         [
-            "identityServer"
+            "identityServer",
+            "web-api"
         ];
 
         foreach (string name in configNames)

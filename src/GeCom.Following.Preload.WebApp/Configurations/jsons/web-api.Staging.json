@@ -1,0 +1,6 @@
+{
+  "PreloadApi": {
+    "BaseUrl": "https://qa-fw-api-preload.gcgestion.com.ar",
+    "Version": "v1"
+  }
+}

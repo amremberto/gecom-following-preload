@@ -1,5 +1,6 @@
 using GeCom.Following.Preload.WebApp.Components;
 using GeCom.Following.Preload.WebApp.Configurations;
+using GeCom.Following.Preload.WebApp.Extensions;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using Microsoft.AspNetCore.Components.Authorization;
 
@@ -45,6 +46,9 @@ builder.Services.AddPreloadAuthentication(builder.Configuration);
 
 // Add authorization services with custom policies
 builder.Services.AddPreloadAuthorization();
+
+// Add API client service
+builder.Services.AddApiClient(builder.Configuration);
 
 #endregion
 
