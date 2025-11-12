@@ -8,4 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GeCom.Following.Preload.Contracts\GeCom.Following.Preload.Contracts.csproj" />
+  </ItemGroup>
 </Project>

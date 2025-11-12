@@ -5,7 +5,14 @@ namespace GeCom.Following.Preload.WebApp.Components.Pages;
 
 public partial class Dashboard : IAsyncDisposable
 {
+    private bool _isLoading = true;
+
+    private int _totalDocuments;
+    private int _totalPurchaseOrders;
+    private int _totalPendingDocuments;
+
     private IJSObjectReference? _dashboardModule;
+
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
 
     /// <summary>

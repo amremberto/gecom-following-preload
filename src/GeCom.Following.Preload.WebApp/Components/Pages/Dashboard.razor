@@ -2,9 +2,77 @@
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
-
+<PageTitle>Preload | Dashboard</PageTitle>
 <Topbar title="Dashboard"/>
 
+@if (_isLoading)
+{
+    <div class="text-center py-2">
+        <button class="btn btn-primary" type="button" disabled>
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            Cargando datos...
+        </button>
+    </div>
+}
+
 <div class="row">
-    <h1 class="mt-4">Dashboard</h1>
-</div> <!-- end row-->
+    <div class="col-md-4">
+        <div class="card bg-primary-subtle">
+            <div class="card-body widget-user">
+                <div class="text-center">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="avatar-lg bg-primary-subtle rounded">
+                                <i class="ri-file-list-3-line fs-36 text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h1 class="mb-1 text-primary display-4">@_totalDocuments</h1>
+                            <p class="mb-0 fw-bold fs-4">Total - Documentos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-danger-subtle">
+            <div class="card-body widget-user">
+                <div class="text-center">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="avatar-lg bg-danger-subtle rounded">
+                                <i class="ri-shopping-cart-2-line fs-36 text-danger"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h1 class="mb-1 text-danger display-4">@_totalPurchaseOrders</h1>
+                            <p class="mb-0 fw-bold fs-4">Total - Ordenes de Compra</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-warning-subtle">
+            <div class="card-body widget-user">
+                <div class="text-center">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="avatar-lg bg-warning-subtle rounded">
+                                <i class="ri-time-line fs-36 text-warning"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h1 class="mb-1 text-warning display-4">@_totalPendingDocuments</h1>
+                            <p class="mb-0 fw-bold fs-4">Total - Documentos Pendientes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
