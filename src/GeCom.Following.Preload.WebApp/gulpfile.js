@@ -112,7 +112,8 @@ const vendorTables = function () {
 
   // vendor-tables.css
   src([
-    paths.nodeModules + "datatables.net-bs5/css/dataTables.bootstrap5.min.css",
+    paths.nodeModules +
+      "datatables.net-bs5/css/dataTables.bootstrap5.min.css",
     paths.nodeModules +
       "datatables.net-responsive-bs5/css/responsive.bootstrap5.min.css",
     paths.nodeModules +
@@ -121,7 +122,8 @@ const vendorTables = function () {
       "datatables.net-fixedheader-bs5/css/fixedHeader.bootstrap5.min.css",
     paths.nodeModules +
       "datatables.net-buttons-bs5/css/buttons.bootstrap5.min.css",
-    paths.nodeModules + "datatables.net-select-bs5/css/select.bootstrap5.min.css",
+    paths.nodeModules +
+      "datatables.net-select-bs5/css/select.bootstrap5.min.css",
   ])
     .pipe(concat("vendor-tables.css"))
     .pipe(CleanCSS())

@@ -14,4 +14,3 @@ public interface IDashboardService
     /// <returns>Dashboard response data.</returns>
     Task<DashboardResponse?> GetDashboardAsync(CancellationToken cancellationToken = default);
 }
-
