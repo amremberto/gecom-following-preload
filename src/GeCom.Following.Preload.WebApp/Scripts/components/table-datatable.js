@@ -18,7 +18,7 @@ window.loadDataTable = function (tableId) {
             scrollX: true,
             fixedColumns: { leftColumns: 1 }, // <-- Fija la primera columna
             language: {
-                url: 'vendor/datatables.net-i18n/i18n/es-ES.json',
+                url: 'vendor/datatables.net-plugins/i18n/es-ES.json',
                 paginate: {
                     first: '<i class="ti ti-chevrons-left"></i>',
                     previous: '<i class="ti ti-chevron-left"></i>',

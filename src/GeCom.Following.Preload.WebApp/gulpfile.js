@@ -157,7 +157,7 @@ const vendorTables = function () {
 
 // Copiar traducciones de DataTables (i18n) desde datatables.net-plugins
 const vendorDtI18n = function () {
-    const outDir = paths.distVendor + "datatables/i18n/";
+    const outDir = paths.distVendor + "datatables.net-plugins/i18n/";
     return src([
         paths.nodeModules + "datatables.net-plugins/i18n/es-AR.json"
         // Si prefieres distribuir módulos ESM, descomenta:

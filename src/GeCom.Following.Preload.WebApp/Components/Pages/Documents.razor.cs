@@ -53,6 +53,11 @@ public partial class Documents : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// This method is called after the component has rendered.
+    /// </summary>
+    /// <param name="firstRender"></param>
+    /// <returns></returns>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try
@@ -71,6 +76,54 @@ public partial class Documents : IAsyncDisposable
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error en Dashboard.OnAfterRenderAsync:", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Get documents based on the date range and selected provider.
+    /// </summary>
+    /// <returns></returns>
+    private async Task GetDocuments()
+    {
+        try
+        {
+            StateHasChanged();
+
+            IEnumerable<DocumentResponse>? response =
+                await DocumentService.GetByDatesAndProviderAsync(_dateFrom, _dateTo, SelectedProvider!.Cuit, cancellationToken: default);
+
+            _documents = response ?? [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Get the pending documents based on the document list.
+    /// </summary>
+    /// <returns></returns>
+    private async Task GetPendingsDocuments()
+    {
+        try
+        {
+            StateHasChanged();
+
+            // Filtrar los documentos ya obtenidos por EstadoId 2 o 5
+            _pendingsDocuments = _documents.Where(d => d.EstadoId == 2 || d.EstadoId == 5).ToList();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al filtrar los documentos pendientes:", ex.Message);
+        }
+        finally
+        {
+            StateHasChanged();
         }
     }
 
@@ -132,53 +185,6 @@ public partial class Documents : IAsyncDisposable
     }
 
     /// <summary>
-    /// Get documents based on the date range and selected provider.
-    /// </summary>
-    /// <returns></returns>
-    private async Task GetDocuments()
-    {
-        try
-        {
-            StateHasChanged();
-
-            IEnumerable<DocumentResponse>? response = await DocumentService.GetByDatesAndProviderAsync(_dateFrom, _dateTo, SelectedProvider!.Cuit, cancellationToken: default);
-
-            _documents = response ?? [];
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
-        }
-        finally
-        {
-            StateHasChanged();
-        }
-    }
-
-    /// <summary>
-    /// Get the pending documents based on the document list.
-    /// </summary>
-    /// <returns></returns>
-    private async Task GetPendingsDocuments()
-    {
-        try
-        {
-            StateHasChanged();
-
-            // Filtrar los documentos ya obtenidos por EstadoId 2 o 5
-            _pendingsDocuments = _documents.Where(d => d.EstadoId == 2 || d.EstadoId == 5).ToList();
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al filtrar los documentos pendientes:", ex.Message);
-        }
-        finally
-        {
-            StateHasChanged();
-        }
-    }
-
-    /// <summary>
     /// Searches for providers based on the input text.
     /// </summary>
     /// <param name="searchText"></param>
@@ -194,9 +200,7 @@ public partial class Documents : IAsyncDisposable
         {
             IEnumerable<ProviderResponse>? response = await ProviderService.SearchAsync(searchText, default);
 
-            IEnumerable<ProviderResponse>? providers = response ?? [];
-
-            return providers;
+            return response ?? [];
         }
         catch (Exception)
         {
@@ -217,14 +221,10 @@ public partial class Documents : IAsyncDisposable
     }
 
     /// <summary>
-    /// Forces the date inputs to lose focus.
+    /// Handles the date change event for the date pickers.
     /// </summary>
-    /// <returns></returns>
-    private async Task ForceDateInputsBlurAsync()
-    {
-        await JsRuntime.InvokeVoidAsync("blurElementById", "dateFrom");
-        await JsRuntime.InvokeVoidAsync("blurElementById", "dateTo");
-    }
+    private readonly Expression<Func<ProviderResponse, string>> _textSelectorExprr =
+        p => p.Cuit + " -- " + p.RazonSocial;
 
     /// <summary>
     /// Displays a toast message using JavaScript interop.
@@ -237,12 +237,6 @@ public partial class Documents : IAsyncDisposable
         await JsRuntime.InvokeVoidAsync("showBlazorToast", "dateRangeToast");
         StateHasChanged();
     }
-
-    /// <summary>
-    /// Handles the date change event for the date pickers.
-    /// </summary>
-    private readonly Expression<Func<ProviderResponse, string>> _textSelectorExprr =
-        p => p.Cuit + " -- " + p.RazonSocial;
 
     /// <summary>
     /// Gets the CSS class for the document status badge based on the status value.
@@ -266,6 +260,16 @@ public partial class Documents : IAsyncDisposable
             // Agrega más estados según tu dominio
             _ => "badge bg-warning rounded-pill text-dark"
         };
+    }
+
+    /// <summary>
+    /// Forces the date inputs to lose focus.
+    /// </summary>
+    /// <returns></returns>
+    private async Task ForceDateInputsBlurAsync()
+    {
+        await JsRuntime.InvokeVoidAsync("blurElementById", "dateFrom");
+        await JsRuntime.InvokeVoidAsync("blurElementById", "dateTo");
     }
 
     public async ValueTask DisposeAsync()
