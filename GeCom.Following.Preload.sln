@@ -17,6 +17,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{019DEAFE-353
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{0BF59419-E9EE-4F89-BC07-9A6B7425F95A}"
 	ProjectSection(SolutionItems) = preProject
+		docs\ANALISIS_CARGA_RECURSOS.md = docs\ANALISIS_CARGA_RECURSOS.md
+		docs\Documents-UseCases.md = docs\Documents-UseCases.md
+		docs\EF-CORE-SEARCH-PERFORMANCE-COMPARISON.md = docs\EF-CORE-SEARCH-PERFORMANCE-COMPARISON.md
+		docs\HTTP-SERVICES-ARCHITECTURE.md = docs\HTTP-SERVICES-ARCHITECTURE.md
+		docs\Providers-UseCases.md = docs\Providers-UseCases.md
 		README.md = README.md
 		docs\Societies-UseCases.md = docs\Societies-UseCases.md
 	EndProjectSection
