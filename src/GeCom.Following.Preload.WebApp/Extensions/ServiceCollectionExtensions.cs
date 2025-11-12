@@ -51,6 +51,9 @@ public static class ServiceCollectionExtensions
         // Register provider service
         services.AddScoped<IProviderService, ProviderService>();
 
+        // Register document service
+        services.AddScoped<IDocumentService, DocumentService>();
+
         return services;
     }
 }
