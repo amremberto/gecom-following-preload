@@ -155,6 +155,16 @@ const vendorTables = function () {
     .pipe(dest(outJS));
 };
 
+// Copiar traducciones de DataTables (i18n) desde datatables.net-plugins
+const vendorDtI18n = function () {
+    const outDir = paths.distVendor + "datatables/i18n/";
+    return src([
+        paths.nodeModules + "datatables.net-plugins/i18n/es-AR.json"
+        // Si prefieres distribuir módulos ESM, descomenta:
+        // , paths.nodeModules + "datatables.net-plugins/i18n/*.mjs"
+    ]).pipe(dest(outDir));
+};
+
 // Charts: ApexCharts
 const vendorCharts = function () {
   const outCSS = paths.distCSS;
@@ -284,16 +294,17 @@ const vendorUtils = function () {
 
 // Función que genera todos los bundles de vendors
 const vendors = parallel(
-  copyVendorAssets,
-  vendorCore,
-  vendorForms,
-  vendorTables,
-  vendorCharts,
-  vendorMaps,
-  vendorUI,
-  vendorCalendar,
-  vendorGrid,
-  vendorUtils
+    copyVendorAssets,
+    vendorCore,
+    vendorForms,
+    vendorTables,
+    vendorDtI18n,
+    vendorCharts,
+    vendorMaps,
+    vendorUI,
+    vendorCalendar,
+    vendorGrid,
+    vendorUtils
 );
 
 // ============================================

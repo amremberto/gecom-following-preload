@@ -59,6 +59,9 @@ importers:
       datatables.net-keytable-bs5:
         specifier: ^2.12.1
         version: 2.12.1
+      datatables.net-plugins:
+        specifier: ^2.3.2
+        version: 2.3.2
       datatables.net-responsive:
         specifier: ^3.0.3
         version: 3.0.7
@@ -378,6 +381,12 @@ packages:
 
   '@swc/helpers@0.2.14':
     resolution: {integrity: sha512-wpCQMhf5p5GhNg2MmGKXzUNwxe7zRiCsmqYsamez2beP7mKPCSiu+BjZcdN95yYSzO857kr0VfQewmGpS77nqA==}
+
+  '@types/jquery@3.5.33':
+    resolution: {integrity: sha512-SeyVJXlCZpEki5F0ghuYe+L+PprQta6nRZqhONt9F13dWBtR/ftoaIbdRQ7cis7womE+X2LKhsDdDtkkDhJS6g==}
+
+  '@types/sizzle@2.3.10':
+    resolution: {integrity: sha512-TC0dmN0K8YcWEAEfiPi5gJP14eJe30TTGjkvek3iM/1NdHHsdCA/Td6GvNndMOo/iSnIsZ4HuuhrYPDAmbxzww==}
 
   '@yr/monotone-cubic-spline@1.0.3':
     resolution: {integrity: sha512-FQXkOta0XBSUPHndIKON2Y9JeQz5ZeMqLYZVVK93FliNBFm7LNMIZmY6FrMEB9XPcDbE2bekMbZD6kzDkxwYjA==}
@@ -726,6 +735,9 @@ packages:
 
   datatables.net-keytable@2.12.1:
     resolution: {integrity: sha512-MR/qvBxVXld3i+YZfLAv/yCMvzh1trEIMpLo7YU0DP/CIWewHhkFeTS0G3tJgLjBes4v4tyR0Zjf6R9aMtMBEw==}
+
+  datatables.net-plugins@2.3.2:
+    resolution: {integrity: sha512-9wY1vhMHqazE4SyeYXO22NJjgf0WBzDhG2XbIY7PynafKBR/+aPqC0gWh9/lRF1eyzYnmKHniW4kBx11YpazoQ==}
 
   datatables.net-responsive-bs5@3.0.7:
     resolution: {integrity: sha512-M5VgAXMF7sa64GxFxVfyhiomYpvH/CRXhwoB+l13LaoDU6qtb6noOupFMtG7AVECrDar6UaKe38Frfqz3Pi0Kg==}
@@ -2317,6 +2329,12 @@ snapshots:
 
   '@swc/helpers@0.2.14': {}
 
+  '@types/jquery@3.5.33':
+    dependencies:
+      '@types/sizzle': 2.3.10
+
+  '@types/sizzle@2.3.10': {}
+
   '@yr/monotone-cubic-spline@1.0.3': {}
 
   acorn@6.4.2: {}
@@ -2726,6 +2744,11 @@ snapshots:
     dependencies:
       datatables.net: 2.3.4
       jquery: 3.7.1
+
+  datatables.net-plugins@2.3.2:
+    dependencies:
+      '@types/jquery': 3.5.33
+      datatables.net: 2.3.4
 
   datatables.net-responsive-bs5@3.0.7:
     dependencies:
