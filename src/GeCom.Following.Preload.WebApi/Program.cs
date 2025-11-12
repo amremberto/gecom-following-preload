@@ -44,6 +44,9 @@ try
     // Adds Serilog to the host builder.
     SerilogConfigurator.AddSerilogToHostBuilder(builder.Host);
 
+    // Add memory cache for dashboard and other cached responses
+    builder.Services.AddMemoryCache();
+
     // Platform services - add controller services
     builder.Services.AddControllers();
 
