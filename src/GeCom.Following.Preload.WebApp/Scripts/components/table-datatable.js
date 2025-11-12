@@ -18,14 +18,14 @@ window.loadDataTable = function (tableId) {
             scrollX: true,
             fixedColumns: { leftColumns: 1 }, // <-- Fija la primera columna
             language: {
-                url: 'vendor/datatables.net-plugins/i18n/es-ES.json',
+                url: 'vendor/datatables.net-plugins/i18n/es-AR.json',
                 paginate: {
                     first: '<i class="ti ti-chevrons-left"></i>',
                     previous: '<i class="ti ti-chevron-left"></i>',
                     next: '<i class="ti ti-chevron-right"></i>',
                     last: '<i class="ti ti-chevrons-right"></i>'
                 },
-                lengthMenu: "Mostrar _MENU_ registros por p·gina",
+                lengthMenu: "Mostrar _MENU_ registros por p√°gina",
                 info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
                 infoEmpty: "Mostrando 0 a 0 de 0 registros",
                 infoFiltered: "(filtrado de _MAX_ registros totales)",
@@ -48,7 +48,7 @@ window.loadDataTable = function (tableId) {
 
 window.destroyDataTable = function (tableId) {
     if (typeof $ === 'undefined') {
-        console.error('jQuery no est· cargado');
+        console.error('jQuery no est√° cargado');
         return;
     }
 

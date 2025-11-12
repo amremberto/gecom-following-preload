@@ -92,7 +92,8 @@ const vendorForms = function () {
 
   // vendor-forms.js
   return src([
-    paths.nodeModules + "flatpickr/dist/flatpickr.min.js",
+      paths.nodeModules + "flatpickr/dist/flatpickr.min.js",
+      paths.nodeModules + "flatpickr/dist/l10n/es.js",
     paths.nodeModules + "select2/dist/js/select2.min.js",
     paths.nodeModules + "inputmask/dist/inputmask.min.js",
     paths.nodeModules + "choices.js/public/assets/scripts/choices.min.js",
