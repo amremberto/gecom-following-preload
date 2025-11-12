@@ -56,8 +56,194 @@
                             </div>
                         </div>
                     </div>
+                    <div class="col-lg-3">
+                        <div>
+                            <label class="form-label mb-0">Proveedor</label>
+                            <BlazoredTypeahead TItem="ProviderResponse"
+                                               TValue="ProviderResponse"
+                                               Value="@SelectedProvider"
+                                               ValueChanged="OnProviderSelectedAsync"
+                                               ValueExpression="() => SelectedProvider"
+                                               SearchMethod="SearchProvidersAsync"
+                                               TextSelector="@_textSelectorExprr"
+                                               Placeholder="Ingrese razón social o CUIT"
+                                               MinimumLength="3"
+                                               Debounce="300">
+                                <SelectedTemplate Context="selected">
+                                    @($"{selected.Cuit} -- {selected.RazonSocial}")
+                                </SelectedTemplate>
+                                <ResultTemplate Context="result">
+                                    @($"{result.Cuit} -- {result.RazonSocial}")
+                                </ResultTemplate>
+                            </BlazoredTypeahead>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <button class="btn btn-primary w-50" @onclick="SearchDocuments">Buscar</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div> <!-- end row-->
+<!-- Documents Tabs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                @if (_isDataTableLoading)
+                {
+                    <div class="text-center py-2">
+                        <button class="btn btn-primary" type="button" disabled>
+                            <span class="spinner-border spinner-border-sm me-1" role="status"
+                                  aria-hidden="true"></span>
+                            Cargando datos...
+                        </button>
+                    </div>
+                }
+                <ul class="nav nav-tabs mb-3" id="documentsTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="all-documents-tab" data-bs-toggle="tab" data-bs-target="#allDocuments" type="button" role="tab" aria-controls="allDocuments" aria-selected="true">
+                            <i class="ri-file-list-line"></i> Todos los Documentos
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pending-documents-tab" data-bs-toggle="tab" data-bs-target="#pendingDocuments" type="button" role="tab" aria-controls="pendingDocuments" aria-selected="false">
+                            <i class="ri-time-line"></i> Documentos Pendientes
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <!-- Tab Todos los Documentos -->
+                    <div class="tab-pane fade show active" id="allDocuments" role="tabpanel" aria-labelledby="all-documents-tab">
+                        <table id="documents-datatable" class="table table-striped w-100 nowrap">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Estado</th>
+                                    <th>Cliente</th>
+                                    <th>Tipo Comprobante</th>
+                                    <th>Punto de venta</th>
+                                    <th>Número Comprobante</th>
+                                    <th>Fecha Emisión</th>
+                                    <th>Moneda</th>
+                                    <th>Monto Bruto Facturado</th>
+                                    <th>Conf. de Pago</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var doc in _documents)
+                                {
+                                    <tr>
+                                        <td class="text-center align-middle p-0">
+                                            <button type="button"
+                                                    class="btn btn-primary btn-sm p-0"
+                                                    style="width: 24px; height: 24px; line-height: 1;"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#full-width-modal"
+                                                    title="Ver detalles">
+                                                <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <span class="@GetEstadoBadgeClass(doc.EstadoDescripcion)">
+                                                @doc.EstadoDescripcion
+                                            </span>
+                                        </td>
+                                        <td>@doc.SociedadDescripcion</td>
+                                        <td>@doc.TipoDocDescripcion</td>
+                                        <td>@doc.PuntoDeVenta</td>
+                                        <td>@doc.NumeroComprobante</td>
+                                        <td data-order="@(doc.FechaEmisionComprobante?.ToString("yyyy-MM-dd") ?? "")">
+                                            @(doc.FechaEmisionComprobante?.ToString("dd/MM/yyyy"))
+                                        </td>
+                                        <td>@doc.Moneda</td>
+                                        <td>@(doc.MontoBruto?.ToString("N2"))</td>
+                                        <td class="text-center">
+                                            @if (doc.EstadoDescripcion!.ToUpperInvariant() == "PAGADO")
+                                            {
+                                                <span class="badge badge-outline-success rounded-pill">Confirmado</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge badge-outline-danger rounded-pill">No-Confirmado</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Tab Documentos Pendientes -->
+                    <div class="tab-pane fade" id="pendingDocuments" role="tabpanel" aria-labelledby="pending-documents-tab">
+                        <table id="pending-documents-datatable" class="table table-striped w-100 nowrap">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Estado</th>
+                                    <th>Cliente</th>
+                                    <th>Tipo Comprobante</th>
+                                    <th>Punto de venta</th>
+                                    <th>Número Comprobante</th>
+                                    <th>Fecha Emisión</th>
+                                    <th>Moneda</th>
+                                    <th>Monto Bruto Facturado</th>
+                                    <th>Conf. de Pago</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var doc in _pendingsDocuments)
+                                {
+                                    <tr>
+                                        <td class="text-center align-middle p-0">
+                                            <button type="button"
+                                                    class="btn btn-primary btn-sm p-0"
+                                                    style="width: 24px; height: 24px; line-height: 1;"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#full-width-modal"
+                                                    title="Ver detalles">
+                                                <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <span class="@GetEstadoBadgeClass(doc.EstadoDescripcion)">
+                                                @doc.EstadoDescripcion
+                                            </span>
+                                        </td>
+                                        <td>@doc.SociedadDescripcion</td>
+                                        <td>@doc.TipoDocDescripcion</td>
+                                        <td>@doc.PuntoDeVenta</td>
+                                        <td>@doc.NumeroComprobante</td>
+                                        <td data-order="@(doc.FechaEmisionComprobante?.ToString("yyyy-MM-dd") ?? "")">
+                                            @(doc.FechaEmisionComprobante?.ToString("dd/MM/yyyy"))
+                                        </td>
+                                        <td>@doc.Moneda</td>
+                                        <td>@(doc.MontoBruto?.ToString("N2"))</td>
+                                        <td class="text-center">
+                                            <span class="badge badge-outline-danger rounded-pill">No-Confirmado</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Validation Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div class="toast bg-danger-subtle text-dark border border-danger" id="dateRangeToast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-danger text-white">
+            <img src="/images/logo-sm.png" alt="brand-logo" height="16" class="me-1" />
+            <strong class="me-auto">Error de Validación</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+        <div class="toast-body">
+            @_toastMessage
+        </div>
+    </div>
+</div>
+<!-- End validation Toast-->

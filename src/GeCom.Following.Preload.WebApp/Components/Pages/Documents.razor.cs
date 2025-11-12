@@ -1,4 +1,8 @@
 ﻿using System.Globalization;
+using System.Linq.Expressions;
+using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Providers;
+using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -7,11 +11,20 @@ namespace GeCom.Following.Preload.WebApp.Components.Pages;
 public partial class Documents : IAsyncDisposable
 {
     private bool _isLoading = true;
+    private bool _isDataTableLoading;
+    private string _toastMessage = string.Empty;
+    private IEnumerable<DocumentResponse> _documents = [];
+    private IEnumerable<DocumentResponse> _pendingsDocuments = [];
+
     private IJSObjectReference? _documentsModule;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
     private DateOnly _dateTo = DateOnly.FromDateTime(DateTime.Today);
 
+    public ProviderResponse? SelectedProvider { get; set; }
+
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
+    [Inject] private IDocumentService DocumentService { get; set; } = default!;
+    [Inject] private IProviderService ProviderService { get; set; } = default!;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -70,6 +83,189 @@ public partial class Documents : IAsyncDisposable
         await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation", "#dateFrom", new { defaultDate = _dateFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
 
         await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation", "#dateTo", new { defaultDate = _dateTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
+    }
+
+    /// <summary>
+    /// Handles the search button click event for searching documents.
+    /// </summary>
+    /// <returns></returns>
+    private async Task SearchDocuments()
+    {
+        try
+        {
+            await ForceDateInputsBlurAsync();
+
+            // Check if the date range is valid
+            if (_dateFrom > _dateTo)
+            {
+                await ShowToast("La (fecha desde) no puede ser mayor a la (fecha hasta).");
+                return;
+            }
+
+            // Check if the provider is selected
+            if (SelectedProvider == null)
+            {
+                await ShowToast("El (proveedor) es requerido.");
+                return;
+            }
+
+            _isDataTableLoading = true;
+            StateHasChanged();
+
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
+            await GetDocuments();
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
+
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            await GetPendingsDocuments();
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al filtrar los documentos pendientes:", ex.Message);
+        }
+        finally
+        {
+            _isDataTableLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Get documents based on the date range and selected provider.
+    /// </summary>
+    /// <returns></returns>
+    private async Task GetDocuments()
+    {
+        try
+        {
+            StateHasChanged();
+
+            IEnumerable<DocumentResponse>? response = await DocumentService.GetByDatesAndProviderAsync(_dateFrom, _dateTo, SelectedProvider!.Cuit, cancellationToken: default);
+
+            _documents = response ?? [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Get the pending documents based on the document list.
+    /// </summary>
+    /// <returns></returns>
+    private async Task GetPendingsDocuments()
+    {
+        try
+        {
+            StateHasChanged();
+
+            // Filtrar los documentos ya obtenidos por EstadoId 2 o 5
+            _pendingsDocuments = _documents.Where(d => d.EstadoId == 2 || d.EstadoId == 5).ToList();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al filtrar los documentos pendientes:", ex.Message);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Searches for providers based on the input text.
+    /// </summary>
+    /// <param name="searchText"></param>
+    /// <returns></returns>
+    private async Task<IEnumerable<ProviderResponse>> SearchProvidersAsync(string searchText)
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            return [];
+        }
+
+        try
+        {
+            IEnumerable<ProviderResponse>? response = await ProviderService.SearchAsync(searchText, default);
+
+            IEnumerable<ProviderResponse>? providers = response ?? [];
+
+            return providers;
+        }
+        catch (Exception)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Handles the selection of a provider from the combo box.
+    /// </summary>
+    /// <param name="selected"></param>
+    /// <returns></returns>
+    private Task OnProviderSelectedAsync(ProviderResponse selected)
+    {
+        SelectedProvider = selected;
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Forces the date inputs to lose focus.
+    /// </summary>
+    /// <returns></returns>
+    private async Task ForceDateInputsBlurAsync()
+    {
+        await JsRuntime.InvokeVoidAsync("blurElementById", "dateFrom");
+        await JsRuntime.InvokeVoidAsync("blurElementById", "dateTo");
+    }
+
+    /// <summary>
+    /// Displays a toast message using JavaScript interop.
+    /// </summary>
+    /// <param name="message"></param>
+    /// <returns></returns>
+    private async Task ShowToast(string message)
+    {
+        _toastMessage = message;
+        await JsRuntime.InvokeVoidAsync("showBlazorToast", "dateRangeToast");
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Handles the date change event for the date pickers.
+    /// </summary>
+    private readonly Expression<Func<ProviderResponse, string>> _textSelectorExprr =
+        p => p.Cuit + " -- " + p.RazonSocial;
+
+    /// <summary>
+    /// Gets the CSS class for the document status badge based on the status value.
+    /// </summary>
+    /// <param name="estado"></param>
+    /// <returns></returns>
+    private static string GetEstadoBadgeClass(string? estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado))
+        {
+            return "badge bg-warning rounded-pill text-dark";
+        }
+
+        return estado.Trim().ToUpperInvariant() switch
+        {
+            "RECHAZO PRECARGA" => "badge bg-danger rounded-pill text-dark",
+            "PENDIENTE PRECARGA" => "badge bg-danger rounded-pill text-dark",
+            "PRECARGA PENDIENTE" => "badge bg-danger rounded-pill text-dark",
+            "PAGADO" => "badge bg-success rounded-pill text-dark",
+            "PAGO EMITIDO" => "badge bg-success rounded-pill text-dark",
+            // Agrega más estados según tu dominio
+            _ => "badge bg-warning rounded-pill text-dark"
+        };
     }
 
     public async ValueTask DisposeAsync()

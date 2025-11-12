@@ -4,160 +4,60 @@
  * Module/App: Data tables
  */
 
-window.loadDataTable = function () {
-  // Default Datatable
-  $("#basic-datatable").DataTable({
-    keys: true,
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
+window.loadDataTable = function (tableId) {
 
-  //Buttons examples
-  var table = $("#datatable-buttons").DataTable({
-    lengthChange: false,
-    buttons: ["copy", "print"],
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
+    // Check if jQuery is loaded
+    if (typeof jQuery === 'undefined') {
+        console.error('jQuery is not loaded. DataTable requires jQuery.');
+        return;
+    }
 
-  // Multi Selection Datatable
-  $("#selection-datatable").DataTable({
-    select: {
-      style: "multi",
-    },
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
+    try {
+        // Scroll Vertical Datatable
+        $('#' + tableId).DataTable({
+            scrollX: true,
+            fixedColumns: { leftColumns: 1 }, // <-- Fija la primera columna
+            language: {
+                url: 'vendor/datatables.net-i18n/i18n/es-ES.json',
+                paginate: {
+                    first: '<i class="ti ti-chevrons-left"></i>',
+                    previous: '<i class="ti ti-chevron-left"></i>',
+                    next: '<i class="ti ti-chevron-right"></i>',
+                    last: '<i class="ti ti-chevrons-right"></i>'
+                },
+                lengthMenu: "Mostrar _MENU_ registros por página",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron registros coincidentes"
+            },
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50], [10, 25, 50]],
+            drawCallback: function () {
+                $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
+            },
+        });
 
-  table
-    .buttons()
-    .container()
-    .appendTo("#datatable-buttons_wrapper .col-md-6:eq(0)");
+        $(".dataTables_length select").addClass("form-select form-select-sm");
+        $(".dataTables_length label").addClass("form-label");
+    } catch (error) {
+        console.error('Error al inicializar DataTable:', error);
+    }
+};
 
-  // Alternative Pagination Datatable
-  $("#alternative-page-datatable").DataTable({
-    pagingType: "full_numbers",
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
+window.destroyDataTable = function (tableId) {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
 
-  // Scroll Vertical Datatable
-  $("#scroll-vertical-datatable").DataTable({
-    scrollY: "350px",
-    scrollCollapse: true,
-    paging: false,
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
-
-  // Scroll Vertical Datatable
-  $("#scroll-horizontal-datatable").DataTable({
-    scrollX: true,
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
-
-  // Complex headers with column visibility Datatable
-  $("#complex-header-datatable").DataTable({
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-    columnDefs: [
-      {
-        visible: false,
-        targets: -1,
-      },
-    ],
-  });
-
-  // Row created callback Datatable
-  $("#row-callback-datatable").DataTable({
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-    createdRow: function (row, data, index) {
-      if (data[5].replace(/[\$,]/g, "") * 1 > 150000) {
-        $("td", row).eq(5).addClass("text-danger");
-      }
-    },
-  });
-
-  // State Saving Datatable
-  $("#state-saving-datatable").DataTable({
-    stateSave: true,
-    language: {
-      paginate: {
-        previous: "<i class='ti ti-chevron-left'>",
-        next: "<i class='ti ti-chevron-right'>",
-      },
-    },
-    drawCallback: function () {
-      $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
-    },
-  });
-
-  // Fixed header Datatable
-  $("#fixed-header-datatable").DataTable({
-    fixedHeader: true,
-  });
-
-  // Fixed Columns Datatable
-  $("#fixed-columns-datatable").DataTable({
-    scrollY: 300,
-    scrollX: true,
-    scrollCollapse: true,
-    paging: false,
-    fixedColumns: true,
-  });
-
-  $(".dataTables_length select").addClass("form-select form-select-sm");
-  $(".dataTables_length label").addClass("form-label");
+    try {
+        const table = $('#' + tableId).DataTable();
+        if (table) {
+            table.destroy();
+        }
+    } catch (error) {
+        console.error('Error al destruir DataTable:', error);
+    }
 };
