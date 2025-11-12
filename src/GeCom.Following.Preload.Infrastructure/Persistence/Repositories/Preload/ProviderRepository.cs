@@ -42,17 +42,15 @@ internal sealed class ProviderRepository : GenericRepository<Provider, PreloadDb
             return [];
         }
 
-        searchText = searchText.Trim().ToUpperInvariant();
+        string searchPattern = $"%{searchText.Trim()}%";
 
         return await GetQueryable()
             .Where(p =>
-                p.RazonSocial.Contains(searchText, StringComparison.CurrentCultureIgnoreCase) ||
-                p.Cuit.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
+                EF.Functions.Like(p.RazonSocial, searchPattern) ||
+                EF.Functions.Like(p.Cuit, searchPattern))
             .OrderBy(p => p.RazonSocial)
             .ThenBy(p => p.Cuit)
             .Take(maxResults)
             .ToListAsync(cancellationToken);
-
     }
 }
-
