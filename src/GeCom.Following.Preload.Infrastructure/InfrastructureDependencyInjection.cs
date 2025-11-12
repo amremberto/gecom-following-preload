@@ -51,6 +51,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<IPaymentTypeRepository, PaymentTypeRepository>();
         services.AddScoped<ISocietyRepository, SocietyRepository>();
+        services.AddScoped<IProviderRepository, ProviderRepository>();
         services.AddScoped<IActionsRegisterRepository, ActionsRegisterRepository>();
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
