@@ -48,6 +48,9 @@ public static class ServiceCollectionExtensions
         // Register dashboard service
         services.AddScoped<IDashboardService, DashboardService>();
 
+        // Register provider service
+        services.AddScoped<IProviderService, ProviderService>();
+
         return services;
     }
 }

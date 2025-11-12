@@ -72,12 +72,7 @@ internal sealed class HttpClientService : IHttpClientService
     /// <inheritdoc />
     public async Task<bool> DeleteAsync(Uri requestUri, CancellationToken cancellationToken = default)
     {
-        HttpResponseMessage response = await _httpClient.DeleteAsync(requestUri, cancellationToken);
-
-        if (response.IsSuccessStatusCode)
-        {
-            return true;
-        }
+        using HttpResponseMessage response = await _httpClient.DeleteAsync(requestUri, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -85,7 +80,7 @@ internal sealed class HttpClientService : IHttpClientService
         }
 
         response.EnsureSuccessStatusCode();
-        return false;
+        return response.IsSuccessStatusCode;
     }
 
     /// <summary>
@@ -96,32 +91,34 @@ internal sealed class HttpClientService : IHttpClientService
         CancellationToken cancellationToken)
         where TResponse : class
     {
-        if (response.IsSuccessStatusCode)
+        try
         {
-            string jsonContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            // Handle special cases before ensuring success status
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
+            }
 
-            if (string.IsNullOrWhiteSpace(jsonContent))
+            if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
             }
 
-            TResponse? result = JsonSerializer.Deserialize<TResponse>(jsonContent, JsonSerializerOptions);
+            // Ensure the response is successful before attempting to deserialize
+            response.EnsureSuccessStatusCode();
+
+            // Deserialize directly from the response content
+            TResponse? result = await response.Content.ReadFromJsonAsync<TResponse>(
+                JsonSerializerOptions,
+                cancellationToken);
+
             return result;
         }
-
-        // Handle error responses
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        finally
         {
-            throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
+            // Ensure response is disposed even if an exception occurs
+            response.Dispose();
         }
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        response.EnsureSuccessStatusCode();
-        return null;
     }
 }
 
