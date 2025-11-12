@@ -4,6 +4,7 @@ using GeCom.Following.Preload.Contracts.Preload.Dashboard;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
+using NSwag.Annotations;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
@@ -27,7 +28,8 @@ public sealed class DashboardController : VersionedApiController
     [ProducesResponseType(typeof(DashboardResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<DashboardResponse>> Get(CancellationToken cancellationToken)
+    [OpenApiOperation("GetDashboard data", "Gets dashboard information.")]
+    public async Task<ActionResult<DashboardResponse>> GetAsync(CancellationToken cancellationToken)
     {
         GetDashboardQuery query = new();
 

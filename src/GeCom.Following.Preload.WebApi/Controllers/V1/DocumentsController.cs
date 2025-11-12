@@ -6,6 +6,7 @@ using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
+using NSwag.Annotations;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
@@ -32,7 +33,8 @@ public sealed class DocumentsController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetAll(CancellationToken cancellationToken)
+    [OpenApiOperation("GetAllDocuments", "Gets all documents.")]
+    public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetAllAsync(CancellationToken cancellationToken)
     {
         GetAllDocumentsQuery query = new();
 
@@ -62,6 +64,7 @@ public sealed class DocumentsController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetDocumentsByDatesAndProvider", "Gets documents by emission date range and optionally by provider CUIT.")]
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetByDatesAndProviderAsync(
         [FromQuery] DateOnly dateFrom,
         [FromQuery] DateOnly dateTo,

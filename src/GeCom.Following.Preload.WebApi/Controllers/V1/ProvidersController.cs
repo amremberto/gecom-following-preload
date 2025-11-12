@@ -7,6 +7,7 @@ using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
+using NSwag.Annotations;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
@@ -32,7 +33,8 @@ public sealed class ProvidersController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<IEnumerable<ProviderResponse>>> GetAll(CancellationToken cancellationToken)
+    [OpenApiOperation("Get all providers", "Retrieves a list of all providers.")]
+    public async Task<ActionResult<IEnumerable<ProviderResponse>>> GetAllAsync(CancellationToken cancellationToken)
     {
         GetAllProvidersQuery query = new();
 
@@ -61,7 +63,8 @@ public sealed class ProvidersController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<ProviderResponse>> GetById(int id, CancellationToken cancellationToken)
+    [OpenApiOperation("Get provider by ID", "Retrieves a provider using its ID.")]
+    public async Task<ActionResult<ProviderResponse>> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         GetProviderByIdQuery query = new(id);
 
@@ -89,7 +92,8 @@ public sealed class ProvidersController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<ProviderResponse>> GetByCuit(string cuit, CancellationToken cancellationToken)
+    [OpenApiOperation("Get provider by CUIT", "Retrieves a provider using its CUIT.")]
+    public async Task<ActionResult<ProviderResponse>> GetByCuitAsync(string cuit, CancellationToken cancellationToken)
     {
         GetProviderByCuitQuery query = new(cuit);
 
@@ -115,7 +119,8 @@ public sealed class ProvidersController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<IEnumerable<ProviderResponse>>> Search(
+    [OpenApiOperation("Search providers", "Retrieves providers based on search criteria.")]
+    public async Task<ActionResult<IEnumerable<ProviderResponse>>> SearchAsync(
         [FromQuery] string searchText,
         CancellationToken cancellationToken)
     {
