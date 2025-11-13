@@ -272,6 +272,46 @@ public partial class Documents : IAsyncDisposable
         await JsRuntime.InvokeVoidAsync("blurElementById", "dateTo");
     }
 
+    /// <summary>
+    /// Handles the edit document action.
+    /// </summary>
+    /// <param name="document">The document to edit.</param>
+    /// <returns></returns>
+    private async Task EditDocument(DocumentResponse document)
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"Editando documento con ID: {document.DocId}");
+            // Implementar la lógica de edición (navegar a página de edición, abrir modal, etc.)
+            await ShowToast($"Funcionalidad de edición para el documento {document.DocId} pendiente de implementar.");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al editar documento:", ex.Message);
+            await ShowToast("Error al intentar editar el documento.");
+        }
+    }
+
+    /// <summary>
+    /// Handles the delete document action.
+    /// </summary>
+    /// <param name="document">The document to delete.</param>
+    /// <returns></returns>
+    private async Task DeleteDocument(DocumentResponse document)
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"Eliminando documento con ID: {document.DocId}");
+            // Implementar la lógica de eliminación (confirmación, llamada al servicio, etc.)
+            await ShowToast($"Funcionalidad de eliminación para el documento {document.DocId} pendiente de implementar.");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al eliminar documento:", ex.Message);
+            await ShowToast("Error al intentar eliminar el documento.");
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_documentsModule is not null)

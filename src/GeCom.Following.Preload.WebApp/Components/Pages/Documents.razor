@@ -22,7 +22,7 @@
     <div class="col-lg-12">
         <div class="card">
             <div class="card-header">
-                <h4 class="card-title mb-0">Filtrar por fecha de emisión y proveedor</h4>
+                <h4 class="card-title mb-0">Filtrar por fecha de emisiï¿½n y proveedor</h4>
             </div><!-- end card header -->
             <div class="card-body">
                 <div class="row gy-3 align-items-end">
@@ -37,7 +37,7 @@
                                    data-allow-input="true"
                                    @bind="_dateFrom">
                             <div class="invalid-feedback">
-                                Ingrese una fecha válida.
+                                Ingrese una fecha vï¿½lida.
                             </div>
                         </div>
                     </div>
@@ -52,7 +52,7 @@
                                    data-allow-input="true"
                                    @bind="_dateTo">
                             <div class="invalid-feedback">
-                                Ingrese una fecha válida.
+                                Ingrese una fecha vï¿½lida.
                             </div>
                         </div>
                     </div>
@@ -66,7 +66,7 @@
                                                ValueExpression="() => SelectedProvider"
                                                SearchMethod="SearchProvidersAsync"
                                                TextSelector="@_textSelectorExprr"
-                                               Placeholder="Ingrese razón social o CUIT"
+                                               Placeholder="Ingrese razï¿½n social o CUIT"
                                                MinimumLength="3"
                                                Debounce="300">
                                 <SelectedTemplate Context="selected">
@@ -124,8 +124,8 @@
                                     <th>Cliente</th>
                                     <th>Tipo Comprobante</th>
                                     <th>Punto de venta</th>
-                                    <th>Número Comprobante</th>
-                                    <th>Fecha Emisión</th>
+                                    <th>Nï¿½mero Comprobante</th>
+                                    <th>Fecha Emisiï¿½n</th>
                                     <th>Moneda</th>
                                     <th>Monto Bruto Facturado</th>
                                     <th>Conf. de Pago</th>
@@ -136,14 +136,30 @@
                                 {
                                     <tr>
                                         <td class="text-center align-middle p-0">
-                                            <button type="button"
-                                                    class="btn btn-primary btn-sm p-0"
-                                                    style="width: 24px; height: 24px; line-height: 1;"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#full-width-modal"
-                                                    title="Ver detalles">
-                                                <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
-                                            </button>
+                                            <div class="d-flex gap-1 justify-content-center">
+                                                <button type="button"
+                                                        class="btn btn-primary btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#full-width-modal"
+                                                        title="Ver detalles">
+                                                    <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-warning btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="() => EditDocument(doc)"
+                                                        title="Editar">
+                                                    <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-danger btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="() => DeleteDocument(doc)"
+                                                        title="Eliminar">
+                                                    <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                         <td>
                                             <span class="@GetEstadoBadgeClass(doc.EstadoDescripcion)">
@@ -184,8 +200,8 @@
                                     <th>Cliente</th>
                                     <th>Tipo Comprobante</th>
                                     <th>Punto de venta</th>
-                                    <th>Número Comprobante</th>
-                                    <th>Fecha Emisión</th>
+                                    <th>Nï¿½mero Comprobante</th>
+                                    <th>Fecha Emisiï¿½n</th>
                                     <th>Moneda</th>
                                     <th>Monto Bruto Facturado</th>
                                     <th>Conf. de Pago</th>
@@ -196,14 +212,30 @@
                                 {
                                     <tr>
                                         <td class="text-center align-middle p-0">
-                                            <button type="button"
-                                                    class="btn btn-primary btn-sm p-0"
-                                                    style="width: 24px; height: 24px; line-height: 1;"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#full-width-modal"
-                                                    title="Ver detalles">
-                                                <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
-                                            </button>
+                                            <div class="d-flex gap-1 justify-content-center">
+                                                <button type="button"
+                                                        class="btn btn-primary btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#full-width-modal"
+                                                        title="Ver detalles">
+                                                    <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-warning btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="() => EditDocument(doc)"
+                                                        title="Editar">
+                                                    <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-danger btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="() => DeleteDocument(doc)"
+                                                        title="Eliminar">
+                                                    <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                         <td>
                                             <span class="@GetEstadoBadgeClass(doc.EstadoDescripcion)">
@@ -238,7 +270,7 @@
     <div class="toast bg-danger-subtle text-dark border border-danger" id="dateRangeToast" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="toast-header bg-danger text-white">
             <img src="/images/logo-sm.png" alt="brand-logo" height="16" class="me-1" />
-            <strong class="me-auto">Error de Validación</strong>
+            <strong class="me-auto">Error de ValidaciÃ³n</strong>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Cerrar"></button>
         </div>
         <div class="toast-body">
