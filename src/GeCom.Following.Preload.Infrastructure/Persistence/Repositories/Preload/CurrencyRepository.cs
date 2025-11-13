@@ -26,6 +26,25 @@ internal sealed class CurrencyRepository : GenericRepository<Currency, PreloadDb
         return await GetQueryable()
             .FirstOrDefaultAsync(c => c.Codigo == code, cancellationToken);
     }
+
+    public override async Task<(IReadOnlyList<Currency> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+        IQueryable<Currency> query = GetQueryable();
+
+        int totalCount = await query.CountAsync(cancellationToken);
+
+        List<Currency> items = await query
+            .OrderBy(c => c.MonedaId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }
 
 
