@@ -1,7 +1,9 @@
-using Asp.Versioning;
+﻿using Asp.Versioning;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.CreateDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocuments;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
@@ -80,6 +82,47 @@ public sealed class DocumentsController : VersionedApiController
             await Mediator.Send(query, cancellationToken);
 
         return result.Match(this);
+    }
+
+    /// <summary>
+    /// Creates a new document.
+    /// </summary>
+    /// <param name="request">The document data to create.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created document.</returns>
+    /// <response code="201">Returns the created document.</response>
+    /// <response code="400">If the request data is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpPost]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("CreateDocument", "Creates a new document.")]
+    public async Task<ActionResult<DocumentResponse>> CreateAsync(
+        [FromBody] CreateDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        CreateDocumentCommand command = new(
+            request.ProveedorCuit,
+            request.SociedadCuit,
+            request.TipoDocId,
+            request.PuntoDeVenta,
+            request.NumeroComprobante,
+            request.FechaEmisionComprobante,
+            request.Moneda,
+            request.MontoBruto,
+            request.Caecai,
+            request.VencimientoCaecai,
+            request.NombreSolicitante);
+
+        Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchCreated(this, nameof(GetAllAsync));
     }
 }
 
