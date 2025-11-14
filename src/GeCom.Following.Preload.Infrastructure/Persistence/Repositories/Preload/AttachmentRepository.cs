@@ -10,6 +10,15 @@ internal sealed class AttachmentRepository : GenericRepository<Attachment, Prelo
     {
     }
 
+    /// <summary>
+    /// Override GetByIdAsync because Attachment uses AdjuntoId (int) as primary key.
+    /// </summary>
+    public override async Task<Attachment?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await GetQueryable()
+            .FirstOrDefaultAsync(a => a.AdjuntoId == id, cancellationToken);
+    }
+
     public async Task<IEnumerable<Attachment>> GetByDocumentIdAsync(int docId, CancellationToken cancellationToken = default)
     {
         return await GetQueryable()
