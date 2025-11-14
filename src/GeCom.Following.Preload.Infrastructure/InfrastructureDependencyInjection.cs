@@ -2,6 +2,7 @@
 using GeCom.Following.Preload.Application.Preload.Attachments.Interfaces;
 using GeCom.Following.Preload.Infrastructure.Persistence;
 using GeCom.Following.Preload.Infrastructure.Persistence.Repositories.Preload;
+using GeCom.Following.Preload.Infrastructure.Persistence.Repositories.Spd_Sap;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -55,9 +56,11 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IActionsRegisterRepository, ActionsRegisterRepository>();
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<ISapAccountRepository, SapAccountRepository>();
 
         // Register Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ISpdSapUnitOfWork, SpdSapUnitOfWork>();
 
         return services;
     }
