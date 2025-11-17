@@ -312,6 +312,25 @@ public partial class Documents : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Handles the create new document action.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CreateNewDocument()
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", "Creando nuevo documento");
+            // Implementar la lógica de creación (navegar a página de creación, abrir modal, etc.)
+            await ShowToast("Funcionalidad de creación de nuevo documento pendiente de implementar.");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al crear nuevo documento:", ex.Message);
+            await ShowToast("Error al intentar crear un nuevo documento.");
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_documentsModule is not null)
