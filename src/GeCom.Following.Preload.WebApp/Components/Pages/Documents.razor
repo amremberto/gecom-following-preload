@@ -153,8 +153,8 @@
                                 @foreach (var doc in _pendingsDocuments)
                                 {
                                     <tr>
-                                        <td class="text-center align-middle p-0">
-                                            <div class="d-flex gap-1 justify-content-center">
+                                        <td class="text-start align-middle p-0">
+                                            <div class="d-flex gap-1 justify-content-start">
                                                 <button type="button"
                                                         class="btn btn-primary btn-sm p-0"
                                                         style="width: 24px; height: 24px; line-height: 1;"
@@ -170,13 +170,16 @@
                                                         title="Editar">
                                                     <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
                                                 </button>
-                                                <button type="button"
-                                                        class="btn btn-danger btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
-                                                        @onclick="() => DeleteDocument(doc)"
-                                                        title="Eliminar">
-                                                    <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                </button>
+                                                @if (CanDeleteDocument(doc))
+                                                {
+                                                    <button type="button"
+                                                            class="btn btn-danger btn-sm p-0"
+                                                            style="width: 24px; height: 24px; line-height: 1;"
+                                                            @onclick="() => DeleteDocument(doc)"
+                                                            title="Eliminar">
+                                                        <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                    </button>
+                                                }
                                             </div>
                                         </td>
                                         <td>
@@ -222,8 +225,8 @@
                                 @foreach (var doc in _documents)
                                 {
                                     <tr>
-                                        <td class="text-center align-middle p-0">
-                                            <div class="d-flex gap-1 justify-content-center">
+                                        <td class="text-start align-middle p-0">
+                                            <div class="d-flex gap-1 justify-content-start">
                                                 <button type="button"
                                                         class="btn btn-primary btn-sm p-0"
                                                         style="width: 24px; height: 24px; line-height: 1;"
@@ -239,13 +242,16 @@
                                                         title="Editar">
                                                     <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
                                                 </button>
-                                                <button type="button"
-                                                        class="btn btn-danger btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
-                                                        @onclick="() => DeleteDocument(doc)"
-                                                        title="Eliminar">
-                                                    <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                </button>
+                                                @if (CanDeleteDocument(doc))
+                                                {
+                                                    <button type="button"
+                                                            class="btn btn-danger btn-sm p-0"
+                                                            style="width: 24px; height: 24px; line-height: 1;"
+                                                            @onclick="() => DeleteDocument(doc)"
+                                                            title="Eliminar">
+                                                        <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                    </button>
+                                                }
                                             </div>
                                         </td>
                                         <td>

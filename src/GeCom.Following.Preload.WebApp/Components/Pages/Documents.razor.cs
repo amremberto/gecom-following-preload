@@ -1,9 +1,12 @@
 ﻿using System.Globalization;
 using System.Linq.Expressions;
+using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
+using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 
 namespace GeCom.Following.Preload.WebApp.Components.Pages;
@@ -15,6 +18,7 @@ public partial class Documents : IAsyncDisposable
     private string _toastMessage = string.Empty;
     private IEnumerable<DocumentResponse> _documents = [];
     private IEnumerable<DocumentResponse> _pendingsDocuments = [];
+    private bool _hasAllSocietiesRole;
 
     private IJSObjectReference? _documentsModule;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -25,6 +29,7 @@ public partial class Documents : IAsyncDisposable
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
     [Inject] private IDocumentService DocumentService { get; set; } = default!;
     [Inject] private IProviderService ProviderService { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -64,6 +69,11 @@ public partial class Documents : IAsyncDisposable
         {
             if (firstRender)
             {
+                // Check if user has AllSocieties role (must be done here, not in OnInitializedAsync
+                // because JavaScript interop is not available during pre-rendering)
+                _hasAllSocietiesRole = await HasAllSocietiesRoleAsync();
+                StateHasChanged();
+
                 _documentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
                 await InvokeAsync(StateHasChanged); // Fuerza renderizado
                 await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
@@ -310,6 +320,95 @@ public partial class Documents : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("console.error", "Error al eliminar documento:", ex.Message);
             await ShowToast("Error al intentar eliminar el documento.");
         }
+    }
+
+    /// <summary>
+    /// Checks if the current user has the AllSocieties role.
+    /// Roles should be mapped during authentication, so we only need to check claims.
+    /// </summary>
+    /// <returns>True if the user has the role, false otherwise.</returns>
+    private async Task<bool> HasAllSocietiesRoleAsync()
+    {
+        AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        ClaimsPrincipal? user = authState.User;
+
+        if (user is null)
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", "[HasAllSocietiesRoleAsync] User is null");
+            return false;
+        }
+
+        // Check for both Administrator and PreloadAllSocieties roles
+        string[] targetRoles =
+        [
+            AuthorizationConstants.Roles.Administrator,
+            AuthorizationConstants.Roles.PreloadAllSocieties
+        ];
+
+        // Log all claims for debugging
+        await JsRuntime.InvokeVoidAsync("console.log", "[HasAllSocietiesRoleAsync] === Checking roles ===");
+        await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync] Looking for roles: {string.Join(", ", targetRoles)}");
+
+        // Log all role claims
+        var allRoleClaims = user.Claims.Where(c =>
+            c.Type == ClaimTypes.Role ||
+            c.Type == AuthorizationConstants.RoleClaimType ||
+            c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+            .ToList();
+
+        await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync] Found {allRoleClaims.Count} role claims:");
+        foreach (Claim claim in allRoleClaims)
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync]   - Type: {claim.Type}, Value: {claim.Value}");
+        }
+
+        // Check each target role
+        foreach (string targetRole in targetRoles)
+        {
+            bool isInRole = user.IsInRole(targetRole);
+            bool hasClaimTypesRole = user.HasClaim(ClaimTypes.Role, targetRole);
+            bool hasRoleClaimType = user.HasClaim(AuthorizationConstants.RoleClaimType, targetRole);
+
+            await JsRuntime.InvokeVoidAsync("console.log",
+                $"[HasAllSocietiesRoleAsync] Role '{targetRole}': IsInRole={isInRole}, HasClaim(ClaimTypes.Role)={hasClaimTypesRole}, HasClaim(role)={hasRoleClaimType}");
+
+            if (isInRole || hasClaimTypesRole || hasRoleClaimType)
+            {
+                await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync] ✓ User HAS role: {targetRole}");
+                return true;
+            }
+        }
+
+        await JsRuntime.InvokeVoidAsync("console.log", "[HasAllSocietiesRoleAsync] ✗ User does NOT have required roles");
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if the document can be deleted based on status and user role.
+    /// </summary>
+    /// <param name="document">The document to check.</param>
+    /// <returns>True if the document can be deleted, false otherwise.</returns>
+    private bool CanDeleteDocument(DocumentResponse document)
+    {
+        bool hasCorrectStatus = document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE";
+        bool canDelete = hasCorrectStatus && _hasAllSocietiesRole;
+
+        // Log for debugging (async logging in sync method - fire and forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("console.log",
+                    $"[CanDeleteDocument] DocId: {document.DocId}, Status: {document.EstadoDescripcion}, " +
+                    $"hasCorrectStatus: {hasCorrectStatus}, _hasAllSocietiesRole: {_hasAllSocietiesRole}, canDelete: {canDelete}");
+            }
+            catch
+            {
+                // Ignore errors in logging
+            }
+        });
+
+        return canDelete;
     }
 
     /// <summary>

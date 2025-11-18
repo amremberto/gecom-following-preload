@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
@@ -40,17 +40,6 @@ public static class AuthenticationExtensions
                 options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
                 options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 options.DefaultSignOutScheme = OpenIdConnectDefaults.AuthenticationScheme;
-            })
-            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-            {
-                options.Cookie.Name = "GeCom.Following.Preload.WebApp.Auth";
-                options.Cookie.HttpOnly = true;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-                options.Cookie.SameSite = SameSiteMode.Lax;
-                options.ExpireTimeSpan = TimeSpan.FromHours(8);
-                options.SlidingExpiration = true;
-                options.LoginPath = "/";
-                options.AccessDeniedPath = "/unauthorized";
             })
             .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
             {
@@ -266,6 +255,8 @@ public static class AuthenticationExtensions
 
                                 // Extract roles from access_token
                                 // The access_token contains roles but is not automatically processed by OpenIdConnect middleware
+                                // IMPORTANT: We need to extract roles from access_token and add them to the identity
+                                // so they are available in all components via IsInRole() or HasClaim()
                                 if (context.Properties is not null)
                                 {
                                     string? accessToken = context.Properties.GetTokenValue("access_token");
@@ -284,6 +275,36 @@ public static class AuthenticationExtensions
                                 {
                                     System.Diagnostics.Debug.WriteLine("WARNING: Authentication properties are null");
                                 }
+
+                                // Ensure roles are also added as ClaimTypes.Role for IsInRole() to work
+                                // This is critical for authorization checks in components
+                                Claim[] allRoleClaims = [.. identity.FindAll(AuthorizationConstants.RoleClaimType)];
+                                foreach (Claim roleClaim in allRoleClaims)
+                                {
+                                    if (!identity.HasClaim(ClaimTypes.Role, roleClaim.Value))
+                                    {
+                                        identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
+                                        System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Role claim: {roleClaim.Value}");
+                                    }
+                                }
+
+                                // CRITICAL: Replace the Principal to ensure all claims are saved to the cookie
+                                // When we modify the identity, we need to create a new Principal so the changes persist
+                                // Use AuthorizationConstants.RoleClaimType as the role claim type for the new identity
+                                var newIdentity = new ClaimsIdentity(
+                                    identity.Claims,
+                                    identity.AuthenticationType,
+                                    identity.NameClaimType ?? "name",
+                                    AuthorizationConstants.RoleClaimType);
+                                var newPrincipal = new ClaimsPrincipal(newIdentity);
+                                context.Principal = newPrincipal;
+
+                                System.Diagnostics.Debug.WriteLine("=== Final Claims in Principal (before saving to cookie) ===");
+                                foreach (Claim claim in newPrincipal.Claims)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
+                                }
+                                System.Diagnostics.Debug.WriteLine("=== End Final Claims ===");
                             }
                         }
 
@@ -418,6 +439,35 @@ public static class AuthenticationExtensions
                                     }
                                 }
                                 System.Diagnostics.Debug.WriteLine($"=== Total roles added from UserInfo: {rolesAdded} ===");
+
+                                // Ensure roles are also added as ClaimTypes.Role for IsInRole() to work
+                                Claim[] allRoleClaimsFromUserInfo = [.. identity.FindAll(AuthorizationConstants.RoleClaimType)];
+                                foreach (Claim roleClaim in allRoleClaimsFromUserInfo)
+                                {
+                                    if (!identity.HasClaim(ClaimTypes.Role, roleClaim.Value))
+                                    {
+                                        identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
+                                        System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Role claim from UserInfo: {roleClaim.Value}");
+                                    }
+                                }
+
+                                // CRITICAL: Replace the Principal to ensure all claims are saved to the cookie
+                                // When we modify the identity, we need to create a new Principal so the changes persist
+                                // Use AuthorizationConstants.RoleClaimType as the role claim type for the new identity
+                                var newIdentityFromUserInfo = new ClaimsIdentity(
+                                    identity.Claims,
+                                    identity.AuthenticationType,
+                                    identity.NameClaimType ?? "name",
+                                    AuthorizationConstants.RoleClaimType);
+                                var newPrincipalFromUserInfo = new ClaimsPrincipal(newIdentityFromUserInfo);
+                                context.Principal = newPrincipalFromUserInfo;
+
+                                System.Diagnostics.Debug.WriteLine("=== Final Claims in Principal after UserInfo (before saving to cookie) ===");
+                                foreach (Claim claim in newPrincipalFromUserInfo.Claims)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
+                                }
+                                System.Diagnostics.Debug.WriteLine("=== End Final Claims ===");
                             }
                         }
                         return Task.CompletedTask;
@@ -547,6 +597,17 @@ public static class AuthenticationExtensions
                         });
                     }
                 };
+            })
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+            {
+                options.Cookie.Name = "GeCom.Following.Preload.WebApp.Auth";
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                options.SlidingExpiration = true;
+                options.LoginPath = "/";
+                options.AccessDeniedPath = "/unauthorized";
             });
 
         return services;
@@ -611,15 +672,19 @@ public static class AuthenticationExtensions
                         string? roleValue = roleItem.GetString();
                         if (!string.IsNullOrWhiteSpace(roleValue))
                         {
+                            // Add as AuthorizationConstants.RoleClaimType
                             if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleValue))
                             {
                                 identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleValue));
                                 System.Diagnostics.Debug.WriteLine($"Added 'role' claim from access_token: {roleValue}");
                                 rolesAdded++;
                             }
-                            else
+
+                            // Also add as ClaimTypes.Role for IsInRole() to work
+                            if (!identity.HasClaim(ClaimTypes.Role, roleValue))
                             {
-                                System.Diagnostics.Debug.WriteLine($"Role claim '{roleValue}' already exists, skipping");
+                                identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
+                                System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Role claim from access_token: {roleValue}");
                             }
                         }
                     }
