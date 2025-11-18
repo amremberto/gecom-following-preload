@@ -57,6 +57,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<ISapAccountRepository, SapAccountRepository>();
+        services.AddScoped<IUserSocietyAssignmentRepository, UserSocietyAssignmentRepository>();
 
         // Register Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();

@@ -11,6 +11,7 @@ using GeCom.Following.Preload.Domain.Preloads.Providers;
 using GeCom.Following.Preload.Domain.Preloads.PurchaseOrders;
 using GeCom.Following.Preload.Domain.Preloads.Societies;
 using GeCom.Following.Preload.Domain.Preloads.States;
+using GeCom.Following.Preload.Domain.Preloads.UserSocietyAssignments;
 using GeCom.Following.Preload.SharedKernel.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,6 +45,7 @@ public class PreloadDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<Society> Societies => Set<Society>();
     public DbSet<State> States => Set<State>();
+    public DbSet<UserSocietyAssignment> UserSocietyAssignments => Set<UserSocietyAssignment>();
 
     /// <summary>
     /// Configures the entity models and their relationships.
