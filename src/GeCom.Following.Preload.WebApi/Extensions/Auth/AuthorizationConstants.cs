@@ -1,4 +1,4 @@
-namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
+﻿namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 /// <summary>
 /// Constants for authorization roles.
@@ -23,22 +23,22 @@ public static class AuthorizationConstants
         /// <summary>
         /// Administrator role with full access to all module options.
         /// </summary>
-        public const string Administrator = "Following.Administrator";
+        public const string FollowingAdministrator = "Following.Administrator";
 
         /// <summary>
-        /// Read-only role with access to view documents from all societies.
+        /// Read-only role with access to view documents from all societies and providers.
         /// </summary>
-        public const string PreloadReadOnly = "Following.Preload.ReadOnly";
+        public const string FollowingPreloadReadOnly = "Following.Preload.ReadOnly";
 
         /// <summary>
-        /// Role with CRUD access to all documents from all societies.
+        /// Role with CRUD access to all documents from selected societies and their providers.
         /// </summary>
-        public const string PreloadAllSocieties = "Following.Preload.AllSocieties";
+        public const string FollowingPreloadSocieties = "Following.Preload.Societies";
 
         /// <summary>
-        /// Role with CRUD access to documents from a single society (identified by CUIT claim).
+        /// Role with CRUD access to documents from a single provider (identified by CUIT claim).
         /// </summary>
-        public const string PreloadSingleSociety = "Following.Preload.SingleSociety";
+        public const string FollowingPreloadProviders = "Following.Preload.Providers";
     }
 
     /// <summary>
