@@ -28,7 +28,7 @@
                             <button class="accordion-button" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#collapseOne" aria-expanded="true"
                                     aria-controls="collapseOne">
-                                Filtrar por fecha de emisión y proveedor
+                                Filtrar por fecha de emisión
                             </button>
                         </h4>
                         <div id="collapseOne" class="accordion-collapse collapse show"
@@ -65,30 +65,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3">
-                                        <div>
-                                            <label class="form-label mb-0">Proveedor</label>
-                                            <BlazoredTypeahead TItem="ProviderResponse"
-                                                               TValue="ProviderResponse"
-                                                               Value="@SelectedProvider"
-                                                               ValueChanged="OnProviderSelectedAsync"
-                                                               ValueExpression="() => SelectedProvider"
-                                                               SearchMethod="SearchProvidersAsync"
-                                                               TextSelector="@_textSelectorExprr"
-                                                               Placeholder="Ingrese razón social o CUIT"
-                                                               MinimumLength="3"
-                                                               Debounce="300">
-                                                <SelectedTemplate Context="selected">
-                                                    @($"{selected.Cuit} -- {selected.RazonSocial}")
-                                                </SelectedTemplate>
-                                                <ResultTemplate Context="result">
-                                                    @($"{result.Cuit} -- {result.RazonSocial}")
-                                                </ResultTemplate>
-                                            </BlazoredTypeahead>
-                                        </div>
-                                    </div>
                                     <div class="col-lg-2">
-                                        <button class="btn btn-primary w-100" @onclick="SearchDocuments">Buscar</button>
+                                        <button class="btn btn-primary" @onclick="SearchDocuments">Buscar</button>
                                     </div>
                                 </div>
                             </div>

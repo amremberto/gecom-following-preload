@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Linq.Expressions;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
@@ -19,6 +18,8 @@ public partial class Documents : IAsyncDisposable
     private IEnumerable<DocumentResponse> _documents = [];
     private IEnumerable<DocumentResponse> _pendingsDocuments = [];
     private bool _hasAllSocietiesRole;
+    private bool _isProvider;
+    private string? _providerCuit;
 
     private IJSObjectReference? _documentsModule;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -35,7 +36,7 @@ public partial class Documents : IAsyncDisposable
     /// This method is called when the component is initialized.
     /// </summary>
     /// <returns></returns>
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
         try
         {
@@ -46,16 +47,22 @@ public partial class Documents : IAsyncDisposable
             // Set the initial date range
             _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
             _dateTo = DateOnly.FromDateTime(DateTime.Today);
+
+            // Note: CheckIfProviderAndGetCuitAsync is called in OnAfterRenderAsync
+            // because it uses JavaScript interop which is not available during pre-rendering
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar la página:", ex.Message);
+            // Log error without JavaScript interop (will be logged in OnAfterRenderAsync if needed)
+            System.Diagnostics.Debug.WriteLine($"Error al inicializar la página: {ex.Message}");
         }
         finally
         {
             _isLoading = false;
             StateHasChanged();
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -69,6 +76,14 @@ public partial class Documents : IAsyncDisposable
         {
             if (firstRender)
             {
+                // Ensure _isLoading is false after initial render
+                _isLoading = false;
+
+                // Check if user is a provider and get their CUIT
+                // This must be done here, not in OnInitializedAsync, because it uses JavaScript interop
+                // which is not available during pre-rendering
+                await CheckIfProviderAndGetCuitAsync();
+
                 // Check if user has AllSocieties role (must be done here, not in OnInitializedAsync
                 // because JavaScript interop is not available during pre-rendering)
                 _hasAllSocietiesRole = await HasAllSocietiesRoleAsync();
@@ -76,8 +91,35 @@ public partial class Documents : IAsyncDisposable
 
                 _documentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
                 await InvokeAsync(StateHasChanged); // Fuerza renderizado
-                await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
-                await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+
+                // If user is a provider, automatically load documents
+                if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+                {
+                    try
+                    {
+                        _isDataTableLoading = true;
+                        StateHasChanged();
+
+                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
+                        await GetDocuments();
+                        await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
+
+                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                        await GetPendingsDocuments();
+                        await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+                    }
+                    finally
+                    {
+                        _isDataTableLoading = false;
+                        StateHasChanged();
+                    }
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+                }
+
                 await JsRuntime.InvokeVoidAsync("loadThemeConfig");
                 await JsRuntime.InvokeVoidAsync("loadApps");
                 await InitializeDatePickers();
@@ -85,7 +127,11 @@ public partial class Documents : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error en Dashboard.OnAfterRenderAsync:", ex.Message);
+            // Ensure loading states are reset on error
+            _isLoading = false;
+            _isDataTableLoading = false;
+            await JsRuntime.InvokeVoidAsync("console.error", "Error en Documents.OnAfterRenderAsync:", ex.Message);
+            StateHasChanged();
         }
     }
 
@@ -99,8 +145,26 @@ public partial class Documents : IAsyncDisposable
         {
             StateHasChanged();
 
+            string providerCuit;
+            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            {
+                // If user is a provider, use their CUIT from the claim
+                providerCuit = _providerCuit;
+            }
+            else if (SelectedProvider is not null)
+            {
+                // If provider is selected manually, use it
+                providerCuit = SelectedProvider.Cuit;
+            }
+            else
+            {
+                await ShowToast("El proveedor es requerido.");
+                _documents = [];
+                return;
+            }
+
             IEnumerable<DocumentResponse>? response =
-                await DocumentService.GetByDatesAndProviderAsync(_dateFrom, _dateTo, SelectedProvider!.Cuit, cancellationToken: default);
+                await DocumentService.GetByDatesAndProviderAsync(_dateFrom, _dateTo, providerCuit, cancellationToken: default);
 
             _documents = response ?? [];
         }
@@ -178,8 +242,8 @@ public partial class Documents : IAsyncDisposable
                 return;
             }
 
-            // Check if the provider is selected
-            if (SelectedProvider == null)
+            // Check if the provider is selected (only if user is not a provider)
+            if (!_isProvider && SelectedProvider == null)
             {
                 await ShowToast("El (proveedor) es requerido.");
                 return;
@@ -206,48 +270,6 @@ public partial class Documents : IAsyncDisposable
             StateHasChanged();
         }
     }
-
-    /// <summary>
-    /// Searches for providers based on the input text.
-    /// </summary>
-    /// <param name="searchText"></param>
-    /// <returns></returns>
-    private async Task<IEnumerable<ProviderResponse>> SearchProvidersAsync(string searchText)
-    {
-        if (string.IsNullOrWhiteSpace(searchText))
-        {
-            return [];
-        }
-
-        try
-        {
-            IEnumerable<ProviderResponse>? response = await ProviderService.SearchAsync(searchText, default);
-
-            return response ?? [];
-        }
-        catch (Exception)
-        {
-            return [];
-        }
-    }
-
-    /// <summary>
-    /// Handles the selection of a provider from the combo box.
-    /// </summary>
-    /// <param name="selected"></param>
-    /// <returns></returns>
-    private Task OnProviderSelectedAsync(ProviderResponse selected)
-    {
-        SelectedProvider = selected;
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Handles the date change event for the date pickers.
-    /// </summary>
-    private readonly Expression<Func<ProviderResponse, string>> _textSelectorExprr =
-        p => p.Cuit + " -- " + p.RazonSocial;
 
     /// <summary>
     /// Displays a toast message using JavaScript interop.
@@ -332,6 +354,60 @@ public partial class Documents : IAsyncDisposable
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al eliminar documento:", ex.Message);
             await ShowToast("Error al intentar eliminar el documento.");
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current user is a provider and gets their CUIT from the claim.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CheckIfProviderAndGetCuitAsync()
+    {
+        try
+        {
+            AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal? user = authState.User;
+
+            if (user is null)
+            {
+                _isProvider = false;
+                _providerCuit = null;
+                return;
+            }
+
+            // Check if user has the provider role
+            bool hasProviderRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadProviders);
+
+            if (hasProviderRole)
+            {
+                _isProvider = true;
+
+                // Get CUIT from claim
+                Claim? cuitClaim = user.FindFirst(AuthorizationConstants.SocietyCuitClaimType);
+                if (cuitClaim is not null && !string.IsNullOrWhiteSpace(cuitClaim.Value))
+                {
+                    _providerCuit = cuitClaim.Value;
+                    await JsRuntime.InvokeVoidAsync("console.log", $"[CheckIfProviderAndGetCuitAsync] User is a provider with CUIT: {_providerCuit}");
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("console.warn", "[CheckIfProviderAndGetCuitAsync] User has provider role but no CUIT claim found");
+                    _providerCuit = null;
+                }
+            }
+            else
+            {
+                _isProvider = false;
+                _providerCuit = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"[CheckIfProviderAndGetCuitAsync] Error: {ex.Message}");
+            _isProvider = false;
+            _providerCuit = null;
         }
     }
 

@@ -17,7 +17,7 @@ public static class AuthorizationExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         // Register the custom authorization handler for SingleSociety role validation
-        services.AddSingleton<IAuthorizationHandler, SingleSocietyHandler>();
+        services.AddSingleton<IAuthorizationHandler, ProviderHandler>();
 
         AuthorizationBuilder authorizationBuilder = services.AddAuthorizationBuilder();
 
@@ -50,7 +50,7 @@ public static class AuthorizationExtensions
                     AuthorizationConstants.Roles.FollowingPreloadReadOnly,
                     AuthorizationConstants.Roles.FollowingPreloadSocieties,
                     AuthorizationConstants.Roles.FollowingPreloadProviders)
-                .AddRequirements(new SingleSocietyRequirement()));
+                .AddRequirements(new ProviderRequirement()));
 
         // Policy: Require preload write access
         // Allows: Administrator, AllSocieties, SingleSociety
@@ -62,7 +62,7 @@ public static class AuthorizationExtensions
                     AuthorizationConstants.Roles.FollowingAdministrator,
                     AuthorizationConstants.Roles.FollowingPreloadSocieties,
                     AuthorizationConstants.Roles.FollowingPreloadProviders)
-                .AddRequirements(new SingleSocietyRequirement()));
+                .AddRequirements(new ProviderRequirement()));
 
         return services;
     }

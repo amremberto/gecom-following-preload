@@ -7,12 +7,12 @@ namespace GeCom.Following.Preload.WebApp.Extensions.Auth;
 /// Authorization handler for SingleSocietyRequirement.
 /// Validates that users with SingleSociety role have the CUIT claim.
 /// </summary>
-public sealed class SingleSocietyHandler : AuthorizationHandler<SingleSocietyRequirement>
+public sealed class ProviderHandler : AuthorizationHandler<ProviderRequirement>
 {
     /// <inheritdoc />
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
-        SingleSocietyRequirement requirement)
+        ProviderRequirement requirement)
     {
         if (context.User is null)
         {
