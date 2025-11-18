@@ -184,6 +184,9 @@ public static class AuthenticationExtensions
                                     roleValues.Add(roleClaim.Value);
                                 }
                             }
+
+                            // 2.3. Extraer claim following.society.cuit desde el access_token
+                            ExtractCuitClaimFromAccessToken(accessToken, identity);
                         }
 
                         // 2.3. Limpiar y volver a crear claims de rol de forma consistente
@@ -319,6 +322,26 @@ public static class AuthenticationExtensions
                                     if (!identity.HasClaim(ClaimTypes.Role, roleClaim.Value))
                                     {
                                         identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
+                                    }
+                                }
+
+                                // Ensure following.society.cuit claim is present if it exists in UserInfo
+                                Claim? cuitClaim = identity.FindFirst(AuthorizationConstants.SocietyCuitClaimType);
+                                if (cuitClaim is not null && !string.IsNullOrWhiteSpace(cuitClaim.Value))
+                                {
+                                    // Ensure it's added even if it was already there (to guarantee it's in the cookie)
+                                    if (!identity.HasClaim(AuthorizationConstants.SocietyCuitClaimType, cuitClaim.Value))
+                                    {
+                                        identity.AddClaim(new Claim(AuthorizationConstants.SocietyCuitClaimType, cuitClaim.Value));
+                                    }
+                                }
+                                else
+                                {
+                                    // Try to extract from access_token as fallback
+                                    string? accessToken = context.Properties?.GetTokenValue("access_token");
+                                    if (!string.IsNullOrWhiteSpace(accessToken))
+                                    {
+                                        ExtractCuitClaimFromAccessToken(accessToken, identity);
                                     }
                                 }
 
@@ -570,5 +593,65 @@ public static class AuthenticationExtensions
         }
 
         return rolesAdded;
+    }
+
+    /// <summary>
+    /// Extracts the following.society.cuit claim from the access_token JWT and adds it to the ClaimsIdentity.
+    /// </summary>
+    /// <param name="accessToken">The access token JWT string.</param>
+    /// <param name="identity">The ClaimsIdentity to add the CUIT claim to.</param>
+    private static void ExtractCuitClaimFromAccessToken(string accessToken, ClaimsIdentity identity)
+    {
+        try
+        {
+            // JWT format: header.payload.signature
+            string[] parts = accessToken.Split('.');
+            if (parts.Length < 2)
+            {
+                return;
+            }
+
+            // Decode the payload (second part)
+            string payloadBase64 = parts[1];
+
+            // Add padding if necessary (Base64URL encoding may omit padding)
+            switch (payloadBase64.Length % 4)
+            {
+                case 2:
+                    payloadBase64 += "==";
+                    break;
+                case 3:
+                    payloadBase64 += "=";
+                    break;
+            }
+
+            // Replace Base64URL characters with Base64 characters
+            payloadBase64 = payloadBase64.Replace('-', '+').Replace('_', '/');
+
+            // Decode from Base64
+            byte[] payloadBytes = Convert.FromBase64String(payloadBase64);
+            string payloadJson = Encoding.UTF8.GetString(payloadBytes);
+
+            // Parse JSON
+            using var doc = JsonDocument.Parse(payloadJson);
+            JsonElement root = doc.RootElement;
+
+            // Extract following.society.cuit claim
+            if (root.TryGetProperty(AuthorizationConstants.SocietyCuitClaimType, out JsonElement cuitElement))
+            {
+                string? cuitValue = cuitElement.GetString();
+                // Add the claim if it doesn't already exist
+                if (!string.IsNullOrWhiteSpace(cuitValue) &&
+                    !identity.HasClaim(AuthorizationConstants.SocietyCuitClaimType, cuitValue))
+                {
+                    identity.AddClaim(new Claim(AuthorizationConstants.SocietyCuitClaimType, cuitValue));
+                    System.Diagnostics.Debug.WriteLine($"ExtractCuitClaimFromAccessToken: Added CUIT claim: {cuitValue}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error extracting CUIT claim from access_token: {ex.Message}");
+        }
     }
 }

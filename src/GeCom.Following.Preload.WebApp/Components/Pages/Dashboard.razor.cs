@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
+using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -123,6 +124,26 @@ public partial class Dashboard : IAsyncDisposable
                         {
                             rolesSet.Add(role);
                         }
+
+                        // Extract CUIT claim from access_token if not already in claims
+                        string? cuitFromToken = ExtractCuitFromAccessToken(_accessToken);
+                        if (!string.IsNullOrWhiteSpace(cuitFromToken))
+                        {
+                            // Check if CUIT claim already exists
+                            bool cuitExists = _userClaims.Any(c => 
+                                c.Type == AuthorizationConstants.SocietyCuitClaimType && 
+                                c.Value == cuitFromToken);
+                            
+                            if (!cuitExists)
+                            {
+                                _userClaims.Add(new ClaimInfo
+                                {
+                                    Type = AuthorizationConstants.SocietyCuitClaimType,
+                                    Value = cuitFromToken,
+                                    Issuer = "access_token"
+                                });
+                            }
+                        }
                     }
                 }
 
@@ -147,6 +168,18 @@ public partial class Dashboard : IAsyncDisposable
                     if (!string.IsNullOrWhiteSpace(_accessToken))
                     {
                         _userRoles = ExtractRolesFromAccessToken(_accessToken);
+
+                        // Extract CUIT claim from access_token
+                        string? cuitFromToken = ExtractCuitFromAccessToken(_accessToken);
+                        if (!string.IsNullOrWhiteSpace(cuitFromToken))
+                        {
+                            _userClaims.Add(new ClaimInfo
+                            {
+                                Type = AuthorizationConstants.SocietyCuitClaimType,
+                                Value = cuitFromToken,
+                                Issuer = "access_token"
+                            });
+                        }
                     }
                 }
             }
@@ -242,6 +275,66 @@ public partial class Dashboard : IAsyncDisposable
         }
 
         return roles;
+    }
+
+    /// <summary>
+    /// Extracts the following.society.cuit claim from the access_token JWT.
+    /// </summary>
+    /// <param name="accessToken">The access token JWT string.</param>
+    /// <returns>The CUIT value if found, otherwise null.</returns>
+    private static string? ExtractCuitFromAccessToken(string accessToken)
+    {
+        try
+        {
+            // JWT format: header.payload.signature
+            string[] parts = accessToken.Split('.');
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+
+            // Decode the payload (second part)
+            string payloadBase64 = parts[1];
+
+            // Add padding if necessary (Base64URL encoding may omit padding)
+            switch (payloadBase64.Length % 4)
+            {
+                case 2:
+                    payloadBase64 += "==";
+                    break;
+                case 3:
+                    payloadBase64 += "=";
+                    break;
+            }
+
+            // Replace Base64URL characters with Base64 characters
+            payloadBase64 = payloadBase64.Replace('-', '+').Replace('_', '/');
+
+            // Decode from Base64
+            byte[] payloadBytes = Convert.FromBase64String(payloadBase64);
+            string payloadJson = Encoding.UTF8.GetString(payloadBytes);
+
+            // Parse JSON
+            using var doc = JsonDocument.Parse(payloadJson);
+            JsonElement root = doc.RootElement;
+
+            // Extract following.society.cuit claim
+            if (root.TryGetProperty(AuthorizationConstants.SocietyCuitClaimType, out JsonElement cuitElement))
+            {
+                string? cuitValue = cuitElement.GetString();
+                if (!string.IsNullOrWhiteSpace(cuitValue))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Found CUIT in access_token: {cuitValue}");
+                    return cuitValue;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error extracting CUIT from access_token: {ex.Message}");
+        }
+
+        return null;
     }
 
     /// <summary>
