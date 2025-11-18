@@ -168,7 +168,7 @@
                             }
                         }
                         
-                        // If still no name found, try Identity.Name (which should be set by AuthenticationExtensions)
+                        // If still no name found, try Identity.Name
                         if (string.IsNullOrWhiteSpace(userName))
                         {
                             userName = authContext.User.Identity?.Name;

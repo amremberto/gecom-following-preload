@@ -101,14 +101,7 @@ public static class AuthenticationExtensions
                     {
                         if (context.Principal?.Identity is not ClaimsIdentity identity)
                         {
-                            System.Diagnostics.Debug.WriteLine("OnTokenValidated: Principal o Identity nula");
                             return;
-                        }
-
-                        System.Diagnostics.Debug.WriteLine("=== OnTokenValidated: Claims iniciales ===");
-                        foreach (Claim claim in identity.Claims)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}, Issuer: {claim.Issuer}");
                         }
 
                         // 1) Normalizar NAME
@@ -121,7 +114,6 @@ public static class AuthenticationExtensions
                         if (string.IsNullOrWhiteSpace(name))
                         {
                             name = "Usuario";
-                            System.Diagnostics.Debug.WriteLine("OnTokenValidated: usando 'Usuario' como fallback de nombre");
                         }
 
                         // Garantizar "name"
@@ -149,8 +141,6 @@ public static class AuthenticationExtensions
                         }
 
                         // 2) Normalizar ROLES
-                        System.Diagnostics.Debug.WriteLine("=== OnTokenValidated: Normalizando roles ===");
-
                         var roleValues = new HashSet<string>(StringComparer.Ordinal);
 
                         // 2.1. Recoger roles ya presentes en la identidad (cualquier tipo de role conocido)
@@ -166,8 +156,6 @@ public static class AuthenticationExtensions
                             }
                         }
 
-                        System.Diagnostics.Debug.WriteLine($"OnTokenValidated: roles encontrados en claims iniciales: {string.Join(", ", roleValues)}");
-
                         // 2.2. Extraer roles desde el access_token
                         string? accessToken =
                             context.Properties?.GetTokenValue("access_token")
@@ -175,9 +163,6 @@ public static class AuthenticationExtensions
 
                         if (!string.IsNullOrWhiteSpace(accessToken))
                         {
-                            System.Diagnostics.Debug.WriteLine("OnTokenValidated: extrayendo roles desde access_token");
-
-                            // Reutilizamos tu helper que ya añade 'role' y ClaimTypes.Role a la identity
                             int rolesAddedFromToken = ExtractRolesFromAccessToken(accessToken, identity);
                             System.Diagnostics.Debug.WriteLine($"OnTokenValidated: roles añadidos desde access_token: {rolesAddedFromToken}");
 
@@ -200,10 +185,6 @@ public static class AuthenticationExtensions
                                 }
                             }
                         }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine("OnTokenValidated: access_token no disponible en Properties ni TokenEndpointResponse");
-                        }
 
                         // 2.3. Limpiar y volver a crear claims de rol de forma consistente
                         var claimsToRemove = identity.Claims
@@ -219,13 +200,6 @@ public static class AuthenticationExtensions
                         {
                             identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, role));
                             identity.AddClaim(new Claim(ClaimTypes.Role, role));
-                            System.Diagnostics.Debug.WriteLine($"OnTokenValidated: rol normalizado añadido => {role}");
-                        }
-
-                        System.Diagnostics.Debug.WriteLine("=== OnTokenValidated: Claims finales antes de crear nuevo principal ===");
-                        foreach (Claim claim in identity.Claims)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
                         }
 
                         // 3) Reconstruir Principal con NameClaimType y RoleClaimType correctos
@@ -237,12 +211,6 @@ public static class AuthenticationExtensions
 
                         var newPrincipal = new ClaimsPrincipal(newIdentity);
                         context.Principal = newPrincipal;
-
-                        System.Diagnostics.Debug.WriteLine("=== OnTokenValidated: Claims en Principal final ===");
-                        foreach (Claim claim in newPrincipal.Claims)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"FINAL Claim Type: {claim.Type}, Value: {claim.Value}");
-                        }
 
                         await Task.CompletedTask;
                     },
@@ -256,23 +224,11 @@ public static class AuthenticationExtensions
                             var identity = context.Principal.Identity as ClaimsIdentity;
                             if (identity is not null)
                             {
-                                // Log all claims after UserInfo endpoint call
-                                System.Diagnostics.Debug.WriteLine("=== Claims after UserInfo Endpoint ===");
-                                foreach (Claim claim in identity.Claims)
-                                {
-                                    System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}, Issuer: {claim.Issuer}");
-                                }
-                                System.Diagnostics.Debug.WriteLine("=== End Claims ===");
-
-                                // Now try to map the name again with the new claims from UserInfo
-                                // Use the same priority logic as OnTokenValidated
-
-                                // First, try to find the "name" claim from OpenIdConnect (IdentityServer)
+                                // Map the name again with the new claims from UserInfo
                                 string? userName = null;
                                 Claim[] allNameClaims = [.. identity.FindAll("name")];
 
                                 // Prioritize name claim from OpenIdConnect issuer
-                                // The issuer from IdentityServer is typically "OpenIdConnect" or the Authority URL
                                 Claim? openIdConnectNameClaim = allNameClaims.FirstOrDefault(c =>
                                     c.Issuer.Contains("OpenIdConnect", StringComparison.OrdinalIgnoreCase) ||
                                     c.Issuer.Contains("localhost:7100", StringComparison.OrdinalIgnoreCase) ||
@@ -284,7 +240,6 @@ public static class AuthenticationExtensions
                                 if (openIdConnectNameClaim is not null && !string.IsNullOrWhiteSpace(openIdConnectNameClaim.Value))
                                 {
                                     userName = openIdConnectNameClaim.Value;
-                                    System.Diagnostics.Debug.WriteLine($"Found name claim from OpenIdConnect (UserInfo): {userName}");
                                 }
 
                                 // If no name from OpenIdConnect, try preferred_username
@@ -294,7 +249,6 @@ public static class AuthenticationExtensions
                                     if (preferredUsernameClaim is not null && !string.IsNullOrWhiteSpace(preferredUsernameClaim.Value))
                                     {
                                         userName = preferredUsernameClaim.Value;
-                                        System.Diagnostics.Debug.WriteLine($"Found preferred_username claim from UserInfo: {userName}");
                                     }
                                 }
 
@@ -306,24 +260,20 @@ public static class AuthenticationExtensions
                                     if (!string.IsNullOrWhiteSpace(givenName) || !string.IsNullOrWhiteSpace(familyName))
                                     {
                                         userName = $"{givenName} {familyName}".Trim();
-                                        System.Diagnostics.Debug.WriteLine($"Combined name from UserInfo: {userName}");
                                     }
                                 }
 
                                 // If we found a name, ensure it's set as the "name" and ClaimTypes.Name claims
-                                // But only if we don't already have a valid name from OpenIdConnect
                                 if (!string.IsNullOrWhiteSpace(userName))
                                 {
                                     // Remove existing "name" claims that are NOT from OpenIdConnect (fallbacks)
                                     Claim[] existingNameClaims = [.. identity.FindAll("name")];
                                     foreach (Claim existingClaim in existingNameClaims)
                                     {
-                                        // Only remove fallback claims, keep OpenIdConnect claims
                                         if (existingClaim.Issuer.Contains("LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase) ||
                                             existingClaim.Value.StartsWith("Usuario ", StringComparison.OrdinalIgnoreCase))
                                         {
                                             identity.RemoveClaim(existingClaim);
-                                            System.Diagnostics.Debug.WriteLine($"Removed fallback name claim from UserInfo: {existingClaim.Value}");
                                         }
                                     }
 
@@ -331,7 +281,6 @@ public static class AuthenticationExtensions
                                     if (openIdConnectNameClaim is null || openIdConnectNameClaim.Value != userName)
                                     {
                                         identity.AddClaim(new Claim("name", userName));
-                                        System.Diagnostics.Debug.WriteLine($"Added 'name' claim from UserInfo: {userName}");
                                     }
 
                                     // Always ensure ClaimTypes.Name is set for Blazor compatibility
@@ -341,12 +290,9 @@ public static class AuthenticationExtensions
                                         identity.RemoveClaim(existingClaim);
                                     }
                                     identity.AddClaim(new Claim(ClaimTypes.Name, userName));
-                                    System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Name claim from UserInfo: {userName}");
                                 }
 
                                 // Map roles from UserInfo endpoint
-                                // IdentityServer may send roles in different claim types
-                                System.Diagnostics.Debug.WriteLine("=== Mapping roles from UserInfo endpoint ===");
                                 string[] roleClaimTypes =
                                 [
                                     "role",
@@ -354,27 +300,17 @@ public static class AuthenticationExtensions
                                     ClaimTypes.Role
                                 ];
 
-                                int rolesAdded = 0;
                                 foreach (string roleClaimType in roleClaimTypes)
                                 {
                                     Claim[] roleClaims = [.. identity.FindAll(roleClaimType)];
-                                    System.Diagnostics.Debug.WriteLine($"Found {roleClaims.Length} claims of type '{roleClaimType}'");
                                     foreach (Claim roleClaim in roleClaims)
                                     {
-                                        System.Diagnostics.Debug.WriteLine($"  - Role claim: Type={roleClaim.Type}, Value={roleClaim.Value}, Issuer={roleClaim.Issuer}");
                                         if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleClaim.Value))
                                         {
                                             identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleClaim.Value));
-                                            System.Diagnostics.Debug.WriteLine($"Added 'role' claim from UserInfo: {roleClaim.Value}");
-                                            rolesAdded++;
-                                        }
-                                        else
-                                        {
-                                            System.Diagnostics.Debug.WriteLine($"Role claim '{roleClaim.Value}' already exists, skipping");
                                         }
                                     }
                                 }
-                                System.Diagnostics.Debug.WriteLine($"=== Total roles added from UserInfo: {rolesAdded} ===");
 
                                 // Ensure roles are also added as ClaimTypes.Role for IsInRole() to work
                                 Claim[] allRoleClaimsFromUserInfo = [.. identity.FindAll(AuthorizationConstants.RoleClaimType)];
@@ -383,13 +319,10 @@ public static class AuthenticationExtensions
                                     if (!identity.HasClaim(ClaimTypes.Role, roleClaim.Value))
                                     {
                                         identity.AddClaim(new Claim(ClaimTypes.Role, roleClaim.Value));
-                                        System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Role claim from UserInfo: {roleClaim.Value}");
                                     }
                                 }
 
-                                // CRITICAL: Replace the Principal to ensure all claims are saved to the cookie
-                                // When we modify the identity, we need to create a new Principal so the changes persist
-                                // Use AuthorizationConstants.RoleClaimType as the role claim type for the new identity
+                                // Replace the Principal to ensure all claims are saved to the cookie
                                 var newIdentityFromUserInfo = new ClaimsIdentity(
                                     identity.Claims,
                                     identity.AuthenticationType,
@@ -397,46 +330,21 @@ public static class AuthenticationExtensions
                                     AuthorizationConstants.RoleClaimType);
                                 var newPrincipalFromUserInfo = new ClaimsPrincipal(newIdentityFromUserInfo);
                                 context.Principal = newPrincipalFromUserInfo;
-
-                                System.Diagnostics.Debug.WriteLine("=== Final Claims in Principal after UserInfo (before saving to cookie) ===");
-                                foreach (Claim claim in newPrincipalFromUserInfo.Claims)
-                                {
-                                    System.Diagnostics.Debug.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
-                                }
-                                System.Diagnostics.Debug.WriteLine("=== End Final Claims ===");
                             }
                         }
                         return Task.CompletedTask;
                     },
-                    OnAuthenticationFailed = context =>
-                    {
-                        // Log the error for debugging
-                        Exception? exception = context.Exception;
-                        if (exception is not null)
-                        {
-                            // Log the error (you can use ILogger here if needed)
-                            System.Diagnostics.Debug.WriteLine($"Authentication failed: {exception.Message}");
-                        }
-
-                        // If authentication fails, don't handle the response automatically
-                        // Let the middleware handle it or redirect to error page
-                        return Task.CompletedTask;
-                    },
+                    OnAuthenticationFailed = context
+                        => Task.CompletedTask,
                     OnRemoteFailure = context =>
                     {
                         // Handle remote failures (e.g., invalid_client, invalid_grant, etc.)
                         Exception? exception = context.Failure;
-                        if (exception is not null)
+                        if (exception is not null && exception.Message.Contains("invalid_client", StringComparison.OrdinalIgnoreCase))
                         {
-                            System.Diagnostics.Debug.WriteLine($"Remote authentication failure: {exception.Message}");
-
-                            // If it's an invalid_client error, it means the client is not configured in IdentityServer
-                            if (exception.Message.Contains("invalid_client", StringComparison.OrdinalIgnoreCase))
-                            {
-                                context.HandleResponse();
-                                context.Response.Redirect("/unauthorized?error=invalid_client");
-                                return Task.CompletedTask;
-                            }
+                            context.HandleResponse();
+                            context.Response.Redirect("/unauthorized?error=invalid_client");
+                            return Task.CompletedTask;
                         }
 
                         context.HandleResponse();
@@ -581,7 +489,6 @@ public static class AuthenticationExtensions
             string[] parts = accessToken.Split('.');
             if (parts.Length < 2)
             {
-                System.Diagnostics.Debug.WriteLine("Invalid JWT format: access_token does not have the expected structure");
                 return 0;
             }
 
@@ -606,8 +513,6 @@ public static class AuthenticationExtensions
             byte[] payloadBytes = Convert.FromBase64String(payloadBase64);
             string payloadJson = Encoding.UTF8.GetString(payloadBytes);
 
-            System.Diagnostics.Debug.WriteLine($"Access token payload: {payloadJson}");
-
             // Parse JSON
             using var doc = JsonDocument.Parse(payloadJson);
             JsonElement root = doc.RootElement;
@@ -628,7 +533,6 @@ public static class AuthenticationExtensions
                             if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleValue))
                             {
                                 identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleValue));
-                                System.Diagnostics.Debug.WriteLine($"Added 'role' claim from access_token: {roleValue}");
                                 rolesAdded++;
                             }
 
@@ -636,7 +540,6 @@ public static class AuthenticationExtensions
                             if (!identity.HasClaim(ClaimTypes.Role, roleValue))
                             {
                                 identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
-                                System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Role claim from access_token: {roleValue}");
                             }
                         }
                     }
@@ -650,30 +553,20 @@ public static class AuthenticationExtensions
                         if (!identity.HasClaim(AuthorizationConstants.RoleClaimType, roleValue))
                         {
                             identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleValue));
-                            System.Diagnostics.Debug.WriteLine($"Added 'role' claim from access_token: {roleValue}");
                             rolesAdded++;
-                        }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Role claim '{roleValue}' already exists, skipping");
                         }
 
                         if (!identity.HasClaim(ClaimTypes.Role, roleValue))
                         {
                             identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
-                            System.Diagnostics.Debug.WriteLine($"Added ClaimTypes.Role claim from access_token: {roleValue}");
                         }
                     }
                 }
             }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("No 'role' claim found in access_token payload");
-            }
         }
-        catch (Exception ex)
+        catch
         {
-            System.Diagnostics.Debug.WriteLine($"Error extracting roles from access_token: {ex.Message}");
+            // Error extracting roles from access token, return 0
         }
 
         return rolesAdded;
