@@ -20,7 +20,10 @@ internal sealed class GetDocumentsByEmissionDatesAndProviderValidator
             .GreaterThanOrEqualTo(x => x.DateFrom)
             .WithMessage("DateTo must be greater than or equal to DateFrom.");
 
-        // ProviderCuit is optional, so no validation needed
-        // If provided, it should not be empty (handled by the repository logic)
+        RuleFor(x => x.ProviderCuit)
+            .NotEmpty()
+            .WithMessage("Provider CUIT is required.")
+            .NotNull()
+            .WithMessage("Provider CUIT cannot be null.");
     }
 }

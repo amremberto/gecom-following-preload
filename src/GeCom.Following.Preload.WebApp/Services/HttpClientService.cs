@@ -1,5 +1,4 @@
-using System.Net;
-using System.Net.Http.Headers;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -104,8 +103,12 @@ internal sealed class HttpClientService : IHttpClientService
                 return null;
             }
 
-            // Ensure the response is successful before attempting to deserialize
-            response.EnsureSuccessStatusCode();
+            // Handle BadRequest and other client errors by extracting ProblemDetails message
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorMessage = await ExtractErrorMessageAsync(response, cancellationToken);
+                throw new ApiRequestException(response.StatusCode, errorMessage);
+            }
 
             // Deserialize directly from the response content
             TResponse? result = await response.Content.ReadFromJsonAsync<TResponse>(
@@ -118,6 +121,79 @@ internal sealed class HttpClientService : IHttpClientService
         {
             // Ensure response is disposed even if an exception occurs
             response.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Extracts the error message from the response body, attempting to deserialize ProblemDetails.
+    /// </summary>
+    private static async Task<string> ExtractErrorMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            string content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return $"The request failed with status code {(int)response.StatusCode} ({response.StatusCode}).";
+            }
+
+            // Try to parse as JSON
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                JsonElement root = doc.RootElement;
+
+                // Check if it's a ProblemDetails response
+                if (root.TryGetProperty("detail", out JsonElement detailElement))
+                {
+                    string? detail = detailElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(detail))
+                    {
+                        return detail;
+                    }
+                }
+
+                // Fallback to title if detail is not available
+                if (root.TryGetProperty("title", out JsonElement titleElement))
+                {
+                    string? title = titleElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(title))
+                    {
+                        return title;
+                    }
+                }
+
+                // If it's a simple string response (like our BadRequest messages)
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    string? stringValue = root.GetString();
+                    if (!string.IsNullOrWhiteSpace(stringValue))
+                    {
+                        return stringValue;
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // If it's not valid JSON, it might be a plain string
+                // Remove surrounding quotes if present
+                content = content.Trim().Trim('"');
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    return content;
+                }
+            }
+
+            // Last resort: return generic message
+            return $"The request failed with status code {(int)response.StatusCode} ({response.StatusCode}).";
+        }
+        catch
+        {
+            // If we can't parse the error, return a generic message
+            return $"The request failed with status code {(int)response.StatusCode} ({response.StatusCode}).";
         }
     }
 }

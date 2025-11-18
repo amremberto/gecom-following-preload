@@ -9,6 +9,7 @@ using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
 using NSwag.Annotations;
+using System.Security.Claims;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 
@@ -47,15 +48,15 @@ public sealed class DocumentsController : VersionedApiController
     }
 
     /// <summary>
-    /// Gets documents by emission date range and optionally by provider CUIT.
+    /// Gets documents by emission date range and provider CUIT.
     /// </summary>
     /// <param name="dateFrom">Start emission date.</param>
     /// <param name="dateTo">End emission date.</param>
-    /// <param name="providerCuit">Provider CUIT (optional). If not provided, returns documents from all providers.</param>
+    /// <param name="providerCuit">Provider CUIT (required). Must match the CUIT in the user's claim.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A list of documents matching the criteria.</returns>
     /// <response code="200">Returns the list of documents.</response>
-    /// <response code="400">If the request parameters are invalid.</response>
+    /// <response code="400">If the request parameters are invalid or the provider CUIT does not match the claim.</response>
     /// <response code="401">If the user is not authenticated.</response>
     /// <response code="403">If the user does not have the required permissions.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
@@ -66,13 +67,34 @@ public sealed class DocumentsController : VersionedApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [OpenApiOperation("GetDocumentsByDatesAndProvider", "Gets documents by emission date range and optionally by provider CUIT.")]
+    [OpenApiOperation("GetDocumentsByDatesAndProvider", "Gets documents by emission date range and provider CUIT.")]
     public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetByDatesAndProviderAsync(
         [FromQuery] DateOnly dateFrom,
         [FromQuery] DateOnly dateTo,
-        [FromQuery] string? providerCuit,
+        [FromQuery] string providerCuit,
         CancellationToken cancellationToken)
     {
+        // Validate that providerCuit is provided
+        if (string.IsNullOrWhiteSpace(providerCuit))
+        {
+            return BadRequest("Provider CUIT is required.");
+        }
+
+        // Get CUIT from claim
+        Claim? cuitClaim = User.FindFirst(AuthorizationConstants.SocietyCuitClaimType);
+        if (cuitClaim is null)
+        {
+            return BadRequest("CUIT claim not found in the authentication token.");
+        }
+
+        string claimCuit = cuitClaim.Value;
+
+        // Validate that providerCuit matches the CUIT in the claim
+        if (!string.Equals(providerCuit, claimCuit, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Provider CUIT does not match the CUIT in the authentication token.");
+        }
+
         GetDocumentsByEmissionDatesAndProviderQuery query = new(
             dateFrom,
             dateTo,

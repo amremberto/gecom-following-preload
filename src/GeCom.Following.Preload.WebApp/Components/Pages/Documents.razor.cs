@@ -104,9 +104,22 @@ public partial class Documents : IAsyncDisposable
 
             _documents = response ?? [];
         }
+        catch (Services.ApiRequestException httpEx)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", httpEx.Message);
+            await ShowToast(httpEx.Message);
+            _documents = [];
+        }
+        catch (UnauthorizedAccessException)
+        {
+            await ShowToast("No tiene autorización para realizar esta operación. Por favor, inicie sesión nuevamente.");
+            _documents = [];
+        }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
+            await ShowToast("Ocurrió un error al buscar los documentos. Por favor, intente nuevamente.");
+            _documents = [];
         }
         finally
         {

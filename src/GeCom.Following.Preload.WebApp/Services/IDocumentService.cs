@@ -15,17 +15,17 @@ public interface IDocumentService
     Task<IEnumerable<DocumentResponse>?> GetAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets documents by emission date range and optionally by provider CUIT from the API.
+    /// Gets documents by emission date range and provider CUIT from the API.
     /// </summary>
     /// <param name="dateFrom">Start emission date.</param>
     /// <param name="dateTo">End emission date.</param>
-    /// <param name="providerCuit">Provider CUIT (optional). If not provided, returns documents from all providers.</param>
+    /// <param name="providerCuit">Provider CUIT (required). Must match the CUIT in the user's claim.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of documents matching the criteria.</returns>
     Task<IEnumerable<DocumentResponse>?> GetByDatesAndProviderAsync(
         DateOnly dateFrom,
         DateOnly dateTo,
-        string? providerCuit = null,
+        string providerCuit,
         CancellationToken cancellationToken = default);
 }
 

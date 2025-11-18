@@ -44,18 +44,15 @@ internal sealed class DocumentService : IDocumentService
     public async Task<IEnumerable<DocumentResponse>?> GetByDatesAndProviderAsync(
         DateOnly dateFrom,
         DateOnly dateTo,
-        string? providerCuit = null,
+        string providerCuit,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(providerCuit);
+
         string apiVersion = _apiSettings.Version;
 
         // Build query string
-        string queryString = $"dateFrom={Uri.EscapeDataString(dateFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}&dateTo={Uri.EscapeDataString(dateTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}";
-
-        if (!string.IsNullOrWhiteSpace(providerCuit))
-        {
-            queryString += $"&providerCuit={Uri.EscapeDataString(providerCuit)}";
-        }
+        string queryString = $"dateFrom={Uri.EscapeDataString(dateFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}&dateTo={Uri.EscapeDataString(dateTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}&providerCuit={Uri.EscapeDataString(providerCuit)}";
 
         Uri requestUri = new($"/api/{apiVersion}/Documents/by-dates-and-provider?{queryString}", UriKind.Relative);
 
