@@ -20,9 +20,9 @@ public sealed class SingleSocietyHandler : AuthorizationHandler<SingleSocietyReq
         }
 
         // Check if user has SingleSociety role
-        bool hasSingleSocietyRole = context.User.IsInRole(AuthorizationConstants.Roles.FollowingPreloadSingleSociety) ||
-            context.User.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadSingleSociety) ||
-            context.User.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadSingleSociety);
+        bool hasSingleSocietyRole = context.User.IsInRole(AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+            context.User.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+            context.User.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadProviders);
 
         // If user has SingleSociety role, they must have the CUIT claim
         if (hasSingleSocietyRole)

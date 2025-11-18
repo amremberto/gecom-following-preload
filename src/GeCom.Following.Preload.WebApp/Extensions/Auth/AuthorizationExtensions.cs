@@ -48,8 +48,8 @@ public static class AuthorizationExtensions
                 .RequireRole(
                     AuthorizationConstants.Roles.FollowingAdministrator,
                     AuthorizationConstants.Roles.FollowingPreloadReadOnly,
-                    AuthorizationConstants.Roles.FollowingPreloadAllSocieties,
-                    AuthorizationConstants.Roles.FollowingPreloadSingleSociety)
+                    AuthorizationConstants.Roles.FollowingPreloadSocieties,
+                    AuthorizationConstants.Roles.FollowingPreloadProviders)
                 .AddRequirements(new SingleSocietyRequirement()));
 
         // Policy: Require preload write access
@@ -60,8 +60,8 @@ public static class AuthorizationExtensions
                 .RequireAuthenticatedUser()
                 .RequireRole(
                     AuthorizationConstants.Roles.FollowingAdministrator,
-                    AuthorizationConstants.Roles.FollowingPreloadAllSocieties,
-                    AuthorizationConstants.Roles.FollowingPreloadSingleSociety)
+                    AuthorizationConstants.Roles.FollowingPreloadSocieties,
+                    AuthorizationConstants.Roles.FollowingPreloadProviders)
                 .AddRequirements(new SingleSocietyRequirement()));
 
         return services;

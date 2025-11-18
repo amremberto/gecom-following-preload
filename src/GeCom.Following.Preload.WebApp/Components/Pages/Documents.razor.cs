@@ -342,7 +342,7 @@ public partial class Documents : IAsyncDisposable
         string[] targetRoles =
         [
             AuthorizationConstants.Roles.FollowingAdministrator,
-            AuthorizationConstants.Roles.FollowingPreloadAllSocieties
+            AuthorizationConstants.Roles.FollowingPreloadSocieties
         ];
 
         // Log all claims for debugging

@@ -26,19 +26,19 @@ public static class AuthorizationConstants
         public const string FollowingAdministrator = "Following.Administrator";
 
         /// <summary>
-        /// Read-only role with access to view documents from all societies.
+        /// Read-only role with access to view documents from all societies and providers.
         /// </summary>
         public const string FollowingPreloadReadOnly = "Following.Preload.ReadOnly";
 
         /// <summary>
-        /// Role with CRUD access to all documents from all societies.
+        /// Role with CRUD access to all documents from selected societies and their providers.
         /// </summary>
-        public const string FollowingPreloadAllSocieties = "Following.Preload.AllSocieties";
+        public const string FollowingPreloadSocieties = "Following.Preload.Societies";
 
         /// <summary>
-        /// Role with CRUD access to documents from a single society (identified by CUIT claim).
+        /// Role with CRUD access to documents from a single provider (identified by CUIT claim).
         /// </summary>
-        public const string FollowingPreloadSingleSociety = "Following.Preload.SingleSociety";
+        public const string FollowingPreloadProviders = "Following.Preload.Providers";
     }
 
     /// <summary>
