@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 
 namespace GeCom.Following.Preload.WebApp.Extensions.Auth;
@@ -20,9 +20,9 @@ public sealed class SingleSocietyHandler : AuthorizationHandler<SingleSocietyReq
         }
 
         // Check if user has SingleSociety role
-        bool hasSingleSocietyRole = context.User.IsInRole(AuthorizationConstants.Roles.PreloadSingleSociety) ||
-            context.User.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.PreloadSingleSociety) ||
-            context.User.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.PreloadSingleSociety);
+        bool hasSingleSocietyRole = context.User.IsInRole(AuthorizationConstants.Roles.FollowingPreloadSingleSociety) ||
+            context.User.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadSingleSociety) ||
+            context.User.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadSingleSociety);
 
         // If user has SingleSociety role, they must have the CUIT claim
         if (hasSingleSocietyRole)

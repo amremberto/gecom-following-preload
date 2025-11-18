@@ -341,8 +341,8 @@ public partial class Documents : IAsyncDisposable
         // Check for both Administrator and PreloadAllSocieties roles
         string[] targetRoles =
         [
-            AuthorizationConstants.Roles.Administrator,
-            AuthorizationConstants.Roles.PreloadAllSocieties
+            AuthorizationConstants.Roles.FollowingAdministrator,
+            AuthorizationConstants.Roles.FollowingPreloadAllSocieties
         ];
 
         // Log all claims for debugging

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 
 namespace GeCom.Following.Preload.WebApp.Extensions.Auth;
 
@@ -37,7 +37,7 @@ public static class AuthorizationExtensions
             AuthorizationConstants.Policies.RequireAdministrator,
             policy => policy
                 .RequireAuthenticatedUser()
-                .RequireRole(AuthorizationConstants.Roles.Administrator));
+                .RequireRole(AuthorizationConstants.Roles.FollowingAdministrator));
 
         // Policy: Require preload read access
         // Allows: Administrator, ReadOnly, AllSocieties, SingleSociety
@@ -46,10 +46,10 @@ public static class AuthorizationExtensions
             policy => policy
                 .RequireAuthenticatedUser()
                 .RequireRole(
-                    AuthorizationConstants.Roles.Administrator,
-                    AuthorizationConstants.Roles.PreloadReadOnly,
-                    AuthorizationConstants.Roles.PreloadAllSocieties,
-                    AuthorizationConstants.Roles.PreloadSingleSociety)
+                    AuthorizationConstants.Roles.FollowingAdministrator,
+                    AuthorizationConstants.Roles.FollowingPreloadReadOnly,
+                    AuthorizationConstants.Roles.FollowingPreloadAllSocieties,
+                    AuthorizationConstants.Roles.FollowingPreloadSingleSociety)
                 .AddRequirements(new SingleSocietyRequirement()));
 
         // Policy: Require preload write access
@@ -59,9 +59,9 @@ public static class AuthorizationExtensions
             policy => policy
                 .RequireAuthenticatedUser()
                 .RequireRole(
-                    AuthorizationConstants.Roles.Administrator,
-                    AuthorizationConstants.Roles.PreloadAllSocieties,
-                    AuthorizationConstants.Roles.PreloadSingleSociety)
+                    AuthorizationConstants.Roles.FollowingAdministrator,
+                    AuthorizationConstants.Roles.FollowingPreloadAllSocieties,
+                    AuthorizationConstants.Roles.FollowingPreloadSingleSociety)
                 .AddRequirements(new SingleSocietyRequirement()));
 
         return services;
