@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Application.Abstractions.Repositories;
+﻿using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
 using Microsoft.EntityFrameworkCore;
 
@@ -135,6 +135,37 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
         if (!string.IsNullOrWhiteSpace(providerCuit))
         {
             query = query.Where(d => d.ProveedorCuit == providerCuit);
+        }
+
+        return await query
+            .OrderByDescending(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Document>> GetByEmissionDatesAndSocietyCuitsAsync(DateOnly dateFrom, DateOnly dateTo, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(societyCuits);
+
+        IQueryable<Document> query = GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.FechaEmisionComprobante.HasValue
+                && d.FechaEmisionComprobante >= dateFrom
+                && d.FechaEmisionComprobante <= dateTo);
+
+        var societyCuitsList = societyCuits
+            .Where(cuit => !string.IsNullOrWhiteSpace(cuit))
+            .ToList();
+
+        if (societyCuitsList.Count > 0)
+        {
+            query = query.Where(d => d.SociedadCuit != null && societyCuitsList.Contains(d.SociedadCuit));
         }
 
         return await query

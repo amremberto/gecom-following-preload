@@ -140,6 +140,39 @@ public static class AuthenticationExtensions
                             identity.AddClaim(new Claim(ClaimTypes.Name, name));
                         }
 
+                        // 1.1) Normalizar EMAIL
+                        string? email =
+                            identity.FindFirst("email")?.Value
+                            ?? identity.FindFirst(ClaimTypes.Email)?.Value
+                            ?? identity.FindFirst("preferred_username")?.Value;
+
+                        if (!string.IsNullOrWhiteSpace(email))
+                        {
+                            // Garantizar "email"
+                            Claim? existingEmailClaim = identity.FindFirst(c => c.Type == "email");
+                            if (existingEmailClaim is not null && existingEmailClaim.Value != email)
+                            {
+                                identity.RemoveClaim(existingEmailClaim);
+                                identity.AddClaim(new Claim("email", email));
+                            }
+                            else if (existingEmailClaim is null)
+                            {
+                                identity.AddClaim(new Claim("email", email));
+                            }
+
+                            // Garantizar ClaimTypes.Email
+                            Claim? existingClaimTypesEmail = identity.FindFirst(c => c.Type == ClaimTypes.Email);
+                            if (existingClaimTypesEmail is not null && existingClaimTypesEmail.Value != email)
+                            {
+                                identity.RemoveClaim(existingClaimTypesEmail);
+                                identity.AddClaim(new Claim(ClaimTypes.Email, email));
+                            }
+                            else if (existingClaimTypesEmail is null)
+                            {
+                                identity.AddClaim(new Claim(ClaimTypes.Email, email));
+                            }
+                        }
+
                         // 2) Normalizar ROLES
                         var roleValues = new HashSet<string>(StringComparer.Ordinal);
 

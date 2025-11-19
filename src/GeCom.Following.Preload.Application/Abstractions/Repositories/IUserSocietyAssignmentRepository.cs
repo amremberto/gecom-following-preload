@@ -8,5 +8,12 @@ namespace GeCom.Following.Preload.Application.Abstractions.Repositories;
 /// </summary>
 public interface IUserSocietyAssignmentRepository : IRepository<UserSocietyAssignment>
 {
+    /// <summary>
+    /// Gets all society assignments for a user by email.
+    /// </summary>
+    /// <param name="email">User email.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of user society assignments.</returns>
+    Task<IEnumerable<UserSocietyAssignment>> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
 }
 

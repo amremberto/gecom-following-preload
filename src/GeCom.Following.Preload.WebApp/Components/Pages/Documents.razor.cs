@@ -17,7 +17,7 @@ public partial class Documents : IAsyncDisposable
     private string _toastMessage = string.Empty;
     private IEnumerable<DocumentResponse> _documents = [];
     private IEnumerable<DocumentResponse> _pendingsDocuments = [];
-    private bool _hasAllSocietiesRole;
+    private bool _hasSupportedRole;
     private bool _isProvider;
     private string? _providerCuit;
 
@@ -84,16 +84,17 @@ public partial class Documents : IAsyncDisposable
                 // which is not available during pre-rendering
                 await CheckIfProviderAndGetCuitAsync();
 
-                // Check if user has AllSocieties role (must be done here, not in OnInitializedAsync
+                // Check if user has a supported role (must be done here, not in OnInitializedAsync
                 // because JavaScript interop is not available during pre-rendering)
-                _hasAllSocietiesRole = await HasAllSocietiesRoleAsync();
+                _hasSupportedRole = await HasSupportedRoleAsync();
                 StateHasChanged();
 
                 _documentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
                 await InvokeAsync(StateHasChanged); // Fuerza renderizado
 
-                // If user is a provider, automatically load documents
-                if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+                // If user has a supported role (Provider, Societies, Administrator, or ReadOnly), automatically load documents
+                // The new endpoint will handle filtering automatically based on role
+                if (_isProvider || _hasSupportedRole)
                 {
                     try
                     {
@@ -136,7 +137,12 @@ public partial class Documents : IAsyncDisposable
     }
 
     /// <summary>
-    /// Get documents based on the date range and selected provider.
+    /// Get documents based on the date range and user role.
+    /// Uses the new unified endpoint that handles filtering automatically based on role:
+    /// - Providers: Filters by provider CUIT from claim
+    /// - Societies: Filters by all societies assigned to the user
+    /// - Administrator/ReadOnly: Returns all documents
+    /// Falls back to the old endpoint if a provider is manually selected (for backward compatibility).
     /// </summary>
     /// <returns></returns>
     private async Task GetDocuments()
@@ -145,26 +151,58 @@ public partial class Documents : IAsyncDisposable
         {
             StateHasChanged();
 
-            string providerCuit;
-            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            // Check user roles to determine which endpoint to use
+            AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal? user = authState.User;
+
+            bool hasProviderRole = false;
+            bool hasSocietiesRole = false;
+            bool hasAdministratorRole = false;
+            bool hasReadOnlyRole = false;
+
+            if (user is not null)
             {
-                // If user is a provider, use their CUIT from the claim
-                providerCuit = _providerCuit;
+                hasProviderRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                    user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                    user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadProviders);
+
+                hasSocietiesRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadSocieties) ||
+                    user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadSocieties) ||
+                    user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadSocieties);
+
+                hasAdministratorRole = user.IsInRole(AuthorizationConstants.Roles.FollowingAdministrator) ||
+                    user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingAdministrator) ||
+                    user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingAdministrator);
+
+                hasReadOnlyRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadReadOnly) ||
+                    user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadReadOnly) ||
+                    user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadReadOnly);
+            }
+
+            IEnumerable<DocumentResponse>? response;
+
+            // Use the new unified endpoint if user has one of the supported roles
+            if (hasProviderRole || hasSocietiesRole || hasAdministratorRole || hasReadOnlyRole)
+            {
+                // The backend will automatically filter based on the user's role
+                response = await DocumentService.GetByDatesAsync(_dateFrom, _dateTo, cancellationToken: default);
             }
             else if (SelectedProvider is not null)
             {
-                // If provider is selected manually, use it
-                providerCuit = SelectedProvider.Cuit;
+                // Fallback: If a provider is manually selected, use the old endpoint
+                // This maintains backward compatibility for other scenarios
+                response = await DocumentService.GetByDatesAndProviderAsync(
+                    _dateFrom,
+                    _dateTo,
+                    SelectedProvider.Cuit,
+                    cancellationToken: default);
             }
             else
             {
-                await ShowToast("El proveedor es requerido.");
+                await ShowToast("El proveedor es requerido o no tiene los permisos necesarios.");
                 _documents = [];
                 return;
             }
-
-            IEnumerable<DocumentResponse>? response =
-                await DocumentService.GetByDatesAndProviderAsync(_dateFrom, _dateTo, providerCuit, cancellationToken: default);
 
             _documents = response ?? [];
         }
@@ -412,32 +450,34 @@ public partial class Documents : IAsyncDisposable
     }
 
     /// <summary>
-    /// Checks if the current user has the AllSocieties role.
+    /// Checks if the current user has a supported role for document access.
+    /// Supported roles: Administrator, Societies, Providers, or ReadOnly.
     /// Roles should be mapped during authentication, so we only need to check claims.
     /// </summary>
-    /// <returns>True if the user has the role, false otherwise.</returns>
-    private async Task<bool> HasAllSocietiesRoleAsync()
+    /// <returns>True if the user has one of the supported roles, false otherwise.</returns>
+    private async Task<bool> HasSupportedRoleAsync()
     {
         AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal? user = authState.User;
 
         if (user is null)
         {
-            await JsRuntime.InvokeVoidAsync("console.log", "[HasAllSocietiesRoleAsync] User is null");
+            await JsRuntime.InvokeVoidAsync("console.log", "[HasSupportedRoleAsync] User is null");
             return false;
         }
 
-        // Check for both Administrator and PreloadAllSocieties roles
+        // Check for supported roles that can access documents
         string[] targetRoles =
         [
             AuthorizationConstants.Roles.FollowingAdministrator,
             AuthorizationConstants.Roles.FollowingPreloadSocieties,
-            AuthorizationConstants.Roles.FollowingPreloadProviders
+            AuthorizationConstants.Roles.FollowingPreloadProviders,
+            AuthorizationConstants.Roles.FollowingPreloadReadOnly
         ];
 
         // Log all claims for debugging
-        await JsRuntime.InvokeVoidAsync("console.log", "[HasAllSocietiesRoleAsync] === Checking roles ===");
-        await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync] Looking for roles: {string.Join(", ", targetRoles)}");
+        await JsRuntime.InvokeVoidAsync("console.log", "[HasSupportedRoleAsync] === Checking roles ===");
+        await JsRuntime.InvokeVoidAsync("console.log", $"[HasSupportedRoleAsync] Looking for roles: {string.Join(", ", targetRoles)}");
 
         // Log all role claims
         var allRoleClaims = user.Claims.Where(c =>
@@ -446,10 +486,10 @@ public partial class Documents : IAsyncDisposable
             c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
             .ToList();
 
-        await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync] Found {allRoleClaims.Count} role claims:");
+        await JsRuntime.InvokeVoidAsync("console.log", $"[HasSupportedRoleAsync] Found {allRoleClaims.Count} role claims:");
         foreach (Claim claim in allRoleClaims)
         {
-            await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync]   - Type: {claim.Type}, Value: {claim.Value}");
+            await JsRuntime.InvokeVoidAsync("console.log", $"[HasSupportedRoleAsync]   - Type: {claim.Type}, Value: {claim.Value}");
         }
 
         // Check each target role
@@ -460,16 +500,16 @@ public partial class Documents : IAsyncDisposable
             bool hasRoleClaimType = user.HasClaim(AuthorizationConstants.RoleClaimType, targetRole);
 
             await JsRuntime.InvokeVoidAsync("console.log",
-                $"[HasAllSocietiesRoleAsync] Role '{targetRole}': IsInRole={isInRole}, HasClaim(ClaimTypes.Role)={hasClaimTypesRole}, HasClaim(role)={hasRoleClaimType}");
+                $"[HasSupportedRoleAsync] Role '{targetRole}': IsInRole={isInRole}, HasClaim(ClaimTypes.Role)={hasClaimTypesRole}, HasClaim(role)={hasRoleClaimType}");
 
             if (isInRole || hasClaimTypesRole || hasRoleClaimType)
             {
-                await JsRuntime.InvokeVoidAsync("console.log", $"[HasAllSocietiesRoleAsync] ✓ User HAS role: {targetRole}");
+                await JsRuntime.InvokeVoidAsync("console.log", $"[HasSupportedRoleAsync] ✓ User HAS role: {targetRole}");
                 return true;
             }
         }
 
-        await JsRuntime.InvokeVoidAsync("console.log", "[HasAllSocietiesRoleAsync] ✗ User does NOT have required roles");
+        await JsRuntime.InvokeVoidAsync("console.log", "[HasSupportedRoleAsync] ✗ User does NOT have required roles");
         return false;
     }
 
@@ -481,7 +521,7 @@ public partial class Documents : IAsyncDisposable
     private bool CanDeleteDocument(DocumentResponse document)
     {
         bool hasCorrectStatus = document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE";
-        bool canDelete = hasCorrectStatus && _hasAllSocietiesRole;
+        bool canDelete = hasCorrectStatus && _hasSupportedRole;
 
         // Log for debugging (async logging in sync method - fire and forget)
         _ = Task.Run(async () =>
@@ -490,7 +530,7 @@ public partial class Documents : IAsyncDisposable
             {
                 await JsRuntime.InvokeVoidAsync("console.log",
                     $"[CanDeleteDocument] DocId: {document.DocId}, Status: {document.EstadoDescripcion}, " +
-                    $"hasCorrectStatus: {hasCorrectStatus}, _hasAllSocietiesRole: {_hasAllSocietiesRole}, canDelete: {canDelete}");
+                    $"hasCorrectStatus: {hasCorrectStatus}, _hasSupportedRole: {_hasSupportedRole}, canDelete: {canDelete}");
             }
             catch
             {

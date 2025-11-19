@@ -41,6 +41,26 @@ internal sealed class DocumentService : IDocumentService
     }
 
     /// <inheritdoc />
+    public async Task<IEnumerable<DocumentResponse>?> GetByDatesAsync(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+
+        // Build query string
+        string queryString = $"dateFrom={Uri.EscapeDataString(dateFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}&dateTo={Uri.EscapeDataString(dateTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}";
+
+        Uri requestUri = new($"/api/{apiVersion}/Documents/by-dates?{queryString}", UriKind.Relative);
+
+        IEnumerable<DocumentResponse>? response = await _httpClientService.GetAsync<IEnumerable<DocumentResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
     public async Task<IEnumerable<DocumentResponse>?> GetByDatesAndProviderAsync(
         DateOnly dateFrom,
         DateOnly dateTo,

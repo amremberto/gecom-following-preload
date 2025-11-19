@@ -34,5 +34,14 @@ internal sealed class UserSocietyAssignmentRepository : GenericRepository<UserSo
 
         return (items, totalCount);
     }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<UserSocietyAssignment>> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        return await GetQueryable()
+            .Where(u => u.Email == email)
+            .ToListAsync(cancellationToken);
+    }
 }
 

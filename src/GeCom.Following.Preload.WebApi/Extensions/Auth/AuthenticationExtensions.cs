@@ -62,12 +62,13 @@ public static class AuthenticationExtensions
                     },
                     OnTokenValidated = context =>
                     {
-                        // Ensure roles are mapped correctly
+                        // Ensure roles and email are mapped correctly
                         if (context.Principal is not null)
                         {
                             var identity = context.Principal.Identity as ClaimsIdentity;
                             if (identity is not null)
                             {
+                                // 1) Normalize ROLES
                                 string[] roleClaimTypes = [
                                     "role",
                                     "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
@@ -84,6 +85,34 @@ public static class AuthenticationExtensions
                                             identity.AddClaim(new Claim(AuthorizationConstants.RoleClaimType, roleClaim.Value));
                                         }
                                     }
+                                }
+
+                                // 2) Normalize EMAIL
+                                // Try to find email in multiple claim types
+                                string? email = identity.FindFirst("email")?.Value ??
+                                              identity.FindFirst(ClaimTypes.Email)?.Value ??
+                                              identity.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value ??
+                                              identity.FindFirst("preferred_username")?.Value;
+
+                                if (!string.IsNullOrWhiteSpace(email))
+                                {
+                                    // Ensure "email" claim exists
+                                    if (!identity.HasClaim("email", email))
+                                    {
+                                        identity.AddClaim(new Claim("email", email));
+                                    }
+
+                                    // Ensure ClaimTypes.Email exists
+                                    if (!identity.HasClaim(ClaimTypes.Email, email))
+                                    {
+                                        identity.AddClaim(new Claim(ClaimTypes.Email, email));
+                                    }
+                                }
+                                else
+                                {
+                                    // Log available claims for debugging if email is not found
+                                    var allClaims = identity.Claims.Select(c => $"{c.Type}: {c.Value}").ToList();
+                                    Log.Warning("Email not found in JWT token claims. Available claims: {Claims}", string.Join(", ", allClaims));
                                 }
                             }
                         }

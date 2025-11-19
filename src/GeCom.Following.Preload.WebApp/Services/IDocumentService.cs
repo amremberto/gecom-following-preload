@@ -15,6 +15,22 @@ public interface IDocumentService
     Task<IEnumerable<DocumentResponse>?> GetAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets documents by emission date range from the API.
+    /// The filtering is automatically handled by the backend based on user role:
+    /// - Providers: Filters by provider CUIT from claim
+    /// - Societies: Filters by all societies assigned to the user
+    /// - Administrator/ReadOnly: Returns all documents without filtering
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of documents matching the criteria based on user role.</returns>
+    Task<IEnumerable<DocumentResponse>?> GetByDatesAsync(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets documents by emission date range and provider CUIT from the API.
     /// </summary>
     /// <param name="dateFrom">Start emission date.</param>
