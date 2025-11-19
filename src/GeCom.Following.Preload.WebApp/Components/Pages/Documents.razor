@@ -118,6 +118,10 @@
                                     <th></th>
                                     <th>Estado</th>
                                     <th>Cliente</th>
+                                    @if (!_isProvider)
+                                    {
+                                        <th>Proveedor</th>
+                                    }
                                     <th>Tipo Comprobante</th>
                                     <th>Punto de venta</th>
                                     <th>Número Comprobante</th>
@@ -166,6 +170,10 @@
                                             </span>
                                         </td>
                                         <td>@doc.SociedadDescripcion</td>
+                                        @if (!_isProvider)
+                                        {
+                                            <td>@doc.ProveedorRazonSocial</td>
+                                        }
                                         <td>@doc.TipoDocDescripcion</td>
                                         <td>@doc.PuntoDeVenta</td>
                                         <td>@doc.NumeroComprobante</td>
@@ -190,6 +198,10 @@
                                     <th></th>
                                     <th>Estado</th>
                                     <th>Cliente</th>
+                                    @if (!_isProvider)
+                                    {
+                                        <th>Proveedor</th>
+                                    }
                                     <th>Tipo Comprobante</th>
                                     <th>Punto de venta</th>
                                     <th>Número Comprobante</th>
@@ -238,6 +250,10 @@
                                             </span>
                                         </td>
                                         <td>@doc.SociedadDescripcion</td>
+                                        @if (!_isProvider)
+                                        {
+                                            <td>@doc.ProveedorRazonSocial</td>
+                                        }
                                         <td>@doc.TipoDocDescripcion</td>
                                         <td>@doc.PuntoDeVenta</td>
                                         <td>@doc.NumeroComprobante</td>
