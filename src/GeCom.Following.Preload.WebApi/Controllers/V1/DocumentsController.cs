@@ -91,30 +91,14 @@ public sealed class DocumentsController : VersionedApiController
         }
 
         // Get user email (for Societies role)
-        // Try multiple claim types as email might be stored differently in IdentityServer tokens
         string? userEmail = User.FindFirst("email")?.Value ??
-                           User.FindFirst(ClaimTypes.Email)?.Value ??
-                           User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value ??
-                           User.FindFirst("preferred_username")?.Value;
+                           User.FindFirst(ClaimTypes.Email)?.Value;
 
-        // If email is still not found, try to extract from access token directly
-        if (string.IsNullOrWhiteSpace(userEmail))
+        // Validate email is present for Societies role
+        if (string.IsNullOrWhiteSpace(userEmail) &&
+            userRoles.Contains("Following.Preload.Societies", StringComparer.OrdinalIgnoreCase))
         {
-            userEmail = ExtractEmailFromAccessToken();
-        }
-
-        // If email is still not found, log all available claims for debugging
-        if (string.IsNullOrWhiteSpace(userEmail))
-        {
-            var allClaims = User.Claims.Select(c => $"{c.Type}: {c.Value}").ToList();
-            // Log to help debug email claim issue - this will appear in Serilog logs
-            System.Diagnostics.Debug.WriteLine($"[GetByDatesAsync] Email not found in claims. Available claims: {string.Join(", ", allClaims)}");
-
-            // Also return a more descriptive error for Societies role
-            if (userRoles.Contains("Following.Preload.Societies", StringComparer.OrdinalIgnoreCase))
-            {
-                return BadRequest("User email is required for users with Societies role, but email claim was not found in the authentication token. Please contact the administrator.");
-            }
+            return BadRequest("User email is required for users with Societies role, but email claim was not found in the authentication token.");
         }
 
         // Get provider CUIT from claim (for Providers role)
@@ -233,82 +217,5 @@ public sealed class DocumentsController : VersionedApiController
         return result.MatchCreated(this, nameof(GetAllAsync));
     }
 
-    /// <summary>
-    /// Attempts to extract email from the access token directly.
-    /// This is a fallback method in case the email is not in the claims.
-    /// </summary>
-    /// <returns>The email if found, null otherwise.</returns>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S6932:Use model binding instead of accessing the raw request data", Justification = "Need to extract JWT token from Authorization header to decode email claim. This is a fallback when email is not in User.Claims. Model binding cannot be used for JWT token extraction.")]
-    private string? ExtractEmailFromAccessToken()
-    {
-        try
-        {
-            // Get the Authorization header using Request property (available in ControllerBase)
-            // Note: SonarQube S6932 is suppressed here because we need to extract the JWT token
-            // from the Authorization header, which cannot be done via model binding
-            if (!Request.Headers.TryGetValue("Authorization", out Microsoft.Extensions.Primitives.StringValues authHeaderValues) ||
-                authHeaderValues.Count == 0)
-            {
-                return null;
-            }
-
-            string? authHeader = authHeaderValues[0];
-            if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            // Extract the token
-            string token = authHeader.Substring("Bearer ".Length).Trim();
-
-            // Decode the JWT token (without validation, just to read claims)
-            // Note: This is safe because the token was already validated by JWT middleware
-            string[] parts = token.Split('.');
-            if (parts.Length != 3)
-            {
-                return null;
-            }
-
-            // Decode the payload (second part)
-            string payload = parts[1];
-            // Add padding if needed
-            switch (payload.Length % 4)
-            {
-                case 2:
-                    payload += "==";
-                    break;
-                case 3:
-                    payload += "=";
-                    break;
-            }
-
-            byte[] payloadBytes = Convert.FromBase64String(payload);
-            string payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
-
-            // Parse JSON to find email
-            using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
-            if (doc.RootElement.TryGetProperty("email", out System.Text.Json.JsonElement emailElement))
-            {
-                return emailElement.GetString();
-            }
-
-            // Try alternative claim names
-            if (doc.RootElement.TryGetProperty("preferred_username", out System.Text.Json.JsonElement usernameElement))
-            {
-                string? username = usernameElement.GetString();
-                // Only use if it looks like an email
-                if (!string.IsNullOrWhiteSpace(username) && username.Contains('@'))
-                {
-                    return username;
-                }
-            }
-        }
-        catch
-        {
-            // Silently fail - this is just a fallback
-        }
-
-        return null;
-    }
 }
 

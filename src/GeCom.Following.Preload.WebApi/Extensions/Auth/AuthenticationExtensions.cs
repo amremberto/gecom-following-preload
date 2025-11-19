@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using GeCom.Following.Preload.WebAPI.Configurations.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -88,11 +88,9 @@ public static class AuthenticationExtensions
                                 }
 
                                 // 2) Normalize EMAIL
-                                // Try to find email in multiple claim types
+                                // Ensure email claim is available in both standard formats
                                 string? email = identity.FindFirst("email")?.Value ??
-                                              identity.FindFirst(ClaimTypes.Email)?.Value ??
-                                              identity.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value ??
-                                              identity.FindFirst("preferred_username")?.Value;
+                                              identity.FindFirst(ClaimTypes.Email)?.Value;
 
                                 if (!string.IsNullOrWhiteSpace(email))
                                 {
@@ -107,12 +105,6 @@ public static class AuthenticationExtensions
                                     {
                                         identity.AddClaim(new Claim(ClaimTypes.Email, email));
                                     }
-                                }
-                                else
-                                {
-                                    // Log available claims for debugging if email is not found
-                                    var allClaims = identity.Claims.Select(c => $"{c.Type}: {c.Value}").ToList();
-                                    Log.Warning("Email not found in JWT token claims. Available claims: {Claims}", string.Join(", ", allClaims));
                                 }
                             }
                         }
