@@ -1,4 +1,5 @@
-﻿using GeCom.Following.Preload.Application.Abstractions.Repositories;
+﻿using System.Linq.Expressions;
+using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
 using Microsoft.EntityFrameworkCore;
 
@@ -161,11 +162,33 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
 
         var societyCuitsList = societyCuits
             .Where(cuit => !string.IsNullOrWhiteSpace(cuit))
+            .Distinct()
             .ToList();
 
         if (societyCuitsList.Count > 0)
         {
-            query = query.Where(d => d.SociedadCuit != null && societyCuitsList.Contains(d.SociedadCuit));
+            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+            // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
+            // Build OR expression tree manually to ensure SQL translation works correctly
+            ParameterExpression? parameter = Expression.Parameter(typeof(Document), "d");
+            MemberExpression? property = Expression.Property(parameter, nameof(Document.SociedadCuit));
+            BinaryExpression? nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+
+            Expression? orExpression = null;
+            foreach (string cuit in societyCuitsList)
+            {
+                BinaryExpression? equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
+                orExpression = orExpression is null
+                    ? equalsExpression
+                    : Expression.OrElse(orExpression, equalsExpression);
+            }
+
+            if (orExpression is not null)
+            {
+                BinaryExpression? combinedExpression = Expression.AndAlso(nullCheck, orExpression);
+                var lambda = Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+                query = query.Where(lambda);
+            }
         }
 
         return await query
