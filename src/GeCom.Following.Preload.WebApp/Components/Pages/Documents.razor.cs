@@ -280,8 +280,9 @@ public partial class Documents : IAsyncDisposable
                 return;
             }
 
-            // Check if the provider is selected (only if user is not a provider)
-            if (!_isProvider && SelectedProvider == null)
+            // Check if the provider is selected (only if user is not a provider and doesn't have a supported role)
+            // Users with roles: Provider, Societies, Administrator, or ReadOnly don't need to select a provider
+            if (!_isProvider && !_hasSupportedRole && SelectedProvider == null)
             {
                 await ShowToast("El (proveedor) es requerido.");
                 return;
