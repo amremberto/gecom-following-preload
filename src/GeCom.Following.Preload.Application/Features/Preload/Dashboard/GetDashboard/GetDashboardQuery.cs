@@ -6,5 +6,12 @@ namespace GeCom.Following.Preload.Application.Features.Preload.Dashboard.GetDash
 /// <summary>
 /// Query to get dashboard information.
 /// </summary>
-public sealed record GetDashboardQuery : IQuery<DashboardResponse>;
+/// <param name="UserRoles">User roles to determine filtering strategy.</param>
+/// <param name="UserEmail">User email (required for Societies role).</param>
+/// <param name="ProviderCuit">Provider CUIT from claim (required for Providers role).</param>
+public sealed record GetDashboardQuery(
+    IReadOnlyList<string> UserRoles,
+    string? UserEmail = null,
+    string? ProviderCuit = null
+) : IQuery<DashboardResponse>;
 
