@@ -20,6 +20,7 @@ public partial class Documents : IAsyncDisposable
     private bool _hasSupportedRole;
     private bool _isProvider;
     private string? _providerCuit;
+    private bool _hasReadOnlyRole;
 
     private IJSObjectReference? _documentsModule;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -87,6 +88,9 @@ public partial class Documents : IAsyncDisposable
                 // Check if user has a supported role (must be done here, not in OnInitializedAsync
                 // because JavaScript interop is not available during pre-rendering)
                 _hasSupportedRole = await HasSupportedRoleAsync();
+                
+                // Check if user has ReadOnly role to hide certain UI elements
+                _hasReadOnlyRole = await HasReadOnlyRoleAsync();
                 StateHasChanged();
 
                 _documentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
@@ -512,6 +516,27 @@ public partial class Documents : IAsyncDisposable
 
         await JsRuntime.InvokeVoidAsync("console.log", "[HasSupportedRoleAsync] ✗ User does NOT have required roles");
         return false;
+    }
+
+    /// <summary>
+    /// Checks if the current user has the ReadOnly role.
+    /// </summary>
+    /// <returns>True if the user has the ReadOnly role, false otherwise.</returns>
+    private async Task<bool> HasReadOnlyRoleAsync()
+    {
+        AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        ClaimsPrincipal? user = authState.User;
+
+        if (user is null)
+        {
+            return false;
+        }
+
+        bool hasReadOnlyRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadReadOnly) ||
+            user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadReadOnly) ||
+            user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadReadOnly);
+
+        return hasReadOnlyRole;
     }
 
     /// <summary>

@@ -105,9 +105,12 @@
                             </button>
                         </li>
                     </ul>
-                    <button class="btn btn-soft-success" @onclick="CreateNewDocument" style="margin-top: 0;">
-                        <i class="ri-add-line"></i> PRECARGAR
-                    </button>
+                    @if (!_hasReadOnlyRole)
+                    {
+                        <button class="btn btn-soft-success" @onclick="CreateNewDocument" style="margin-top: 0;">
+                            <i class="ri-add-line"></i> PRECARGAR
+                        </button>
+                    }
                 </div>
                 <div class="tab-content">
                     <!-- Tab Documentos Pendientes -->
