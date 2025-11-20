@@ -29,7 +29,8 @@ internal static class ConfigurationsLoader
             "database",
             "identityServer",
             "logger",
-            "nswag"
+            "nswag",
+            "storage"
         ];
 
         foreach (string name in configNames)

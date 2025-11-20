@@ -1,8 +1,10 @@
 ﻿using GeCom.Following.Preload.Application.Abstractions.Repositories;
+using GeCom.Following.Preload.Application.Abstractions.Storage;
 using GeCom.Following.Preload.Application.Preload.Attachments.Interfaces;
 using GeCom.Following.Preload.Infrastructure.Persistence;
 using GeCom.Following.Preload.Infrastructure.Persistence.Repositories.Preload;
 using GeCom.Following.Preload.Infrastructure.Persistence.Repositories.Spd_Sap;
+using GeCom.Following.Preload.Infrastructure.Storage;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -62,6 +64,12 @@ public static class InfrastructureDependencyInjection
         // Register Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ISpdSapUnitOfWork, SpdSapUnitOfWork>();
+
+        // Register Storage and Impersonation Services
+        services.Configure<StorageOptions>(configuration.GetSection("Storage"));
+        services.Configure<ImpersonationOptions>(configuration.GetSection("Storage:Impersonation"));
+        services.AddScoped<IImpersonationService, WindowsImpersonationService>();
+        services.AddScoped<IStorageService, StorageService>();
 
         return services;
     }

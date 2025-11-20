@@ -2,8 +2,10 @@
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.CreateDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocuments;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentById;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
 using GeCom.Following.Preload.SharedKernel.Results;
@@ -215,6 +217,85 @@ public sealed class DocumentsController : VersionedApiController
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 
         return result.MatchCreated(this, nameof(GetAllAsync));
+    }
+
+    /// <summary>
+    /// Gets a document by its ID.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The document if found.</returns>
+    /// <response code="200">Returns the document.</response>
+    /// <response code="400">If the docId parameter is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the document was not found.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("{docId}")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetDocumentById", "Gets a document by its ID.")]
+    public async Task<ActionResult<DocumentResponse>> GetByIdAsync(int docId, CancellationToken cancellationToken)
+    {
+        GetDocumentByIdQuery query = new(docId);
+
+        Result<DocumentResponse> result = await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
+    /// Preloads a document by uploading a PDF file.
+    /// Creates a new document with default values, saves the file to storage using impersonation,
+    /// and creates an attachment record linking the file to the document.
+    /// </summary>
+    /// <param name="file">The PDF file to upload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created document with attachment.</returns>
+    /// <response code="201">Returns the created document.</response>
+    /// <response code="400">If the file is invalid or missing.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpPost("preload")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("PreloadDocument", "Preloads a document by uploading a PDF file.")]
+    public async Task<ActionResult<DocumentResponse>> PreloadAsync(
+        [FromForm] IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest("A PDF file is required.");
+        }
+
+        // Read file content
+        byte[] fileContent;
+        using (MemoryStream memoryStream = new())
+        {
+            await file.CopyToAsync(memoryStream, cancellationToken);
+            fileContent = memoryStream.ToArray();
+        }
+
+        PreloadDocumentCommand command = new(
+            fileContent,
+            file.FileName,
+            file.ContentType);
+
+        Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchCreated(this, nameof(GetByIdAsync));
     }
 
 }

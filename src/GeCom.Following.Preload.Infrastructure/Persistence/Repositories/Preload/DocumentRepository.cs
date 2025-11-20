@@ -12,6 +12,20 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
     }
 
     /// <inheritdoc />
+    public override async Task<Document?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await GetTrackedQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Include(d => d.Attachments)
+            .FirstOrDefaultAsync(d => d.DocId == id, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public override async Task<IEnumerable<Document>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await GetQueryable()

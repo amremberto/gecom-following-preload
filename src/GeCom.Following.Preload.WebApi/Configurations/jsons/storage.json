@@ -1,0 +1,15 @@
+﻿{
+  "Storage": {
+    "BasePath": "\\\\GCPAAP233\\DocumentosDestino\\DocumentosNacionales\\",
+    "Impersonation": {
+      "Enabled": true,
+      "Username": "userspd",
+      "Domain": "GCGESTION",
+      "Password": "Pag02dig",
+      "UserEnvVar": null,
+      "PasswordEnvVar": null,
+      "DomainEnvVar": null,
+      "LogonType": "NewCredentials"
+    }
+  }
+}
