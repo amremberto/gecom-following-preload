@@ -1,4 +1,5 @@
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace GeCom.Following.Preload.WebApp.Services;
 
@@ -43,5 +44,21 @@ public interface IDocumentService
         DateOnly dateTo,
         string providerCuit,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a document by its ID from the API.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The document if found.</returns>
+    Task<DocumentResponse?> GetByIdAsync(int docId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Preloads a document by uploading a PDF file.
+    /// </summary>
+    /// <param name="file">The PDF file to upload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created document with attachment.</returns>
+    Task<DocumentResponse?> PreloadDocumentAsync(IBrowserFile file, CancellationToken cancellationToken = default);
 }
 

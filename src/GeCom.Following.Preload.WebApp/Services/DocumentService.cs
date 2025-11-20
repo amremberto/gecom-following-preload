@@ -1,6 +1,7 @@
 using System.Globalization;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Options;
 
 namespace GeCom.Following.Preload.WebApp.Services;
@@ -78,6 +79,36 @@ internal sealed class DocumentService : IDocumentService
 
         IEnumerable<DocumentResponse>? response = await _httpClientService.GetAsync<IEnumerable<DocumentResponse>>(
             requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<DocumentResponse?> GetByIdAsync(int docId, CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}", UriKind.Relative);
+
+        DocumentResponse? response = await _httpClientService.GetAsync<DocumentResponse>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<DocumentResponse?> PreloadDocumentAsync(IBrowserFile file, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/preload", UriKind.Relative);
+
+        DocumentResponse? response = await _httpClientService.PostFileAsync<DocumentResponse>(
+            requestUri,
+            file,
+            "file",
             cancellationToken);
 
         return response;

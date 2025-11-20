@@ -1,3 +1,4 @@
+using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Notes;
 using GeCom.Following.Preload.Contracts.Preload.PurchaseOrders;
 
@@ -33,6 +34,7 @@ public sealed record DocumentResponse(
     DateTime? FechaPago,
     string? UserCreate,
     ICollection<PurchaseOrderResponse> PurchaseOrders,
-    ICollection<NoteResponse> Notes
+    ICollection<NoteResponse> Notes,
+    ICollection<AttachmentResponse>? Attachments = null
 );
 

@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
+using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
@@ -32,6 +33,7 @@ public partial class Documents : IAsyncDisposable
     [Inject] private IDocumentService DocumentService { get; set; } = default!;
     [Inject] private IProviderService ProviderService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -88,7 +90,7 @@ public partial class Documents : IAsyncDisposable
                 // Check if user has a supported role (must be done here, not in OnInitializedAsync
                 // because JavaScript interop is not available during pre-rendering)
                 _hasSupportedRole = await HasSupportedRoleAsync();
-                
+
                 // Check if user has ReadOnly role to hide certain UI elements
                 _hasReadOnlyRole = await HasReadOnlyRoleAsync();
                 StateHasChanged();
@@ -365,19 +367,9 @@ public partial class Documents : IAsyncDisposable
     /// </summary>
     /// <param name="document">The document to edit.</param>
     /// <returns></returns>
-    private async Task EditDocument(DocumentResponse document)
+    private void EditDocument(DocumentResponse document)
     {
-        try
-        {
-            await JsRuntime.InvokeVoidAsync("console.log", $"Editando documento con ID: {document.DocId}");
-            // Implementar la lógica de edición (navegar a página de edición, abrir modal, etc.)
-            await ShowToast($"Funcionalidad de edición para el documento {document.DocId} pendiente de implementar.");
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al editar documento:", ex.Message);
-            await ShowToast("Error al intentar editar el documento.");
-        }
+        NavigationManager.NavigateTo($"/documents/{document.DocId}");
     }
 
     /// <summary>
@@ -567,6 +559,8 @@ public partial class Documents : IAsyncDisposable
         return canDelete;
     }
 
+    private PreloadDocumentModal? _preloadModal;
+
     /// <summary>
     /// Handles the create new document action.
     /// </summary>
@@ -575,14 +569,36 @@ public partial class Documents : IAsyncDisposable
     {
         try
         {
-            await JsRuntime.InvokeVoidAsync("console.log", "Creando nuevo documento");
-            // Implementar la lógica de creación (navegar a página de creación, abrir modal, etc.)
-            await ShowToast("Funcionalidad de creación de nuevo documento pendiente de implementar.");
+            if (_preloadModal is not null)
+            {
+                await _preloadModal.ShowAsync();
+            }
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al crear nuevo documento:", ex.Message);
-            await ShowToast("Error al intentar crear un nuevo documento.");
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir modal de precarga:", ex.Message);
+            await ShowToast("Error al intentar abrir el formulario de precarga.");
+        }
+    }
+
+    /// <summary>
+    /// Handles the document preloaded event from the modal.
+    /// </summary>
+    /// <param name="document">The preloaded document.</param>
+    /// <returns></returns>
+    private async Task OnDocumentPreloaded(DocumentResponse document)
+    {
+        try
+        {
+            await ShowToast($"Documento #{document.DocId} precargado exitosamente.");
+
+            // Navigate to document detail page
+            NavigationManager.NavigateTo($"/documents/{document.DocId}");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al navegar al documento:", ex.Message);
+            await ShowToast("Error al navegar al documento creado.");
         }
     }
 

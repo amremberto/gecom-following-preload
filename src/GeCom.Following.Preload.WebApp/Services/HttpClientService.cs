@@ -1,6 +1,8 @@
 ﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace GeCom.Following.Preload.WebApp.Services;
 
@@ -80,6 +82,31 @@ internal sealed class HttpClientService : IHttpClientService
 
         response.EnsureSuccessStatusCode();
         return response.IsSuccessStatusCode;
+    }
+
+    /// <inheritdoc />
+    public async Task<TResponse?> PostFileAsync<TResponse>(
+        Uri requestUri,
+        IBrowserFile file,
+        string fileParameterName = "file",
+        CancellationToken cancellationToken = default)
+        where TResponse : class
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileParameterName);
+
+        using MultipartFormDataContent content = new();
+
+        // Read file content into a stream
+        await using Stream fileStream = file.OpenReadStream(maxAllowedSize: 6 * 1024 * 1024, cancellationToken); // 6 MB max
+        using StreamContent fileContent = new(fileStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+
+        content.Add(fileContent, fileParameterName, file.Name);
+
+        HttpResponseMessage response = await _httpClient.PostAsync(requestUri, content, cancellationToken);
+
+        return await HandleResponseAsync<TResponse>(response, cancellationToken);
     }
 
     /// <summary>

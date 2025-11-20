@@ -1,3 +1,4 @@
+using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Notes;
 using GeCom.Following.Preload.Contracts.Preload.PurchaseOrders;
@@ -15,6 +16,9 @@ internal static class DocumentMappings
 
         ICollection<NoteResponse> notes =
             [.. document.Notes.Select(NoteMappings.ToResponse)];
+
+        ICollection<AttachmentResponse> attachments =
+            [.. document.Attachments.Select(AttachmentMappings.ToResponse)];
 
         DocumentResponse result = new(
             document.DocId,
@@ -43,7 +47,8 @@ internal static class DocumentMappings
             document.FechaPago,
             document.UserCreate,
             purchaseOrders,
-            notes
+            notes,
+            attachments
         );
 
         return result;

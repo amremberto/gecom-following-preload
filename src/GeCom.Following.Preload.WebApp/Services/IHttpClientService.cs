@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace GeCom.Following.Preload.WebApp.Services;
 
@@ -56,5 +57,21 @@ public interface IHttpClientService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if the request was successful, false otherwise.</returns>
     Task<bool> DeleteAsync(Uri requestUri, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a POST request with a file (multipart/form-data) and deserializes the response.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response.</typeparam>
+    /// <param name="requestUri">The request URI.</param>
+    /// <param name="file">The file to upload.</param>
+    /// <param name="fileParameterName">The name of the file parameter (default: "file").</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The deserialized response.</returns>
+    Task<TResponse?> PostFileAsync<TResponse>(
+        Uri requestUri,
+        IBrowserFile file,
+        string fileParameterName = "file",
+        CancellationToken cancellationToken = default)
+        where TResponse : class;
 }
 
