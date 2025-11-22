@@ -109,6 +109,36 @@ internal sealed class HttpClientService : IHttpClientService
         return await HandleResponseAsync<TResponse>(response, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<byte[]?> DownloadFileAsync(Uri requestUri, CancellationToken cancellationToken = default)
+    {
+        HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            response.Dispose();
+            throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            response.Dispose();
+            return null;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorMessage = await ExtractErrorMessageAsync(response, cancellationToken);
+            response.Dispose();
+            throw new ApiRequestException(response.StatusCode, errorMessage);
+        }
+
+        byte[] fileContent = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        response.Dispose();
+
+        return fileContent;
+    }
+
     /// <summary>
     /// Handles the HTTP response and deserializes it if successful.
     /// </summary>

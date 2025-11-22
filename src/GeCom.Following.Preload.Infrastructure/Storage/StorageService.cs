@@ -82,6 +82,25 @@ internal sealed class StorageService : IStorageService
             return fullPath;
         }, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<byte[]> ReadFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        return _impersonationService.RunAsAsync(async cancellationToken =>
+        {
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException($"File not found: {filePath}");
+            }
+
+            byte[] fileContent = await File.ReadAllBytesAsync(filePath, cancellationToken);
+            _logger.LogInformation("File read successfully: {FilePath}", filePath);
+
+            return fileContent;
+        }, cancellationToken);
+    }
 }
 
 /// <summary>

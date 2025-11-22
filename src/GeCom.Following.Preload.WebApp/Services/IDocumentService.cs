@@ -60,5 +60,13 @@ public interface IDocumentService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created document with attachment.</returns>
     Task<DocumentResponse?> PreloadDocumentAsync(IBrowserFile file, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads a PDF file by attachment ID.
+    /// </summary>
+    /// <param name="adjuntoId">Attachment ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The PDF file content as byte array.</returns>
+    Task<byte[]?> DownloadAttachmentAsync(int adjuntoId, CancellationToken cancellationToken = default);
 }
 

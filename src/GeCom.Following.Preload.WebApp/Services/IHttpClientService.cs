@@ -73,5 +73,13 @@ public interface IHttpClientService
         string fileParameterName = "file",
         CancellationToken cancellationToken = default)
         where TResponse : class;
+
+    /// <summary>
+    /// Downloads a file as a byte array.
+    /// </summary>
+    /// <param name="requestUri">The request URI.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The file content as byte array.</returns>
+    Task<byte[]?> DownloadFileAsync(Uri requestUri, CancellationToken cancellationToken = default);
 }
 

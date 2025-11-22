@@ -113,5 +113,16 @@ internal sealed class DocumentService : IDocumentService
 
         return response;
     }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> DownloadAttachmentAsync(int adjuntoId, CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Attachments/{adjuntoId}/download", UriKind.Relative);
+
+        byte[]? fileContent = await _httpClientService.DownloadFileAsync(requestUri, cancellationToken);
+
+        return fileContent;
+    }
 }
 

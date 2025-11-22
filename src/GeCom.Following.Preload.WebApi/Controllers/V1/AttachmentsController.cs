@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using GeCom.Following.Preload.Application.Abstractions.Storage;
 using GeCom.Following.Preload.Application.Features.Preload.Attachments.CreateAttachment;
 using GeCom.Following.Preload.Application.Features.Preload.Attachments.DeleteAttachment;
 using GeCom.Following.Preload.Application.Features.Preload.Attachments.GetAllAttachments;
@@ -8,6 +9,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Attachments.UpdateAtt
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Attachments.Create;
 using GeCom.Following.Preload.Contracts.Preload.Attachments.Update;
+using GeCom.Following.Preload.SharedKernel.Errors;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
@@ -24,6 +26,17 @@ namespace GeCom.Following.Preload.WebApi.Controllers.V1;
 [Authorize] // Require authentication by default for all endpoints
 public sealed class AttachmentsController : VersionedApiController
 {
+    private readonly IStorageService _storageService;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AttachmentsController"/> class.
+    /// </summary>
+    /// <param name="storageService">The storage service.</param>
+    public AttachmentsController(IStorageService storageService)
+    {
+        _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
+    }
+
     /// <summary>
     /// Gets all attachments.
     /// </summary>
@@ -206,6 +219,62 @@ public sealed class AttachmentsController : VersionedApiController
         Result result = await Mediator.Send(command, cancellationToken);
 
         return result.MatchDeleted(this);
+    }
+
+    /// <summary>
+    /// Downloads a PDF file by attachment ID.
+    /// </summary>
+    /// <param name="adjuntoId">Attachment ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The PDF file.</returns>
+    /// <response code="200">Returns the PDF file.</response>
+    /// <response code="400">If the adjuntoId parameter is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the attachment was not found or file does not exist.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("{adjuntoId}/download")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK, "application/pdf")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("DownloadAttachment", "Downloads a PDF file by attachment ID.")]
+    public async Task<ActionResult> DownloadAsync(int adjuntoId, CancellationToken cancellationToken)
+    {
+        GetAttachmentByIdQuery query = new(adjuntoId);
+
+        Result<AttachmentResponse> result = await Mediator.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            Error error = result.Error;
+            return error.Type switch
+            {
+                ErrorType.NotFound => NotFound(error.Description),
+                ErrorType.Validation => BadRequest(error.Description),
+                ErrorType.Unauthorized => Unauthorized(),
+                ErrorType.Forbidden => Forbid(),
+                _ => StatusCode(500, error.Description)
+            };
+        }
+
+        AttachmentResponse attachment = result.Value;
+
+        // Read file from storage
+        try
+        {
+            byte[] fileContent = await _storageService.ReadFileAsync(attachment.Path, cancellationToken);
+            string fileName = Path.GetFileName(attachment.Path);
+
+            return File(fileContent, "application/pdf", fileName);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound($"File not found at path: {attachment.Path}");
+        }
     }
 }
 
