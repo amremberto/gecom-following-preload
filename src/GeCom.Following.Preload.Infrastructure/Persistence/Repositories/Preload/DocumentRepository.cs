@@ -21,7 +21,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
-            .Include(d => d.Attachments)
+            .Include(d => d.Attachments.Where(a => a.FechaBorrado == null))
             .FirstOrDefaultAsync(d => d.DocId == id, cancellationToken);
     }
 

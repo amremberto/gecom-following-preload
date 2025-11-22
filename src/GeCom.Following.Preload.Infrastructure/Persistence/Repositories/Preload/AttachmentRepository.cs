@@ -16,13 +16,24 @@ internal sealed class AttachmentRepository : GenericRepository<Attachment, Prelo
     public override async Task<Attachment?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await GetQueryable()
-            .FirstOrDefaultAsync(a => a.AdjuntoId == id, cancellationToken);
+            .Where(a => a.AdjuntoId == id && a.FechaBorrado == null)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Override GetAllAsync to filter out deleted attachments (FechaBorrado is null).
+    /// </summary>
+    public override async Task<IEnumerable<Attachment>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetQueryable()
+            .Where(a => a.FechaBorrado == null)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Attachment>> GetByDocumentIdAsync(int docId, CancellationToken cancellationToken = default)
     {
         return await GetQueryable()
-            .Where(a => a.DocId == docId)
+            .Where(a => a.DocId == docId && a.FechaBorrado == null)
             .OrderByDescending(a => a.FechaCreacion)
             .ToListAsync(cancellationToken);
     }
@@ -31,7 +42,7 @@ internal sealed class AttachmentRepository : GenericRepository<Attachment, Prelo
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         return await GetQueryable()
-            .Where(a => a.Path == path)
+            .Where(a => a.Path == path && a.FechaBorrado == null)
             .OrderByDescending(a => a.FechaCreacion)
             .ToListAsync(cancellationToken);
     }
@@ -39,7 +50,7 @@ internal sealed class AttachmentRepository : GenericRepository<Attachment, Prelo
     public async Task<IEnumerable<Attachment>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
     {
         return await GetQueryable()
-            .Where(a => a.FechaCreacion >= startDate && a.FechaCreacion <= endDate)
+            .Where(a => a.FechaCreacion >= startDate && a.FechaCreacion <= endDate && a.FechaBorrado == null)
             .OrderByDescending(a => a.FechaCreacion)
             .ToListAsync(cancellationToken);
     }
