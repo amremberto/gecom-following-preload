@@ -15,6 +15,7 @@ public partial class Documents : IAsyncDisposable
 {
     private bool _isLoading = true;
     private bool _isDataTableLoading;
+    private bool _isModalLoading;
     private string _toastMessage = string.Empty;
     private IEnumerable<DocumentResponse> _documents = [];
     private IEnumerable<DocumentResponse> _pendingsDocuments = [];
@@ -22,6 +23,7 @@ public partial class Documents : IAsyncDisposable
     private bool _isProvider;
     private string? _providerCuit;
     private bool _hasReadOnlyRole;
+    private DocumentResponse? _selectedDocument;
 
     private IJSObjectReference? _documentsModule;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -367,9 +369,37 @@ public partial class Documents : IAsyncDisposable
     /// </summary>
     /// <param name="document">The document to edit.</param>
     /// <returns></returns>
-    private void EditDocument(DocumentResponse document)
+    private async Task EditDocument(DocumentResponse document)
     {
-        NavigationManager.NavigateTo($"/documents/{document.DocId}");
+        await OpenDocumentEdit(document.DocId);
+    }
+
+    /// <summary>
+    /// Opens the document edit modal.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns></returns>
+    private async Task OpenDocumentEdit(int docId)
+    {
+        _isModalLoading = true;
+        _selectedDocument = null;
+        StateHasChanged();
+
+        await GetDocumentWithDetails(docId);
+
+        _isModalLoading = false;
+        StateHasChanged();
+
+        if (_selectedDocument is not null)
+        {
+            // Show edit modal
+            await JsRuntime.InvokeVoidAsync("eval", "new bootstrap.Modal(document.getElementById('edit-document-modal')).show()");
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir el modal de edición del documento: respuesta nula");
+            await ShowToast("Error al cargar el documento para editar.");
+        }
     }
 
     /// <summary>
@@ -560,6 +590,69 @@ public partial class Documents : IAsyncDisposable
     }
 
     private PreloadDocumentModal? _preloadModal;
+
+    /// <summary>
+    /// Handles the document click event to open the document details modal.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns></returns>
+    private async Task OpenDocumentDetails(int docId)
+    {
+        _isModalLoading = true;
+        _selectedDocument = null;
+        StateHasChanged();
+
+        await GetDocumentWithDetails(docId);
+
+        _isModalLoading = false;
+        StateHasChanged();
+
+        if (_selectedDocument is not null)
+        {
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "document-oc-datatable");
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "document-oc-datatable");
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "document-notes-datatable");
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "document-notes-datatable");
+            StateHasChanged();
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir el modal de detalles del documento: respuesta nula");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the document details based on the document ID.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns></returns>
+    private async Task GetDocumentWithDetails(int docId)
+    {
+        try
+        {
+            StateHasChanged();
+
+            DocumentResponse? response = await DocumentService.GetByIdAsync(docId, cancellationToken: default);
+
+            if (response is null)
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar el documento: respuesta nula");
+                _selectedDocument = null;
+                return;
+            }
+
+            _selectedDocument = response;
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
+            _selectedDocument = null;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
 
     /// <summary>
     /// Handles the create new document action.

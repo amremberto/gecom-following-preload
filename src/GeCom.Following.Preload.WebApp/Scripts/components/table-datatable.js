@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Theme: Adminto - Responsive Bootstrap 5 Admin Dashboard
  * Author: Coderthemes
  * Module/App: Data tables
@@ -17,6 +17,7 @@ window.loadDataTable = function (tableId) {
         $('#' + tableId).DataTable({
             scrollX: true,
             fixedColumns: { leftColumns: 1 }, // <-- Fija la primera columna
+            stateSave: true,
             language: {
                 url: 'vendor/datatables.net-plugins/i18n/es-AR.json',
                 paginate: {

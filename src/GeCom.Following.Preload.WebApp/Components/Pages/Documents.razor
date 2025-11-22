@@ -143,6 +143,7 @@
                                                 <button type="button"
                                                         class="btn btn-primary btn-sm p-0"
                                                         style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="@(() => OpenDocumentDetails(doc.DocId))"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#full-width-modal"
                                                         title="Ver detalles">
@@ -223,6 +224,7 @@
                                                 <button type="button"
                                                         class="btn btn-primary btn-sm p-0"
                                                         style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="@(() => OpenDocumentDetails(doc.DocId))"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#full-width-modal"
                                                         title="Ver detalles">
@@ -286,6 +288,185 @@
     </div>
 </div>
 
+<!-- Full width modal content -->
+<div id="full-width-modal" class="modal fade" tabindex="-1" role="dialog"
+     aria-labelledby="fullWidthModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-full-width modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-white align-items-center rounded-top border-bottom">
+                <h4 class="modal-title mb-0 d-flex align-items-center text-secondary" id="fullWidthModalLabel">
+                    <i class="ri-file-text-line me-2"></i> Detalle de Documento
+                </h4>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                @if (_isModalLoading)
+                {
+                    <div class="text-center py-2">
+                        <button class="btn btn-primary" type="button" disabled>
+                            <span class="spinner-border spinner-border-sm me-1" role="status"
+                                  aria-hidden="true"></span>
+                            Cargando datos...
+                        </button>
+                    </div>
+                }
+                else if (_selectedDocument is not null)
+                {
+                    <div class="mb-2">
+                        <span class="@GetEstadoBadgeClass(_selectedDocument.EstadoDescripcion) fs-6">@_selectedDocument.EstadoDescripcion</span>
+                    </div>
+                    <div class="card shadow-sm mb-3 border border-primary-subtle">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Cliente / Razón Social</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.SociedadCuit - @_selectedDocument.SociedadDescripcion</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Proveedor</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.ProveedorCuit - @_selectedDocument.ProveedorRazonSocial</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Tipo de Documento</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.TipoDocDescripcion</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Fecha Factura</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@(_selectedDocument.FechaEmisionComprobante?.ToString("dd/MM/yyyy"))</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Nro. Comprobante</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.NumeroComprobante</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Punto de Venta</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.PuntoDeVenta</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Moneda</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.Moneda</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Importe Total</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@(_selectedDocument.MontoBruto?.ToString("N2"))</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Nro. CAE / CAI</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.Caecai</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Venc. CAE / CAI</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@(_selectedDocument.VencimientoCaecai?.ToString("dd/MM/yyyy"))</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="oc-tab" data-bs-toggle="tab" data-bs-target="#ordenesCompra" type="button" role="tab" aria-controls="ordenesCompra" aria-selected="true">
+                                <i class="ri-shopping-cart-line"></i> Ordenes de Compra
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="comentarios-tab" data-bs-toggle="tab" data-bs-target="#comentarios" type="button" role="tab" aria-controls="comentarios" aria-selected="false">
+                                <i class="ri-chat-1-line"></i> Comentarios
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="notas-tab" data-bs-toggle="tab" data-bs-target="#notas" type="button" role="tab" aria-controls="notas" aria-selected="false">
+                                <i class="ri-sticky-note-line"></i> Notas
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="ordenesCompra" role="tabpanel" aria-labelledby="oc-tab">
+                            @if (_selectedDocument.PurchaseOrders.Any())
+                            {
+                                <div>
+                                    <table id="document-oc-datatable" class="table table-striped w-100 nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th>Número OC</th>
+                                                <th>Posición</th>
+                                                <th>Código Recepción</th>
+                                                <th>Cantidad a Facturar</th>
+                                                <th>Código Sociedad FI</th>
+                                                <th>Proveedor SAP</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var po in _selectedDocument.PurchaseOrders)
+                                            {
+                                                <tr>
+                                                    <td>@po.NroOc</td>
+                                                    <td>@po.PosicionOc</td>
+                                                    <td>@po.CodigoRecepcion</td>
+                                                    <td>@po.CantidadAfacturar.ToString("N2")</td>
+                                                    <td>@po.CodigoSociedadFi</td>
+                                                    <td>@po.ProveedorSap</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info mb-0">
+                                    <i class="ri-information-line me-2"></i>No hay órdenes de compra asociadas a este documento.
+                                </div>
+                            }
+                        </div>
+                        <div class="tab-pane fade" id="comentarios" role="tabpanel" aria-labelledby="comentarios-tab">
+                            <div class="alert alert-info mb-0">
+                                <i class="ri-information-line me-2"></i>No hay comentarios disponibles.
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="notas" role="tabpanel" aria-labelledby="notas-tab">
+                            @if (_selectedDocument.Notes.Any())
+                            {
+                                <div>
+                                    <table id="document-notes-datatable" class="table table-striped w-100 nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Fecha</th>
+                                                <th>Observaciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var note in _selectedDocument.Notes)
+                                            {
+                                                <tr>
+                                                    <td>@note.UsuarioCreacion</td>
+                                                    <td>@note.FechaCreacion.ToString("dd/MM/yyyy")</td>
+                                                    <td>@note.Descripcion</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info mb-0">
+                                    <i class="ri-information-line me-2"></i>No hay notas disponibles.
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="ri-close-line me-1"></i>Cerrar
+                </button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div> <!--end /.modal -->
+<!-- End Full width modal content -->
+
 <!-- Validation Toast -->
 <div class="toast-container position-fixed top-0 end-0 p-3">
     <div class="toast bg-danger-subtle text-dark border border-danger" id="dateRangeToast" role="alert" aria-live="assertive" aria-atomic="true">
@@ -300,6 +481,98 @@
     </div>
 </div>
 <!-- End validation Toast-->
+
+<!-- Edit Document Modal -->
+<div id="edit-document-modal" class="modal fade" tabindex="-1" role="dialog"
+     aria-labelledby="editDocumentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-full-width modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-white align-items-center rounded-top border-bottom">
+                <h4 class="modal-title mb-0 d-flex align-items-center text-secondary" id="editDocumentModalLabel">
+                    <i class="ri-edit-line me-2"></i> Editar Documento
+                </h4>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                @if (_isModalLoading)
+                {
+                    <div class="text-center py-2">
+                        <button class="btn btn-primary" type="button" disabled>
+                            <span class="spinner-border spinner-border-sm me-1" role="status"
+                                  aria-hidden="true"></span>
+                            Cargando datos...
+                        </button>
+                    </div>
+                }
+                else if (_selectedDocument is not null)
+                {
+                    <div class="mb-2">
+                        <span class="@GetEstadoBadgeClass(_selectedDocument.EstadoDescripcion) fs-6">@_selectedDocument.EstadoDescripcion</span>
+                    </div>
+                    <div class="card shadow-sm mb-3 border border-primary-subtle">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Cliente / Razón Social</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.SociedadCuit - @_selectedDocument.SociedadDescripcion</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Proveedor</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.ProveedorCuit - @_selectedDocument.ProveedorRazonSocial</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Tipo de Documento</label>
+                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.TipoDocDescripcion</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Fecha Factura</label>
+                                    <input type="date" class="form-control" value="@(_selectedDocument.FechaEmisionComprobante?.ToString("yyyy-MM-dd"))" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Nro. Comprobante</label>
+                                    <input type="text" class="form-control" value="@_selectedDocument.NumeroComprobante" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Punto de Venta</label>
+                                    <input type="text" class="form-control" value="@_selectedDocument.PuntoDeVenta" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Moneda</label>
+                                    <input type="text" class="form-control" value="@_selectedDocument.Moneda" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="fw-bold text-primary">Importe Total</label>
+                                    <input type="number" step="0.01" class="form-control" value="@_selectedDocument.MontoBruto" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Nro. CAE / CAI</label>
+                                    <input type="text" class="form-control" value="@_selectedDocument.Caecai" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="fw-bold text-primary">Venc. CAE / CAI</label>
+                                    <input type="date" class="form-control" value="@(_selectedDocument.VencimientoCaecai?.ToString("yyyy-MM-dd"))" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="ri-information-line me-2"></i>
+                        <strong>Nota:</strong> La funcionalidad de guardado estará disponible cuando se implemente el endpoint de actualización en la API.
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="ri-close-line me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" disabled>
+                    <i class="ri-save-line me-1"></i>Guardar Cambios
+                </button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div> <!--end /.modal -->
+<!-- End Edit Document Modal -->
 
 <!-- Preload Document Modal -->
 <PreloadDocumentModal @ref="_preloadModal" OnDocumentPreloaded="OnDocumentPreloaded" OnCancel="() => Task.CompletedTask" />
