@@ -7,6 +7,7 @@ using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 
 namespace GeCom.Following.Preload.WebApp.Components.Pages;
@@ -24,6 +25,7 @@ public partial class Documents : IAsyncDisposable
     private string? _providerCuit;
     private bool _hasReadOnlyRole;
     private DocumentResponse? _selectedDocument;
+    private string _selectedPdfFileName = string.Empty;
 
     private IJSObjectReference? _documentsModule;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -383,6 +385,7 @@ public partial class Documents : IAsyncDisposable
     {
         _isModalLoading = true;
         _selectedDocument = null;
+        _selectedPdfFileName = string.Empty;
         StateHasChanged();
 
         await GetDocumentWithDetails(docId);
@@ -600,6 +603,7 @@ public partial class Documents : IAsyncDisposable
     {
         _isModalLoading = true;
         _selectedDocument = null;
+        _selectedPdfFileName = string.Empty;
         StateHasChanged();
 
         await GetDocumentWithDetails(docId);
@@ -693,6 +697,35 @@ public partial class Documents : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("console.error", "Error al navegar al documento:", ex.Message);
             await ShowToast("Error al navegar al documento creado.");
         }
+    }
+
+    /// <summary>
+    /// Handles the PDF file selection in the modals.
+    /// </summary>
+    /// <param name="e">The input file change event arguments.</param>
+    /// <returns></returns>
+    private void HandlePdfFileSelected(InputFileChangeEventArgs e)
+    {
+        IBrowserFile file = e.File;
+
+        // Validate file type
+        if (!string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase) &&
+            !file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedPdfFileName = string.Empty;
+            return;
+        }
+
+        // Validate file size (6 MB max)
+        const long maxFileSize = 6 * 1024 * 1024; // 6 MB
+        if (file.Size > maxFileSize)
+        {
+            _selectedPdfFileName = string.Empty;
+            return;
+        }
+
+        _selectedPdfFileName = file.Name;
+        StateHasChanged();
     }
 
     public async ValueTask DisposeAsync()
