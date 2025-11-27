@@ -112,31 +112,46 @@ internal sealed class HttpClientService : IHttpClientService
     /// <inheritdoc />
     public async Task<byte[]?> DownloadFileAsync(Uri requestUri, CancellationToken cancellationToken = default)
     {
-        HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken);
-
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        try
         {
-            response.Dispose();
-            throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
-        }
+            HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken);
 
-        if (response.StatusCode == HttpStatusCode.NotFound)
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                response.Dispose();
+                throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                response.Dispose();
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorMessage = await ExtractErrorMessageAsync(response, cancellationToken);
+                response.Dispose();
+                throw new ApiRequestException(response.StatusCode, errorMessage);
+            }
+
+            byte[] fileContent = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            response.Dispose();
+
+            return fileContent;
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException || !ex.CancellationToken.IsCancellationRequested)
         {
-            response.Dispose();
-            return null;
+            throw new ApiRequestException(
+                HttpStatusCode.RequestTimeout,
+                "La descarga del archivo tardó demasiado tiempo. Por favor, intente nuevamente.");
         }
-
-        if (!response.IsSuccessStatusCode)
+        catch (OperationCanceledException)
         {
-            string errorMessage = await ExtractErrorMessageAsync(response, cancellationToken);
-            response.Dispose();
-            throw new ApiRequestException(response.StatusCode, errorMessage);
+            throw new ApiRequestException(
+                HttpStatusCode.RequestTimeout,
+                "La descarga del archivo fue cancelada debido a un timeout.");
         }
-
-        byte[] fileContent = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        response.Dispose();
-
-        return fileContent;
     }
 
     /// <summary>

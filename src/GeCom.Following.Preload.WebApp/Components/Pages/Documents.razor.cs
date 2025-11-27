@@ -1,13 +1,18 @@
 ﻿using System.Globalization;
 using System.Security.Claims;
+using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.WebApp.Components.Modals;
+using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
 
 namespace GeCom.Following.Preload.WebApp.Components.Pages;
@@ -38,6 +43,8 @@ public partial class Documents : IAsyncDisposable
     [Inject] private IProviderService ProviderService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
+    [Inject] private IOptions<PreloadApiSettings> ApiSettings { get; set; } = default!;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -726,6 +733,43 @@ public partial class Documents : IAsyncDisposable
 
         _selectedPdfFileName = file.Name;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Checks if the selected document has any attachments.
+    /// </summary>
+    /// <returns>True if the document has attachments, false otherwise.</returns>
+    private bool HasAttachment()
+    {
+        return _selectedDocument is not null &&
+               _selectedDocument.Attachments is not null &&
+               _selectedDocument.Attachments.Any(a => a.FechaBorrado is null);
+    }
+
+    /// <summary>
+    /// Gets the ID of the first active attachment.
+    /// </summary>
+    /// <returns>The attachment ID, or 0 if no attachment is found.</returns>
+    private int GetFirstAttachmentId()
+    {
+        if (_selectedDocument?.Attachments is null)
+        {
+            return 0;
+        }
+
+        AttachmentResponse? activeAttachment = _selectedDocument.Attachments
+            .FirstOrDefault(a => a.FechaBorrado is null);
+
+        return activeAttachment?.AdjuntoId ?? 0;
+    }
+
+    /// <summary>
+    /// Handles PDF viewer errors.
+    /// </summary>
+    /// <returns></returns>
+    private async Task HandlePdfError()
+    {
+        await ShowToast("Error al cargar el PDF. Por favor, intente nuevamente.");
     }
 
     public async ValueTask DisposeAsync()

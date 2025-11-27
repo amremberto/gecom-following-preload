@@ -1,0 +1,56 @@
+﻿<div class="pdf-viewer-container">
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center align-items-center" style="min-height: 400px;">
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando PDF...</span>
+                </div>
+                <p class="mt-2 text-muted">Cargando PDF...</p>
+            </div>
+        </div>
+    }
+    else if (_hasError)
+    {
+        <div class="d-flex justify-content-center align-items-center" style="min-height: 400px;">
+            <div class="text-center text-danger">
+                <i class="ri-error-warning-line" style="font-size: 3rem;"></i>
+                <p class="mt-2">@_errorMessage</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="pdf-toolbar mb-2 d-flex justify-content-between align-items-center">
+            <div>
+                <span class="badge bg-info">
+                    <i class="ri-file-pdf-line me-1"></i> Visualizador de PDF
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" @onclick="ZoomOut" title="Alejar">
+                    <i class="ri-zoom-out-line"></i>
+                </button>
+                <span class="mx-2">@($"{_zoomLevel}%")</span>
+                <button class="btn btn-sm btn-outline-primary" @onclick="ZoomIn" title="Acercar">
+                    <i class="ri-zoom-in-line"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="ResetZoom" title="Restablecer zoom">
+                    <i class="ri-fullscreen-line"></i>
+                </button>
+            </div>
+        </div>
+        <div class="pdf-wrapper border rounded" style="overflow: auto; max-height: 70vh;">
+            <canvas id="@_canvasId" class="pdf-canvas"></canvas>
+        </div>
+        <div class="pdf-pagination mt-2 d-flex justify-content-between align-items-center">
+            <button class="btn btn-sm btn-outline-primary" @onclick="PreviousPage" disabled="@(_currentPage <= 1)">
+                <i class="ri-arrow-left-line"></i> Anterior
+            </button>
+            <span class="text-muted">Página @_currentPage de @_totalPages</span>
+            <button class="btn btn-sm btn-outline-primary" @onclick="NextPage" disabled="@(_currentPage >= _totalPages)">
+                Siguiente <i class="ri-arrow-right-line"></i>
+            </button>
+        </div>
+    }
+</div>

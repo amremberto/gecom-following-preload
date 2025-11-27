@@ -38,7 +38,8 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = new Uri(apiSettings.BaseUrl);
             }
 
-            client.Timeout = TimeSpan.FromSeconds(30);
+            // Increased timeout for file downloads (PDFs can be large)
+            client.Timeout = TimeSpan.FromMinutes(5);
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(
                 new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
