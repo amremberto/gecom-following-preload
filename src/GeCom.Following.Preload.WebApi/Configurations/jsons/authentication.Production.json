@@ -1,5 +1,7 @@
-{
-  "Authority": "https://accounts.gcgestion.com.ar",
-  "Audience": "gecom.following.preload.api",
-  "RequireHttpsMetadata": true
+﻿{
+  "Authentication": {
+    "Authority": "https://accounts.gcgestion.com.ar",
+    "Audience": "gecom.following.preload.api",
+    "RequireHttpsMetadata": true
+  }
 }

@@ -1,8 +1,7 @@
-using GeCom.Following.Preload.WebApp.Components;
+﻿using GeCom.Following.Preload.WebApp.Components;
 using GeCom.Following.Preload.WebApp.Configurations;
 using GeCom.Following.Preload.WebApp.Extensions;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
-using Microsoft.AspNetCore.Components.Authorization;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args);
 
@@ -66,7 +65,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection()
 
 app.UseAntiforgery();
 

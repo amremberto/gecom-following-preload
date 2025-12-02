@@ -1,4 +1,4 @@
-{
+﻿{
   "Serilog": {
     "Using": [
       "Serilog.Sinks.Console",
@@ -21,9 +21,6 @@
         "Name": "Async",
         "Args": {
           "configure": [
-            {
-              "Name": "Console"
-            },
             {
               "Name": "File",
               "Args": {

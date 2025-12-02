@@ -231,7 +231,7 @@ public sealed class DocumentsController : VersionedApiController
     /// <response code="403">If the user does not have the required permissions.</response>
     /// <response code="404">If the document was not found.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
-    [HttpGet("{docId}")]
+    [HttpGet("{docId}", Name = "GetDocumentById")]
     [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
     [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -295,7 +295,18 @@ public sealed class DocumentsController : VersionedApiController
 
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 
-        return result.MatchCreated(this, nameof(GetByIdAsync));
+        if (result.IsSuccess)
+        {
+            // Devolver 201 Created usando ObjectResult directamente
+            // Esto evita problemas con la validación de rutas en Created/CreatedAtAction
+            ObjectResult objectResult = new(result.Value)
+            {
+                StatusCode = StatusCodes.Status201Created
+            };
+            return objectResult;
+        }
+
+        return CustomResults.ProblemActionResult(this, result);
     }
 
 }
