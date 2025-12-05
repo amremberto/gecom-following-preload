@@ -1,15 +1,15 @@
-{
+﻿{
   "IdentityServer": {
     "Authority": "https://qa-accounts.gcgestion.com.ar",
     "MetadataAddress": "https://qa-accounts.gcgestion.com.ar/.well-known/openid-configuration",
     "ClientId": "gecom.following.preload.webapp",
-    "RequiredScopes": ["openid", "email", "profile", "gecom.following.preload.api", "offline_access"],
+    "ClientSecret": "4fe8rJlyLD7kiJUQZgYwExs",
+    "RequiredScopes": [ "openid", "email", "profile", "roles", "gecom.following.preload.api", "offline_access" ],
     "RequireHttpsMetadata": true,
-    "RedirectUri": "https://qa-preload.gcgestion.com.ar/signin-oidc",
-    "PostLogoutRedirectUri": "https://qa-preload.gcgestion.com.ar/",
+    "RedirectUri": "https://qa-fw-preload.gcgestion.com.ar/signin-oidc",
+    "PostLogoutRedirectUri": "https://qa-fw-preload.gcgestion.com.ar/signout-callback-oidc",
     "ResponseType": "code",
     "UsePkce": true,
     "SaveTokens": true
   }
 }
-

@@ -1,0 +1,9 @@
+﻿{
+  "ApplicationProperties": {
+    "Product": "GeCom Following Preload",
+    "Name": "GeCom Following Preload Web",
+    "Description": "Web application for managing Preload operations.",
+    "Company": "Gestión Compartida",
+    "Version": "1.0.0"
+  }
+}

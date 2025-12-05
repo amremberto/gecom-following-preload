@@ -1,4 +1,4 @@
-namespace GeCom.Following.Preload.WebApp.Configurations;
+﻿namespace GeCom.Following.Preload.WebApp.Configurations;
 
 /// <summary>
 /// This class is responsible for loading the configuration files.
@@ -26,7 +26,9 @@ internal static class ConfigurationsLoader
         // lista de archivos de configuración por dominio
         string[] configNames =
         [
+            "application",
             "identityServer",
+            "logger",
             "web-api"
         ];
 
