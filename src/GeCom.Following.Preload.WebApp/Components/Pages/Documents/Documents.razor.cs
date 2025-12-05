@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
 
-namespace GeCom.Following.Preload.WebApp.Components.Pages;
+namespace GeCom.Following.Preload.WebApp.Components.Pages.Documents;
 
 public partial class Documents : IAsyncDisposable
 {
@@ -43,7 +43,7 @@ public partial class Documents : IAsyncDisposable
     [Inject] private IProviderService ProviderService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
-    [Inject] private Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
+    [Inject] private IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
     [Inject] private IOptions<PreloadApiSettings> ApiSettings { get; set; } = default!;
 
     /// <summary>
@@ -223,7 +223,7 @@ public partial class Documents : IAsyncDisposable
 
             _documents = response ?? [];
         }
-        catch (Services.ApiRequestException httpEx)
+        catch (ApiRequestException httpEx)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", httpEx.Message);
             await ShowToast(httpEx.Message);

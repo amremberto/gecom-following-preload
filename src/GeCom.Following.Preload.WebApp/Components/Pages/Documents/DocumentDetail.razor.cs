@@ -1,8 +1,8 @@
-using GeCom.Following.Preload.Contracts.Preload.Documents;
+﻿using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 
-namespace GeCom.Following.Preload.WebApp.Components.Pages;
+namespace GeCom.Following.Preload.WebApp.Components.Pages.Documents;
 
 /// <summary>
 /// Component for displaying document details.
