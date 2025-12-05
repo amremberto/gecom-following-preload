@@ -3,6 +3,7 @@ using GeCom.Following.Preload.WebApp.Configurations;
 using GeCom.Following.Preload.WebApp.Extensions;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Logging.Serilog;
+using GeCom.Following.Preload.WebApp.Middlewares;
 using Serilog;
 
 // Initialize the logger with a bootstrap logger, to log in console before the configuration is loaded.
@@ -86,6 +87,9 @@ try
 
     // Use authentication (must be before UseAuthorization)
     app.UseAuthentication();
+
+    // Add Identity Server error handling middleware (after authentication to catch auth errors)
+    app.UseIdentityServerErrorHandling();
 
     // Use authorization
     app.UseAuthorization();

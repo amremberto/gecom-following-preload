@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Net.Sockets;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
@@ -390,8 +391,22 @@ public static class AuthenticationExtensions
                         }
                         return Task.CompletedTask;
                     },
-                    OnAuthenticationFailed = context
-                        => Task.CompletedTask,
+                    OnAuthenticationFailed = context =>
+                    {
+                        // Manejar errores de autenticación relacionados con problemas de conexión al servidor de identidad
+                        Exception? exception = context.Exception;
+                        if (exception is not null && IsIdentityServerConnectionError(exception))
+                        {
+                            context.HandleResponse();
+                            context.Response.Redirect("/identity-server-error");
+                            return Task.CompletedTask;
+                        }
+
+                        // Para otros errores de autenticación, redirigir a unauthorized
+                        context.HandleResponse();
+                        context.Response.Redirect("/unauthorized?error=authentication_failed");
+                        return Task.CompletedTask;
+                    },
                     OnRemoteFailure = context =>
                     {
                         // Handle remote failures (e.g., invalid_client, invalid_grant, etc.)
@@ -686,5 +701,57 @@ public static class AuthenticationExtensions
         {
             System.Diagnostics.Debug.WriteLine($"Error extracting CUIT claim from access_token: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Determina si la excepción está relacionada con problemas de conexión al servidor de identidad.
+    /// </summary>
+    private static bool IsIdentityServerConnectionError(Exception ex)
+    {
+        // Verificar InvalidOperationException con IDX20803 (Unable to obtain configuration)
+        if (ex is InvalidOperationException invalidOpEx && (invalidOpEx.Message.Contains("IDX20803", StringComparison.OrdinalIgnoreCase) ||
+                invalidOpEx.Message.Contains("Unable to obtain configuration", StringComparison.OrdinalIgnoreCase) ||
+                invalidOpEx.Message.Contains("openid-configuration", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        // Verificar IOException con IDX20804 (Unable to retrieve document)
+        if (ex is IOException ioEx && (ioEx.Message.Contains("IDX20804", StringComparison.OrdinalIgnoreCase) ||
+                ioEx.Message.Contains("Unable to retrieve document", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        // Verificar HttpRequestException (problemas de conexión HTTP)
+        if (ex is HttpRequestException httpEx && (httpEx.Message.Contains("No se puede establecer una conexión", StringComparison.OrdinalIgnoreCase) ||
+                httpEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+                httpEx.Message.Contains("denegó", StringComparison.OrdinalIgnoreCase) ||
+                httpEx.Message.Contains("refused", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        // Verificar SocketException (error 10061 = WSAECONNREFUSED)
+        if (ex is SocketException socketEx && (socketEx.ErrorCode == 10061 ||
+                socketEx.Message.Contains("No se puede establecer una conexión", StringComparison.OrdinalIgnoreCase) ||
+                socketEx.Message.Contains("denegó", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        // Verificar excepciones internas (wrapped exceptions)
+        Exception? innerEx = ex.InnerException;
+        while (innerEx is not null)
+        {
+            if (IsIdentityServerConnectionError(innerEx))
+            {
+                return true;
+            }
+
+            innerEx = innerEx.InnerException;
+        }
+
+        return false;
     }
 }
