@@ -7,6 +7,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
 - [Queries (Consultas)](#queries-consultas)
   - [GetAllDocuments](#getalldocuments)
   - [GetDocumentsByEmissionDatesAndProvider](#getdocumentsbyemissiondatesandprovider)
+  - [GetPendingDocuments](#getpendingdocuments)
   - [GetPendingDocumentsByProvider](#getpendingdocumentsbyprovider)
 - [Commands (Comandos)](#commands-comandos)
   - _(Pendiente de implementar)_
@@ -182,6 +183,162 @@ Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (m�
 
 ---
 
+### GetPendingDocuments
+
+**Descripción:** Obtiene documentos pendientes basándose en el rol del usuario. Los documentos pendientes son aquellos con `EstadoId == 1`, `EstadoId == 2` o `EstadoId == 5` y que tienen `FechaEmisionComprobante` establecida. El filtrado se realiza automáticamente según el rol del usuario:
+- **Following.Preload.ReadOnly** o **Following.Administrator**: Retorna todos los documentos pendientes sin filtros.
+- **Following.Preload.Societies**: Retorna solo los documentos pendientes de las sociedades asignadas al usuario mediante `UserSocietyAssignment`.
+
+**Archivos:**
+- `GetPendingDocumentsQuery.cs`
+- `GetPendingDocumentsQueryHandler.cs`
+- `GetPendingDocumentsQueryValidator.cs`
+
+**Endpoint:**
+```
+GET /api/v1/Documents/pending
+```
+
+**Parámetros:**
+- No requiere parámetros. Los roles y el email del usuario se obtienen automáticamente del token de autenticación.
+
+**Respuestas:**
+- `200 OK` - Lista de documentos pendientes que cumplen los criterios según el rol del usuario
+- `400 BadRequest` - Parámetros inválidos (roles no encontrados, email no encontrado en el token)
+- `401 Unauthorized` - Usuario no autenticado
+- `403 Forbidden` - Usuario no tiene los permisos requeridos
+- `500 InternalServerError` - Error del servidor
+
+**Ejemplo de uso:**
+```http
+GET /api/v1/Documents/pending
+Authorization: Bearer {token}
+```
+
+**Respuesta exitosa (usuario con rol ReadOnly o Administrator):**
+```json
+[
+  {
+    "docId": 1,
+    "proveedorCuit": "20123456789",
+    "proveedorRazonSocial": "Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Ejemplo",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0001",
+    "numeroComprobante": "00001234",
+    "fechaEmisionComprobante": "2024-01-15",
+    "moneda": "ARS",
+    "montoBruto": 100000.50,
+    "codigoDeBarras": "1234567890123",
+    "caecai": "12345678901234",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 1,
+    "estadoDescripcion": "Pendiente",
+    "fechaCreacion": "2024-01-15T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 123,
+    "nombreSolicitante": "Juan Pérez",
+    "idDetalleDePago": null,
+    "idMetodoDePago": null,
+    "fechaPago": null,
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  },
+  {
+    "docId": 2,
+    "proveedorCuit": "20123456789",
+    "proveedorRazonSocial": "Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Ejemplo",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0001",
+    "numeroComprobante": "00001235",
+    "fechaEmisionComprobante": "2024-01-16",
+    "moneda": "ARS",
+    "montoBruto": 50000.00,
+    "codigoDeBarras": "1234567890124",
+    "caecai": "12345678901235",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 2,
+    "estadoDescripcion": "Pendiente de Aprobación",
+    "fechaCreacion": "2024-01-16T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 124,
+    "nombreSolicitante": "María González",
+    "idDetalleDePago": null,
+    "idMetodoDePago": null,
+    "fechaPago": null,
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  }
+]
+```
+
+**Respuesta exitosa (usuario con rol Societies):**
+```json
+[
+  {
+    "docId": 3,
+    "proveedorCuit": "20987654321",
+    "proveedorRazonSocial": "Otro Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Asignada",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0002",
+    "numeroComprobante": "00001236",
+    "fechaEmisionComprobante": "2024-01-17",
+    "moneda": "ARS",
+    "montoBruto": 75000.00,
+    "codigoDeBarras": "1234567890125",
+    "caecai": "12345678901236",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 5,
+    "estadoDescripcion": "Pendiente de Revisión",
+    "fechaCreacion": "2024-01-17T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 125,
+    "nombreSolicitante": "Carlos Rodríguez",
+    "idDetalleDePago": null,
+    "idMetodoDePago": null,
+    "fechaPago": null,
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  }
+]
+```
+
+**Nota:** Este endpoint requiere autenticación y el permiso `RequirePreloadRead`. Solo se retornan documentos que:
+- Tengan un valor en `FechaEmisionComprobante` (no nulo)
+- Su `EstadoId` sea igual a `1` (Pendiente), `2` (Pendiente de Aprobación) o `5` (Pendiente de Revisión)
+- Para usuarios con rol `Following.Preload.Societies`: El documento debe pertenecer a una sociedad asignada al usuario mediante `UserSocietyAssignment` (basado en el `CuitClient` de la asignación)
+
+**Validaciones:**
+- El token de autenticación debe contener al menos un rol válido. Si no se encuentra ningún rol, se retorna `400 BadRequest` con el mensaje "User roles not found in the authentication token. At least one role is required."
+- El token de autenticación debe contener el claim `email` o `ClaimTypes.Email`. Si no se encuentra, se retorna `400 BadRequest` con el mensaje "User email is required but was not found in the authentication token."
+- El validador FluentValidation valida que:
+  - `UserRoles` no sea null ni vacío (debe contener al menos un rol)
+  - `UserEmail` no sea null, no esté vacío y tenga un formato de email válido
+
+**Comportamiento según rol:**
+- **Following.Preload.ReadOnly** o **Following.Administrator**: Retorna todos los documentos pendientes del sistema sin filtros adicionales.
+- **Following.Preload.Societies**: 
+  - Obtiene todas las asignaciones de sociedades del usuario mediante `UserSocietyAssignmentRepository.GetByEmailAsync()`
+  - Extrae los CUITs de las sociedades asignadas (`CuitClient`)
+  - Filtra los documentos pendientes que pertenezcan a esas sociedades
+  - Si el usuario no tiene asignaciones de sociedades, retorna una lista vacía
+- **Otros roles**: Retorna una lista vacía por seguridad
+
+Los resultados se ordenan por `FechaEmisionComprobante` de forma ascendente (más antiguos primero). El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
+
+---
+
 ### GetPendingDocumentsByProvider
 
 **Descripción:** Obtiene documentos pendientes filtrados por CUIT del proveedor. Los documentos pendientes son aquellos con `EstadoId == 2` o `EstadoId == 5` y que tienen `FechaEmisionComprobante` establecida. El CUIT del proveedor proporcionado debe coincidir con el CUIT en el token de autenticación del usuario.
@@ -302,6 +459,7 @@ _(Pendiente de implementar)_
 |--------|----------|-------------|---------------------|
 | GET | `/api/v1/Documents` | Obtener todos los documentos | 200, 401, 500 |
 | GET | `/api/v1/Documents/by-dates-and-provider` | Obtener documentos por rango de fechas de emisión y opcionalmente por proveedor | 200, 400, 401, 500 |
+| GET | `/api/v1/Documents/pending` | Obtener documentos pendientes según rol del usuario | 200, 400, 401, 403, 500 |
 | GET | `/api/v1/Documents/pending-by-provider` | Obtener documentos pendientes por CUIT del proveedor | 200, 400, 401, 403, 500 |
 
 ---
@@ -470,6 +628,9 @@ Documento creado: 2024-12-19
 
 ### Cambios Recientes
 
+- **2024-12-20**: Implementado GetPendingDocuments - Query para obtener documentos pendientes según rol del usuario (ReadOnly/Administrator: todos los pendientes; Societies: solo de sociedades asignadas)
+- **2024-12-20**: Agregados métodos GetPendingAsync y GetPendingBySocietyCuitsAsync al repositorio para soportar el nuevo caso de uso
+- **2024-12-20**: Implementado GetPendingDocumentsQueryValidator con validaciones para UserRoles (al menos uno requerido) y UserEmail (requerido y formato válido)
 - **2024-12-19**: Implementado GetPendingDocumentsByProvider - Query para obtener documentos pendientes (EstadoId == 2 o 5) por CUIT del proveedor
 - **2024-12-19**: Agregado método GetPendingDocumentsByProviderCuitAsync al repositorio con filtrado por estado pendiente y Include de relaciones
 - **2024-12-19**: Implementado GetDocumentsByEmissionDatesAndProvider - Query para obtener documentos por rango de fechas de emisión y opcionalmente por proveedor CUIT
