@@ -124,5 +124,26 @@ internal sealed class DocumentService : IDocumentService
 
         return fileContent;
     }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsByProviderAsync(
+        string providerCuit,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(providerCuit);
+
+        string apiVersion = _apiSettings.Version;
+
+        // Build query string
+        string queryString = $"providerCuit={Uri.EscapeDataString(providerCuit)}";
+
+        Uri requestUri = new($"/api/{apiVersion}/Documents/pending-by-provider?{queryString}", UriKind.Relative);
+
+        IEnumerable<DocumentResponse>? response = await _httpClientService.GetAsync<IEnumerable<DocumentResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
 }
 

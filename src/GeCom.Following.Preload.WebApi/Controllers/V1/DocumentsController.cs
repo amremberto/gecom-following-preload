@@ -5,6 +5,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocum
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentById;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocuments;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocumentsByProvider;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
@@ -121,8 +122,65 @@ public sealed class DocumentsController : VersionedApiController
     }
 
     /// <summary>
+    /// Gets pending documents based on user role.
+    /// - ReadOnly/Administrator: Returns all pending documents.
+    /// - Societies: Returns pending documents for all societies assigned to the user.
+    /// Pending documents are those with EstadoId == 1, EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of pending documents based on user role.</returns>
+    /// <response code="200">Returns the list of pending documents.</response>
+    /// <response code="400">If the request parameters are invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("pending")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(IEnumerable<DocumentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetPendingDocumentsAsync", "Gets pending documents based on user role.")]
+    public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetPendingDocumentsAsync(
+        CancellationToken cancellationToken)
+    {
+        // Get user roles
+        var userRoles = User.Claims
+            .Where(c => c.Type == ClaimTypes.Role ||
+                        c.Type == AuthorizationConstants.RoleClaimType ||
+                        c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+            .Select(c => c.Value)
+            .Distinct()
+            .ToList();
+
+        if (userRoles.Count == 0)
+        {
+            return BadRequest("User roles not found in the authentication token. At least one role is required.");
+        }
+
+        // Get user email (required)
+        string? userEmail = User.FindFirst("email")?.Value ??
+                           User.FindFirst(ClaimTypes.Email)?.Value;
+
+        if (string.IsNullOrWhiteSpace(userEmail))
+        {
+            return BadRequest("User email is required but was not found in the authentication token.");
+        }
+
+        GetPendingDocumentsQuery query = new(
+            userRoles,
+            userEmail);
+
+        Result<IEnumerable<DocumentResponse>> result =
+            await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
     /// Gets pending documents by provider CUIT.
-    /// Pending documents are those with EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// Pending documents are those with EstadoId == 1, EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
     /// </summary>
     /// <param name="providerCuit">Provider CUIT. Must match the CUIT in the user's claim.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Domain.Preloads.Documents;
+﻿using GeCom.Following.Preload.Domain.Preloads.Documents;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 
 namespace GeCom.Following.Preload.Application.Abstractions.Repositories;
@@ -120,10 +120,27 @@ public interface IDocumentRepository : IRepository<Document>
 
     /// <summary>
     /// Gets pending documents by provider CUIT.
-    /// Pending documents are those with EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// Pending documents are those with EstadoId == 1, EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
     /// </summary>
     /// <param name="providerCuit">Provider CUIT.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of pending documents.</returns>
-    Task<IEnumerable<Document>> GetPendingDocumentsByProviderCuitAsync(string providerCuit, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Document>> GetPendingByProviderCuitAsync(string providerCuit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all pending documents.
+    /// Pending documents are those with EstadoId == 1, EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of pending documents.</returns>
+    Task<IEnumerable<Document>> GetPendingAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets pending documents by multiple society CUITs.
+    /// Pending documents are those with EstadoId == 1, EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="societyCuits">Collection of society CUITs.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of pending documents.</returns>
+    Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
 }

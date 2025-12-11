@@ -212,7 +212,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
     }
 
     /// <inheritdoc />
-    public async Task<IEnumerable<Document>> GetPendingDocumentsByProviderCuitAsync(string providerCuit, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Document>> GetPendingByProviderCuitAsync(string providerCuit, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
 
@@ -226,6 +226,80 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Where(d => d.FechaEmisionComprobante.HasValue
                 && d.ProveedorCuit == providerCuit
                 && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5))
+            .OrderBy(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Document>> GetPendingAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.FechaEmisionComprobante.HasValue
+                && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5))
+            .OrderBy(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(IEnumerable<string> societyCuits, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(societyCuits);
+
+        IQueryable<Document> query = GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.FechaEmisionComprobante.HasValue
+                && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5));
+
+        var societyCuitsList = societyCuits
+            .Where(cuit => !string.IsNullOrWhiteSpace(cuit))
+            .Distinct()
+            .ToList();
+
+        if (societyCuitsList.Count > 0)
+        {
+            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+            // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
+            // Build OR expression tree manually to ensure SQL translation works correctly
+            ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
+            MemberExpression property = Expression.Property(parameter, nameof(Document.SociedadCuit));
+            BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+
+            Expression? orExpression = null;
+            foreach (string cuit in societyCuitsList)
+            {
+                BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
+                orExpression = orExpression is null
+                    ? equalsExpression
+                    : Expression.OrElse(orExpression, equalsExpression);
+            }
+
+            if (orExpression is not null)
+            {
+                BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
+                var lambda = Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+                query = query.Where(lambda);
+            }
+        }
+        else
+        {
+            // If no CUITs provided, return empty result
+            return Enumerable.Empty<Document>();
+        }
+
+        return await query
             .OrderBy(d => d.FechaEmisionComprobante)
             .AsNoTracking()
             .ToListAsync(cancellationToken);

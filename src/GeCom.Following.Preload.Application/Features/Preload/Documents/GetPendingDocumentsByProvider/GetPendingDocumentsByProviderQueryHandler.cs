@@ -33,7 +33,7 @@ internal sealed class GetPendingDocumentsByProviderQueryHandler
         ArgumentNullException.ThrowIfNull(request);
 
         IEnumerable<Document> documents =
-            await _documentRepository.GetPendingDocumentsByProviderCuitAsync(
+            await _documentRepository.GetPendingByProviderCuitAsync(
                 request.ProviderCuit,
                 cancellationToken);
 

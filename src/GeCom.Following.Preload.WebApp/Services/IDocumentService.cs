@@ -68,5 +68,16 @@ public interface IDocumentService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The PDF file content as byte array.</returns>
     Task<byte[]?> DownloadAttachmentAsync(int adjuntoId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets pending documents by provider CUIT from the API.
+    /// Pending documents are those with EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="providerCuit">Provider CUIT (required). Must match the CUIT in the user's claim.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of pending documents for the specified provider.</returns>
+    Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsByProviderAsync(
+        string providerCuit,
+        CancellationToken cancellationToken = default);
 }
 
