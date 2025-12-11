@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using Microsoft.AspNetCore.Components.Forms;
@@ -29,7 +29,8 @@ internal sealed class DocumentService : IDocumentService
     }
 
     /// <inheritdoc />
-    public async Task<IEnumerable<DocumentResponse>?> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<DocumentResponse>?> GetAllAsync(
+        CancellationToken cancellationToken = default)
     {
         string apiVersion = _apiSettings.Version;
         Uri requestUri = new($"/api/{apiVersion}/Documents", UriKind.Relative);
@@ -85,7 +86,9 @@ internal sealed class DocumentService : IDocumentService
     }
 
     /// <inheritdoc />
-    public async Task<DocumentResponse?> GetByIdAsync(int docId, CancellationToken cancellationToken = default)
+    public async Task<DocumentResponse?> GetByIdAsync(
+        int docId,
+        CancellationToken cancellationToken = default)
     {
         string apiVersion = _apiSettings.Version;
         Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}", UriKind.Relative);
@@ -98,7 +101,9 @@ internal sealed class DocumentService : IDocumentService
     }
 
     /// <inheritdoc />
-    public async Task<DocumentResponse?> PreloadDocumentAsync(IBrowserFile file, CancellationToken cancellationToken = default)
+    public async Task<DocumentResponse?> PreloadDocumentAsync(
+        IBrowserFile file,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
 
@@ -115,7 +120,9 @@ internal sealed class DocumentService : IDocumentService
     }
 
     /// <inheritdoc />
-    public async Task<byte[]?> DownloadAttachmentAsync(int adjuntoId, CancellationToken cancellationToken = default)
+    public async Task<byte[]?> DownloadAttachmentAsync(
+        int adjuntoId,
+        CancellationToken cancellationToken = default)
     {
         string apiVersion = _apiSettings.Version;
         Uri requestUri = new($"/api/{apiVersion}/Attachments/{adjuntoId}/download", UriKind.Relative);
@@ -138,6 +145,20 @@ internal sealed class DocumentService : IDocumentService
         string queryString = $"providerCuit={Uri.EscapeDataString(providerCuit)}";
 
         Uri requestUri = new($"/api/{apiVersion}/Documents/pending-by-provider?{queryString}", UriKind.Relative);
+
+        IEnumerable<DocumentResponse>? response = await _httpClientService.GetAsync<IEnumerable<DocumentResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/pending", UriKind.Relative);
 
         IEnumerable<DocumentResponse>? response = await _httpClientService.GetAsync<IEnumerable<DocumentResponse>>(
             requestUri,

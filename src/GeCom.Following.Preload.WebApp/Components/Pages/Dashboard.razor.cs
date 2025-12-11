@@ -35,26 +35,14 @@ public partial class Dashboard : IAsyncDisposable
     /// <summary>
     /// This method is called when the component is initialized.
     /// </summary>
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
-        try
-        {
-            await LoadDashboardDataAsync();
-            await LoadUserClaimsAndTokensAsync();
-        }
-        catch (Exception ex)
-        {
-            // Log error (in production, use ILogger)
-            System.Diagnostics.Debug.WriteLine($"Error loading dashboard data: {ex.Message}");
-            // Set default values on error
-            _totalDocuments = 0;
-            _totalPurchaseOrders = 0;
-            _totalPendingDocuments = 0;
-        }
-        finally
-        {
-            _isLoading = false;
-        }
+        // In Blazor Server with InteractiveServer, OnInitializedAsync is called twice:
+        // 1. During server-side pre-rendering
+        // 2. When the SignalR connection is established
+        // To avoid duplicate API calls, we only initialize state here and load data in OnAfterRenderAsync
+        _isLoading = true;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -130,10 +118,10 @@ public partial class Dashboard : IAsyncDisposable
                         if (!string.IsNullOrWhiteSpace(cuitFromToken))
                         {
                             // Check if CUIT claim already exists
-                            bool cuitExists = _userClaims.Any(c => 
-                                c.Type == AuthorizationConstants.SocietyCuitClaimType && 
+                            bool cuitExists = _userClaims.Any(c =>
+                                c.Type == AuthorizationConstants.SocietyCuitClaimType &&
                                 c.Value == cuitFromToken);
-                            
+
                             if (!cuitExists)
                             {
                                 _userClaims.Add(new ClaimInfo
@@ -348,16 +336,40 @@ public partial class Dashboard : IAsyncDisposable
         {
             if (firstRender)
             {
+                // Load dashboard data only once after the first render
+                // This prevents duplicate API calls in Blazor Server with InteractiveServer
+                try
+                {
+                    await LoadDashboardDataAsync();
+                    await LoadUserClaimsAndTokensAsync();
+                }
+                catch (Exception ex)
+                {
+                    // Log error (in production, use ILogger)
+                    System.Diagnostics.Debug.WriteLine($"Error loading dashboard data: {ex.Message}");
+                    // Set default values on error
+                    _totalDocuments = 0;
+                    _totalPurchaseOrders = 0;
+                    _totalPendingDocuments = 0;
+                }
+                finally
+                {
+                    _isLoading = false;
+                    StateHasChanged();
+                }
+
+                // Load JavaScript modules
                 _dashboardModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/pages/dashboard.min.js");
                 await JsRuntime.InvokeVoidAsync("loadDashboard");
                 await JsRuntime.InvokeVoidAsync("loadThemeConfig");
                 await JsRuntime.InvokeVoidAsync("loadApps");
             }
-
         }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error en Dashboard.OnAfterRenderAsync:", ex.Message);
+            _isLoading = false;
+            StateHasChanged();
         }
     }
 

@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Contracts.Preload.Documents;
+﻿using GeCom.Following.Preload.Contracts.Preload.Documents;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace GeCom.Following.Preload.WebApp.Services;
@@ -13,7 +13,8 @@ public interface IDocumentService
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of documents.</returns>
-    Task<IEnumerable<DocumentResponse>?> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<DocumentResponse>?> GetAllAsync(
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets documents by emission date range from the API.
@@ -51,7 +52,9 @@ public interface IDocumentService
     /// <param name="docId">Document ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The document if found.</returns>
-    Task<DocumentResponse?> GetByIdAsync(int docId, CancellationToken cancellationToken = default);
+    Task<DocumentResponse?> GetByIdAsync(
+        int docId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Preloads a document by uploading a PDF file.
@@ -59,7 +62,9 @@ public interface IDocumentService
     /// <param name="file">The PDF file to upload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created document with attachment.</returns>
-    Task<DocumentResponse?> PreloadDocumentAsync(IBrowserFile file, CancellationToken cancellationToken = default);
+    Task<DocumentResponse?> PreloadDocumentAsync(
+        IBrowserFile file,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Downloads a PDF file by attachment ID.
@@ -67,7 +72,9 @@ public interface IDocumentService
     /// <param name="adjuntoId">Attachment ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The PDF file content as byte array.</returns>
-    Task<byte[]?> DownloadAttachmentAsync(int adjuntoId, CancellationToken cancellationToken = default);
+    Task<byte[]?> DownloadAttachmentAsync(
+        int adjuntoId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets pending documents by provider CUIT from the API.
@@ -78,6 +85,19 @@ public interface IDocumentService
     /// <returns>A collection of pending documents for the specified provider.</returns>
     Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsByProviderAsync(
         string providerCuit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets pending documents based on user role from the API.
+    /// The filtering is automatically handled by the backend based on user role:
+    /// - ReadOnly/Administrator: Returns all pending documents.
+    /// - Societies: Returns pending documents for all societies assigned to the user.
+    /// Note: Providers should use GetPendingDocumentsByProviderAsync instead.
+    /// Pending documents are those with EstadoId == 1, EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of pending documents based on user role.</returns>
+    Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsAsync(
         CancellationToken cancellationToken = default);
 }
 

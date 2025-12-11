@@ -72,7 +72,7 @@ try
     #region Configure the HTTP request pipeline.
 
     // Adds middleware for streamlined request logging.
-    app.UseSerilogRequestLogging();
+    //app.UseSerilogRequestLogging()
 
     if (!app.Environment.IsDevelopment())
     {

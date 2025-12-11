@@ -1,4 +1,4 @@
-﻿@page "/documents"
+﻿@page "/documents/pending"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @using Microsoft.AspNetCore.Components.Forms
@@ -18,66 +18,6 @@
     </div>
 }
 
-<!-- Dates and Providers filters -->
-<div class="row">
-    <div class="col-lg-12">
-        <div class="card">
-            <div class="card-body">
-                <div class="accordion" id="accordionExample">
-                    <div class="accordion-item">
-                        <h4 class="accordion-header" id="headingOne">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#collapseOne" aria-expanded="true"
-                                    aria-controls="collapseOne">
-                                Filtrar por fecha de emisión
-                            </button>
-                        </h4>
-                        <div id="collapseOne" class="accordion-collapse collapse show"
-                             aria-labelledby="headingOne" data-bs-parent="#accordionExample">
-                            <div class="accordion-body">
-                                <div class="row gy-3 align-items-end">
-                                    <div class="col-lg-2">
-                                        <div>
-                                            <label class="form-label mb-0">Fecha Desde</label>
-                                            <input id="dateFrom"
-                                                   type="text"
-                                                   class="form-control"
-                                                   data-provider="flatpickr"
-                                                   data-date-format="d/m/Y"
-                                                   data-allow-input="true"
-                                                   @bind="_dateFrom">
-                                            <div class="invalid-feedback">
-                                                Ingrese una fecha válida.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2">
-                                        <div>
-                                            <label class="form-label mb-0">Fecha Hasta</label>
-                                            <input id="dateTo"
-                                                   type="text"
-                                                   class="form-control"
-                                                   data-provider="flatpickr"
-                                                   data-date-format="d/m/Y"
-                                                   data-allow-input="true"
-                                                   @bind="_dateTo">
-                                            <div class="invalid-feedback">
-                                                Ingrese una fecha válida.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2">
-                                        <button class="btn btn-primary" @onclick="SearchDocuments">Buscar</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div> <!-- end row-->
 <!-- Documents Tabs -->
 <div class="row">
     <div class="col-12">
@@ -96,13 +36,8 @@
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <ul class="nav nav-tabs" id="documentsTab" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="pending-documents-tab" data-bs-toggle="tab" data-bs-target="#pendingDocuments" type="button" role="tab" aria-controls="pendingDocuments" aria-selected="false">
+                            <button class="nav-link active" id="pending-documents-tab" data-bs-toggle="tab" data-bs-target="#pendingDocuments" type="button" role="tab" aria-controls="pendingDocuments" aria-selected="true">
                                 <i class="ri-time-line"></i> Documentos Pendientes
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="all-documents-tab" data-bs-toggle="tab" data-bs-target="#allDocuments" type="button" role="tab" aria-controls="allDocuments" aria-selected="true">
-                                <i class="ri-file-list-line"></i> Todos los Documentos
                             </button>
                         </li>
                     </ul>
@@ -136,7 +71,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var doc in _pendingsDocuments)
+                                @foreach (var doc in _pendingDocuments)
                                 {
                                     <tr>
                                         <td class="text-start align-middle p-0">
@@ -150,22 +85,25 @@
                                                         title="Ver detalles">
                                                     <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
                                                 </button>
-                                                <button type="button"
-                                                        class="btn btn-warning btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
-                                                        @onclick="() => EditDocument(doc)"
-                                                        title="Editar">
-                                                    <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                </button>
-                                                @if (CanDeleteDocument(doc))
+                                                @if (!_hasReadOnlyRole)
                                                 {
                                                     <button type="button"
-                                                            class="btn btn-danger btn-sm p-0"
+                                                            class="btn btn-warning btn-sm p-0"
                                                             style="width: 24px; height: 24px; line-height: 1;"
-                                                            @onclick="() => DeleteDocument(doc)"
-                                                            title="Eliminar">
-                                                        <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                            @onclick="() => EditDocument(doc)"
+                                                            title="Editar">
+                                                        <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
                                                     </button>
+                                                    @if (CanDeleteDocument(doc))
+                                                    {
+                                                        <button type="button"
+                                                                class="btn btn-danger btn-sm p-0"
+                                                                style="width: 24px; height: 24px; line-height: 1;"
+                                                                @onclick="() => DeleteDocument(doc)"
+                                                                title="Eliminar">
+                                                            <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                        </button>
+                                                    }
                                                 }
                                             </div>
                                         </td>
@@ -189,94 +127,6 @@
                                         <td>@(doc.MontoBruto?.ToString("N2"))</td>
                                         <td class="text-center">
                                             <span class="badge badge-outline-danger rounded-pill">No-Confirmado</span>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- Tab Todos los Documentos -->
-                    <div class="tab-pane fade" id="allDocuments" role="tabpanel" aria-labelledby="all-documents-tab">
-                        <table id="documents-datatable" class="table table-striped w-100 nowrap">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>Estado</th>
-                                    <th>Cliente</th>
-                                    @if (!_isProvider)
-                                    {
-                                        <th>Proveedor</th>
-                                    }
-                                    <th>Tipo Comprobante</th>
-                                    <th>Punto de venta</th>
-                                    <th>Número Comprobante</th>
-                                    <th>Fecha Emisión</th>
-                                    <th>Moneda</th>
-                                    <th>Monto Bruto Facturado</th>
-                                    <th>Conf. de Pago</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var doc in _documents)
-                                {
-                                    <tr>
-                                        <td class="text-start align-middle p-0">
-                                            <div class="d-flex gap-1 justify-content-start">
-                                                <button type="button"
-                                                        class="btn btn-primary btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
-                                                        @onclick="@(() => OpenDocumentDetails(doc.DocId))"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#full-width-modal"
-                                                        title="Ver detalles">
-                                                    <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                </button>
-                                                <button type="button"
-                                                        class="btn btn-warning btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
-                                                        @onclick="() => EditDocument(doc)"
-                                                        title="Editar">
-                                                    <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                </button>
-                                                @if (CanDeleteDocument(doc))
-                                                {
-                                                    <button type="button"
-                                                            class="btn btn-danger btn-sm p-0"
-                                                            style="width: 24px; height: 24px; line-height: 1;"
-                                                            @onclick="() => DeleteDocument(doc)"
-                                                            title="Eliminar">
-                                                        <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                    </button>
-                                                }
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="@GetEstadoBadgeClass(doc.EstadoDescripcion)">
-                                                @doc.EstadoDescripcion
-                                            </span>
-                                        </td>
-                                        <td>@doc.SociedadDescripcion</td>
-                                        @if (!_isProvider)
-                                        {
-                                            <td>@doc.ProveedorRazonSocial</td>
-                                        }
-                                        <td>@doc.TipoDocDescripcion</td>
-                                        <td>@doc.PuntoDeVenta</td>
-                                        <td>@doc.NumeroComprobante</td>
-                                        <td data-order="@(doc.FechaEmisionComprobante?.ToString("yyyy-MM-dd") ?? "")">
-                                            @(doc.FechaEmisionComprobante?.ToString("dd/MM/yyyy"))
-                                        </td>
-                                        <td>@doc.Moneda</td>
-                                        <td>@(doc.MontoBruto?.ToString("N2"))</td>
-                                        <td class="text-center">
-                                            @if (doc.EstadoDescripcion!.ToUpperInvariant() == "PAGADO")
-                                            {
-                                                <span class="badge badge-outline-success rounded-pill">Confirmado</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge badge-outline-danger rounded-pill">No-Confirmado</span>
-                                            }
                                         </td>
                                     </tr>
                                 }

@@ -15,14 +15,17 @@ using Microsoft.JSInterop;
 
 namespace GeCom.Following.Preload.WebApp.Components.Pages.Documents;
 
-public partial class Documents : IAsyncDisposable
+public partial class Processed : IAsyncDisposable
 {
+    [Inject]
+    private ILogger<Processed> Logger { get; set; } = default!;
+
     private bool _isLoading = true;
     private bool _isDataTableLoading;
     private bool _isModalLoading;
     private string _toastMessage = string.Empty;
     private IEnumerable<DocumentResponse> _documents = [];
-    private IEnumerable<DocumentResponse> _pendingsDocuments = [];
+
     private bool _hasSupportedRole;
     private bool _isProvider;
     private string? _providerCuit;
@@ -50,30 +53,13 @@ public partial class Documents : IAsyncDisposable
     /// <returns></returns>
     protected override Task OnInitializedAsync()
     {
-        try
-        {
-            _isLoading = true;
+        Logger.LogInformation("Entrando en Processed.OnInitializedAsync");
 
-            StateHasChanged();
-
-            // Set the initial date range
-            _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
-            _dateTo = DateOnly.FromDateTime(DateTime.Today);
-
-            // Note: CheckIfProviderAndGetCuitAsync is called in OnAfterRenderAsync
-            // because it uses JavaScript interop which is not available during pre-rendering
-        }
-        catch (Exception ex)
-        {
-            // Log error without JavaScript interop (will be logged in OnAfterRenderAsync if needed)
-            System.Diagnostics.Debug.WriteLine($"Error al inicializar la página: {ex.Message}");
-        }
-        finally
-        {
-            _isLoading = false;
-            StateHasChanged();
-        }
-
+        // In Blazor Server with InteractiveServer, OnInitializedAsync is called twice:
+        // 1. During server-side pre-rendering
+        // 2. When the SignalR connection is established
+        // To avoid duplicate API calls, we only initialize state here and load data in OnAfterRenderAsync
+        _isLoading = true;
         return Task.CompletedTask;
     }
 
@@ -88,54 +74,70 @@ public partial class Documents : IAsyncDisposable
         {
             if (firstRender)
             {
-                // Ensure _isLoading is false after initial render
-                _isLoading = false;
-
-                // Check if user is a provider and get their CUIT
-                // This must be done here, not in OnInitializedAsync, because it uses JavaScript interop
-                // which is not available during pre-rendering
-                await CheckIfProviderAndGetCuitAsync();
-
-                // Check if user has a supported role (must be done here, not in OnInitializedAsync
-                // because JavaScript interop is not available during pre-rendering)
-                _hasSupportedRole = await HasSupportedRoleAsync();
-
-                // Check if user has ReadOnly role to hide certain UI elements
-                _hasReadOnlyRole = await HasReadOnlyRoleAsync();
-                StateHasChanged();
-
-                _documentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
-                await InvokeAsync(StateHasChanged); // Fuerza renderizado
-
-                // If user has a supported role (Provider, Societies, Administrator, or ReadOnly), automatically load documents
-                // The new endpoint will handle filtering automatically based on role
-                if (_isProvider || _hasSupportedRole)
+                try
                 {
-                    try
-                    {
-                        _isDataTableLoading = true;
-                        StateHasChanged();
+                    // Ensure _isLoading is false after initial render
+                    _isLoading = false;
 
-                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
-                        await GetDocuments();
+                    // Set the initial date range
+                    _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
+                    _dateTo = DateOnly.FromDateTime(DateTime.Today);
+
+                    // Check if user is a provider and get their CUIT
+                    // This must be done here, not in OnInitializedAsync, because it uses JavaScript interop
+                    // which is not available during pre-rendering
+                    await CheckIfProviderAndGetCuitAsync();
+
+                    // Check if user has a supported role (must be done here, not in OnInitializedAsync
+                    // because JavaScript interop is not available during pre-rendering)
+                    _hasSupportedRole = await HasSupportedRoleAsync();
+
+                    // Check if user has ReadOnly role to hide certain UI elements
+                    _hasReadOnlyRole = await HasReadOnlyRoleAsync();
+                    StateHasChanged();
+
+                    _documentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
+                    await InvokeAsync(StateHasChanged); // Fuerza renderizado
+
+                    // If user has a supported role (Provider, Societies, Administrator, or ReadOnly), automatically load documents
+                    // The new endpoint will handle filtering automatically based on role
+                    if (_isProvider || _hasSupportedRole)
+                    {
+                        try
+                        {
+                            _isDataTableLoading = true;
+                            StateHasChanged();
+
+                            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
+                            await GetDocuments();
+                            await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
+                        }
+                        finally
+                        {
+                            _isDataTableLoading = false;
+                            StateHasChanged();
+                        }
+                    }
+                    else
+                    {
                         await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
-
-                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
-                        await GetPendingsDocuments();
-                        await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
-                    }
-                    finally
-                    {
-                        _isDataTableLoading = false;
-                        StateHasChanged();
                     }
                 }
-                else
+                catch (Exception)
                 {
-                    await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
-                    await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+                    // Set default values in case of error
+                    _isProvider = false;
+                    _providerCuit = null;
+                    _hasSupportedRole = false;
+                    _hasReadOnlyRole = false;
+                }
+                finally
+                {
+                    _isLoading = false;
+                    StateHasChanged();
                 }
 
+                // Load JavaScript modules
                 await JsRuntime.InvokeVoidAsync("loadThemeConfig");
                 await JsRuntime.InvokeVoidAsync("loadApps");
                 await InitializeDatePickers();
@@ -245,29 +247,6 @@ public partial class Documents : IAsyncDisposable
     }
 
     /// <summary>
-    /// Get the pending documents based on the document list.
-    /// </summary>
-    /// <returns></returns>
-    private async Task GetPendingsDocuments()
-    {
-        try
-        {
-            StateHasChanged();
-
-            // Filtrar los documentos ya obtenidos por EstadoId 2 o 5
-            _pendingsDocuments = _documents.Where(d => d.EstadoId == 2 || d.EstadoId == 5).ToList();
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al filtrar los documentos pendientes:", ex.Message);
-        }
-        finally
-        {
-            StateHasChanged();
-        }
-    }
-
-    /// <summary>
     /// Initializes the date pickers using JavaScript interop.
     /// </summary>
     /// <returns></returns>
@@ -309,10 +288,6 @@ public partial class Documents : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
             await GetDocuments();
             await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
-
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
-            await GetPendingsDocuments();
-            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
         }
         catch (Exception ex)
         {

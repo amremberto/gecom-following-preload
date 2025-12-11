@@ -1,0 +1,619 @@
+﻿
+using System.Security.Claims;
+using GeCom.Following.Preload.Contracts.Preload.Attachments;
+using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.WebApp.Components.Modals;
+using GeCom.Following.Preload.WebApp.Extensions.Auth;
+using GeCom.Following.Preload.WebApp.Services;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.JSInterop;
+
+namespace GeCom.Following.Preload.WebApp.Components.Pages.Documents;
+
+public partial class Pending : IAsyncDisposable
+{
+    [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
+    [Inject] private IDocumentService DocumentService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private bool _isLoading = true;
+    private bool _isDataTableLoading;
+    private bool _isModalLoading;
+
+    private IJSObjectReference? _pendingDocumentsModule;
+    private PreloadDocumentModal? _preloadModal;
+
+    private bool _isProvider;
+    private string? _providerCuit;
+    private bool _hasReadOnlyRole;
+    private bool _hasSupportedRole;
+
+    private string _toastMessage = string.Empty;
+    private IEnumerable<DocumentResponse> _pendingDocuments = [];
+    private DocumentResponse? _selectedDocument;
+    private string _selectedPdfFileName = string.Empty;
+
+    /// <summary>
+    /// This method is called when the component is initialized.
+    /// </summary>
+    /// <returns></returns>
+    protected override Task OnInitializedAsync()
+    {
+        try
+        {
+            _isLoading = true;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // Log error without JavaScript interop (will be logged in OnAfterRenderAsync if needed)
+            System.Diagnostics.Debug.WriteLine($"Error al inicializar la página: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// This method is called after the component has rendered.
+    /// </summary>
+    /// <param name="firstRender"></param>
+    /// <returns></returns>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (firstRender)
+            {
+                // Ensure _isLoading is false after initial render
+                _isLoading = false;
+
+                // Check if user has ReadOnly role to hide certain UI elements
+                await HasReadOnlyRoleAsync();
+
+                // Check if user is a provider and get their CUIT
+                // This must be done here, not in OnInitializedAsync, because it uses JavaScript interop
+                // which is not available during pre-rendering
+                await CheckIfProviderAndGetCuitAsync();
+
+                // Check if user has a supported role (must be done here, not in OnInitializedAsync
+                // because JavaScript interop is not available during pre-rendering)
+                await HasSupportedRoleAsync();
+
+                StateHasChanged();
+
+                _pendingDocumentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
+                await InvokeAsync(StateHasChanged); // Fuerza renderizado
+
+
+                // If user has a supported role (Provider, Societies, Administrator, or ReadOnly), automatically load documents
+                // The new endpoint will handle filtering automatically based on role
+                if (UserHasSupportedRole())
+                {
+                    try
+                    {
+                        _isDataTableLoading = true;
+                        StateHasChanged();
+
+                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                        await GetPendingDocuments();
+                        await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+                    }
+                    catch (Exception ex)
+                    {
+                        await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar documentos pendientes:", ex.Message);
+                        await ShowToast("Ocurrió un error al cargar los documentos pendientes. Por favor, intente nuevamente más tarde.");
+                    }
+                    finally
+                    {
+                        _isDataTableLoading = false;
+                        StateHasChanged();
+                    }
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+                    await ShowToast("No tiene los permisos necesarios para ver los documentos pendientes. Por favor, contacte al administrador del sistema.");
+                }
+
+                await JsRuntime.InvokeVoidAsync("loadThemeConfig");
+                await JsRuntime.InvokeVoidAsync("loadApps");
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Ensure loading states are reset on error
+            _isLoading = false;
+            await JsRuntime.InvokeVoidAsync("console.error", "Error en Documents.OnAfterRenderAsync:", ex.Message);
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetPendingDocuments()
+    {
+        try
+        {
+            IEnumerable<DocumentResponse>? response;
+
+            // Check if user is a provider - Providers need to use a different endpoint
+            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            {
+                // Providers: Use the endpoint that requires provider CUIT
+                response = await DocumentService.GetPendingDocumentsByProviderAsync(
+                    _providerCuit,
+                    cancellationToken: default);
+            }
+            else
+            {
+                // For other roles (Administrator, ReadOnly, Societies), use the unified endpoint
+                // The backend will automatically filter based on the user's role:
+                // - Societies: Filters by all societies assigned to the user
+                // - Administrator/ReadOnly: Returns all pending documents
+                response = await DocumentService.GetPendingDocumentsAsync(cancellationToken: default);
+            }
+
+            _pendingDocuments = response ?? [];
+        }
+        catch (ApiRequestException httpEx)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos pendientes:", httpEx.Message);
+            await ShowToast(httpEx.Message);
+            _pendingDocuments = [];
+        }
+        catch (UnauthorizedAccessException)
+        {
+            await ShowToast("No tiene autorización para realizar esta operación. Por favor, inicie sesión nuevamente.");
+            _pendingDocuments = [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos pendientes:", ex.Message);
+            await ShowToast("Ocurrió un error al buscar los documentos pendientes. Por favor, intente nuevamente más tarde.");
+            _pendingDocuments = [];
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowToast(string message)
+    {
+        _toastMessage = message;
+        await JsRuntime.InvokeVoidAsync("showBlazorToast", "dateRangeToast");
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Gets the CSS class for the document status badge based on the status value.
+    /// </summary>
+    /// <param name="estado"></param>
+    /// <returns></returns>
+    private static string GetEstadoBadgeClass(string? estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado))
+        {
+            return "badge badge-outline-warning rounded-pill";
+        }
+
+        return estado.Trim().ToUpperInvariant() switch
+        {
+            "RECHAZO PRECARGA" => "badge badge-outline-danger rounded-pill",
+            "PENDIENTE PRECARGA" => "badge badge-outline-danger rounded-pill",
+            "PRECARGA PENDIENTE" => "badge badge-outline-danger rounded-pill",
+            "PAGADO" => "badge badge-outline-success rounded-pill",
+            "PAGO EMITIDO" => "badge badge-outline-success rounded-pill",
+            // Agrega más estados según tu dominio
+            _ => "badge badge-outline-warning rounded-pill"
+        };
+    }
+
+    /// <summary>
+    /// Checks if the document can be deleted based on status and user role.
+    /// </summary>
+    /// <param name="document">The document to check.</param>
+    /// <returns>True if the document can be deleted, false otherwise.</returns>
+    private bool CanDeleteDocument(DocumentResponse document)
+    {
+        bool hasCorrectStatus = document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE";
+        bool canDelete = hasCorrectStatus && _hasSupportedRole;
+
+        // Log for debugging (async logging in sync method - fire and forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("console.log",
+                    $"[CanDeleteDocument] DocId: {document.DocId}, Status: {document.EstadoDescripcion}, " +
+                    $"hasCorrectStatus: {hasCorrectStatus}, _hasSupportedRole: {_hasSupportedRole}, canDelete: {canDelete}");
+            }
+            catch
+            {
+                // Ignore errors in logging
+            }
+        });
+
+        return canDelete;
+    }
+
+    /// <summary>
+    /// Handles the document click event to open the document details modal.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns></returns>
+    private async Task OpenDocumentDetails(int docId)
+    {
+        _isModalLoading = true;
+        _selectedDocument = null;
+        _selectedPdfFileName = string.Empty;
+        StateHasChanged();
+
+        await GetDocumentWithDetails(docId);
+
+        _isModalLoading = false;
+        StateHasChanged();
+
+        if (_selectedDocument is not null)
+        {
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "document-oc-datatable");
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "document-oc-datatable");
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "document-notes-datatable");
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "document-notes-datatable");
+            StateHasChanged();
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir el modal de detalles del documento: respuesta nula");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the document details based on the document ID.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns></returns>
+    private async Task GetDocumentWithDetails(int docId)
+    {
+        try
+        {
+            StateHasChanged();
+
+            DocumentResponse? response = await DocumentService.GetByIdAsync(docId, cancellationToken: default);
+
+            if (response is null)
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar el documento: respuesta nula");
+                _selectedDocument = null;
+                return;
+            }
+
+            _selectedDocument = response;
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
+            _selectedDocument = null;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Handles the edit document action.
+    /// </summary>
+    /// <param name="document">The document to edit.</param>
+    /// <returns></returns>
+    private async Task EditDocument(DocumentResponse document)
+    {
+        await OpenDocumentEdit(document.DocId);
+    }
+
+    /// <summary>
+    /// Opens the document edit modal.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns></returns>
+    private async Task OpenDocumentEdit(int docId)
+    {
+        _isModalLoading = true;
+        _selectedDocument = null;
+        _selectedPdfFileName = string.Empty;
+        StateHasChanged();
+
+        await GetDocumentWithDetails(docId);
+
+        _isModalLoading = false;
+        StateHasChanged();
+
+        if (_selectedDocument is not null)
+        {
+            // Show edit modal
+            await JsRuntime.InvokeVoidAsync("eval", "new bootstrap.Modal(document.getElementById('edit-document-modal')).show()");
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir el modal de edición del documento: respuesta nula");
+            await ShowToast("Error al cargar el documento para editar.");
+        }
+    }
+
+    /// <summary>
+    /// Handles the delete document action.
+    /// </summary>
+    /// <param name="document">The document to delete.</param>
+    /// <returns></returns>
+    private async Task DeleteDocument(DocumentResponse document)
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"Eliminando documento con ID: {document.DocId}");
+            // Implementar la lógica de eliminación (confirmación, llamada al servicio, etc.)
+            await ShowToast($"Funcionalidad de eliminación para el documento {document.DocId} pendiente de implementar.");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al eliminar documento:", ex.Message);
+            await ShowToast("Error al intentar eliminar el documento.");
+        }
+    }
+
+    /// <summary>
+    /// Handles the PDF file selection in the modals.
+    /// </summary>
+    /// <param name="e">The input file change event arguments.</param>
+    /// <returns></returns>
+    private void HandlePdfFileSelected(InputFileChangeEventArgs e)
+    {
+        IBrowserFile file = e.File;
+
+        // Validate file type
+        if (!string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase) &&
+            !file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedPdfFileName = string.Empty;
+            return;
+        }
+
+        // Validate file size (6 MB max)
+        const long maxFileSize = 6 * 1024 * 1024; // 6 MB
+        if (file.Size > maxFileSize)
+        {
+            _selectedPdfFileName = string.Empty;
+            return;
+        }
+
+        _selectedPdfFileName = file.Name;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Checks if the selected document has any attachments.
+    /// </summary>
+    /// <returns>True if the document has attachments, false otherwise.</returns>
+    private bool HasAttachment()
+    {
+        return _selectedDocument is not null &&
+               _selectedDocument.Attachments is not null &&
+               _selectedDocument.Attachments.Any(a => a.FechaBorrado is null);
+    }
+
+    /// <summary>
+    /// Gets the ID of the first active attachment.
+    /// </summary>
+    /// <returns>The attachment ID, or 0 if no attachment is found.</returns>
+    private int GetFirstAttachmentId()
+    {
+        if (_selectedDocument?.Attachments is null)
+        {
+            return 0;
+        }
+
+        AttachmentResponse? activeAttachment = _selectedDocument.Attachments
+            .FirstOrDefault(a => a.FechaBorrado is null);
+
+        return activeAttachment?.AdjuntoId ?? 0;
+    }
+
+    /// <summary>
+    /// Handles PDF viewer errors.
+    /// </summary>
+    /// <returns></returns>
+    private async Task HandlePdfError()
+    {
+        await ShowToast("Error al cargar el PDF. Por favor, intente nuevamente.");
+    }
+
+    /// <summary>
+    /// Handles the create new document action.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CreateNewDocument()
+    {
+        try
+        {
+            if (_preloadModal is not null)
+            {
+                await _preloadModal.ShowAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir modal de precarga:", ex.Message);
+            await ShowToast("Error al intentar abrir el formulario de precarga.");
+        }
+    }
+
+    /// <summary>
+    /// Handles the document preloaded event from the modal.
+    /// </summary>
+    /// <param name="document">The preloaded document.</param>
+    /// <returns></returns>
+    private async Task OnDocumentPreloaded(DocumentResponse document)
+    {
+        try
+        {
+            await ShowToast($"Documento #{document.DocId} precargado exitosamente.");
+
+            // Navigate to document detail page
+            NavigationManager.NavigateTo($"/documents/{document.DocId}");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al navegar al documento:", ex.Message);
+            await ShowToast("Error al navegar al documento creado.");
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current user has the ReadOnly role.
+    /// </summary>
+    private async Task HasReadOnlyRoleAsync()
+    {
+        try
+        {
+            AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal? user = authState.User;
+
+            if (user is null)
+            {
+                await JsRuntime.InvokeVoidAsync("console.log", "[HasReadOnlyRoleAsync] User is null");
+                _hasReadOnlyRole = false;
+                return;
+            }
+
+            _hasReadOnlyRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadReadOnly);
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"[HasReadOnlyRoleAsync] Error: {ex.Message}");
+            _hasReadOnlyRole = false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current user has a supported role for document access.
+    /// Supported roles: Administrator, Societies, Providers, or ReadOnly.
+    /// Roles should be mapped during authentication, so we only need to check claims.
+    /// </summary>
+    /// <returns>True if the user has one of the supported roles, false otherwise.</returns>
+    private async Task HasSupportedRoleAsync()
+    {
+        try
+        {
+            AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal? user = authState.User;
+
+            if (user is null)
+            {
+                await JsRuntime.InvokeVoidAsync("console.log", "[HasSupportedRoleAsync] User is null");
+                _hasSupportedRole = false;
+                return;
+            }
+
+            // Check for supported roles that can access documents
+            string[] targetRoles =
+            [
+                AuthorizationConstants.Roles.FollowingAdministrator,
+            AuthorizationConstants.Roles.FollowingPreloadSocieties,
+            AuthorizationConstants.Roles.FollowingPreloadProviders,
+            AuthorizationConstants.Roles.FollowingPreloadReadOnly
+            ];
+
+            _hasSupportedRole = targetRoles.Any(role => user.IsInRole(role));
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"[HasSupportedRoleAsync] Error: {ex.Message}");
+            _hasSupportedRole = false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current user is a provider and gets their CUIT from the claim.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CheckIfProviderAndGetCuitAsync()
+    {
+        try
+        {
+            AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal? user = authState.User;
+
+            if (user is null)
+            {
+                _isProvider = false;
+                _providerCuit = null;
+                return;
+            }
+
+            // Check if user has the provider role
+            bool hasProviderRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadProviders);
+
+            if (hasProviderRole)
+            {
+                _isProvider = true;
+
+                // Get CUIT from claim
+                Claim? cuitClaim = user.FindFirst(AuthorizationConstants.SocietyCuitClaimType);
+                if (cuitClaim is not null && !string.IsNullOrWhiteSpace(cuitClaim.Value))
+                {
+                    _providerCuit = cuitClaim.Value;
+                    await JsRuntime.InvokeVoidAsync("console.log", $"[CheckIfProviderAndGetCuitAsync] User is a provider with CUIT: {_providerCuit}");
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("console.warn", "[CheckIfProviderAndGetCuitAsync] User has provider role but no CUIT claim found");
+                    _providerCuit = null;
+                }
+            }
+            else
+            {
+                _isProvider = false;
+                _providerCuit = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"[CheckIfProviderAndGetCuitAsync] Error: {ex.Message}");
+            _isProvider = false;
+            _providerCuit = null;
+        }
+    }
+
+    private bool UserHasSupportedRole()
+    {
+        return _isProvider || _hasSupportedRole;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pendingDocumentsModule is not null)
+        {
+            try
+            {
+                await _pendingDocumentsModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // El circuito ya está desconectado, no podemos hacer llamadas de JavaScript interop
+                // Esto es normal cuando el componente se está eliminando
+            }
+        }
+        GC.SuppressFinalize(this);
+    }
+}

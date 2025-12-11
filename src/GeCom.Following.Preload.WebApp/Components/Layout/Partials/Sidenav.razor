@@ -39,27 +39,60 @@
         <ul class="side-nav">
             <!--- Dashboard -->
             <li class="side-nav-item">
-                <a href="javascript:void(0);" class="side-nav-link" @onclick="@(() => HandleRouteChange("/"))">
+                <NavLink class="side-nav-link"
+                         href="/"
+                         Match="NavLinkMatch.All"
+                         ActiveClass="active">
                     <span class="menu-icon"><i class="ti ti-dashboard"></i></span>
-                    <span class="menu-text"> Dashboard </span>
-                </a>
+                    <span class="menu-text">Dashboard</span>
+                </NavLink>
             </li><!--- Dashboard -->
 
             <!--- Documents -->
             <li class="side-nav-item">
-                <a href="javascript:void(0);" class="side-nav-link" @onclick="@(() => HandleRouteChange("/documents"))">
+                <a data-bs-toggle="collapse" href="#sidebarPages" aria-expanded="false" aria-controls="sidebarPages"
+                   class="side-nav-link">
                     <span class="menu-icon"><i class="ti ti-folders"></i></span>
                     <span class="menu-text"> Documentos </span>
+                    <span class="menu-arrow"></span>
                 </a>
-            </li><!--- Documents -->
+                <div class="collapse" id="sidebarPages">
+                    <ul class="sub-menu">
+                        <li class="side-nav-item">
+                            <NavLink class="side-nav-link"
+                                     href="documents/pending"
+                                     Match="NavLinkMatch.All"
+                                     ActiveClass="active">
+                                <span class="menu-icon"><i class="ti ti-clock"></i></span>
+                                <span class="menu-text">Pendientes</span>
+                            </NavLink>
+                        </li>
+                        <li class="side-nav-item">
+                            <NavLink class="side-nav-link"
+                                     href="documents/processed"
+                                     Match="NavLinkMatch.All"
+                                     ActiveClass="active">
+                                <span class="menu-icon"><i class="ti ti-file-check"></i></span>
+                                <span class="menu-text">Procesados</span>
+                            </NavLink>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <!--- Documents -->
+            
 
             <!--- Purchase orders -->
             <li class="side-nav-item">
-                <a href="javascript:void(0);" class="side-nav-link" @onclick="@(() => HandleRouteChange("/purchase-orders"))">
+                <NavLink class="side-nav-link"
+                         href="purchase-orders"
+                         Match="NavLinkMatch.Prefix"
+                         ActiveClass="active">
                     <span class="menu-icon"><i class="ti ti-invoice"></i></span>
-                    <span class="menu-text"> Ordenes de Compra </span>
-                </a>
-            </li><!--- Purchase orders -->
+                    <span class="menu-text">Ordenes de Compra</span>
+                </NavLink>
+            </li>
+            <!--- Purchase orders -->
         </ul>
 
         <div class="clearfix"></div>
