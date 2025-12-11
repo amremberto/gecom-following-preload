@@ -79,8 +79,8 @@ else
             </div>
         </div>
     </div>
-
     <!-- end row-->
+    
     <!-- Documents Tabs -->
     <div class="row">
         <div class="col-12">
@@ -152,16 +152,6 @@ else
                                                     title="Editar">
                                                 <i class="ri-edit-line" style="font-size: 1rem; vertical-align: middle;"></i>
                                             </button>
-                                            @if (CanDeleteDocument(doc))
-                                            {
-                                                <button type="button"
-                                                        class="btn btn-danger btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
-                                                        @onclick="() => DeleteDocument(doc)"
-                                                        title="Eliminar">
-                                                    <i class="ri-delete-bin-line" style="font-size: 1rem; vertical-align: middle;"></i>
-                                                </button>
-                                            }
                                         </div>
                                     </td>
                                     <td>

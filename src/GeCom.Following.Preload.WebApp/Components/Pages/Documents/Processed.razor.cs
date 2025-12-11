@@ -386,26 +386,6 @@ public partial class Processed : IAsyncDisposable
     }
 
     /// <summary>
-    /// Handles the delete document action.
-    /// </summary>
-    /// <param name="document">The document to delete.</param>
-    /// <returns></returns>
-    private async Task DeleteDocument(DocumentResponse document)
-    {
-        try
-        {
-            await JsRuntime.InvokeVoidAsync("console.log", $"Eliminando documento con ID: {document.DocId}");
-            // Implementar la lógica de eliminación (confirmación, llamada al servicio, etc.)
-            await ShowToast($"Funcionalidad de eliminación para el documento {document.DocId} pendiente de implementar.");
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al eliminar documento:", ex.Message);
-            await ShowToast("Error al intentar eliminar el documento.");
-        }
-    }
-
-    /// <summary>
     /// Checks if the current user is a provider and gets their CUIT from the claim.
     /// </summary>
     /// <returns></returns>
@@ -542,34 +522,6 @@ public partial class Processed : IAsyncDisposable
             user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadReadOnly);
 
         return hasReadOnlyRole;
-    }
-
-    /// <summary>
-    /// Checks if the document can be deleted based on status and user role.
-    /// </summary>
-    /// <param name="document">The document to check.</param>
-    /// <returns>True if the document can be deleted, false otherwise.</returns>
-    private bool CanDeleteDocument(DocumentResponse document)
-    {
-        bool hasCorrectStatus = document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE";
-        bool canDelete = hasCorrectStatus && _hasSupportedRole;
-
-        // Log for debugging (async logging in sync method - fire and forget)
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await JsRuntime.InvokeVoidAsync("console.log",
-                    $"[CanDeleteDocument] DocId: {document.DocId}, Status: {document.EstadoDescripcion}, " +
-                    $"hasCorrectStatus: {hasCorrectStatus}, _hasSupportedRole: {_hasSupportedRole}, canDelete: {canDelete}");
-            }
-            catch
-            {
-                // Ignore errors in logging
-            }
-        });
-
-        return canDelete;
     }
 
     private PreloadDocumentModal? _preloadModal;

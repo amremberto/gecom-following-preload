@@ -6,6 +6,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
 
 - [Queries (Consultas)](#queries-consultas)
   - [GetAllDocuments](#getalldocuments)
+  - [GetDocumentsByEmissionDates](#getdocumentsbyemissiondates)
   - [GetDocumentsByEmissionDatesAndProvider](#getdocumentsbyemissiondatesandprovider)
   - [GetPendingDocuments](#getpendingdocuments)
   - [GetPendingDocumentsByProvider](#getpendingdocumentsbyprovider)
@@ -18,7 +19,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
 
 ### GetAllDocuments
 
-**Descripción:** Obtiene todos los documentos sin paginación.
+**Descripción:** Obtiene todos los documentos sin paginación, excluyendo aquellos con `EstadoId == 1`, `EstadoId == 2` o `EstadoId == 5`.
 
 **Archivos:**
 - `GetAllDocumentsQuery.cs`
@@ -59,8 +60,8 @@ Authorization: Bearer {token}
     "codigoDeBarras": "1234567890123",
     "caecai": "12345678901234",
     "vencimientoCaecai": "2024-12-31",
-    "estadoId": 1,
-    "estadoDescripcion": "Pendiente",
+    "estadoId": 3,
+    "estadoDescripcion": "Aprobado",
     "fechaCreacion": "2024-01-15T10:30:00Z",
     "fechaBaja": null,
     "idDocument": 123,
@@ -99,42 +100,42 @@ Authorization: Bearer {token}
 
 **Nota:** Este endpoint requiere autenticación. Todos los campos son opcionales (nullable) excepto `docId` que es el identificador único del documento. El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
 
+**Filtrado de estados:**
+- Se excluyen automáticamente los documentos con `EstadoId == 1`, `EstadoId == 2` o `EstadoId == 5`
+- Los documentos con `EstadoId` nulo se incluyen en los resultados
+
 ---
 
-### GetDocumentsByEmissionDatesAndProvider
+### GetDocumentsByEmissionDates
 
-**Descripción:** Obtiene documentos filtrados por rango de fechas de emisión y opcionalmente por CUIT del proveedor. Si no se proporciona el CUIT del proveedor, retorna todos los documentos de todos los proveedores en el rango de fechas especificado.
+**Descripción:** Obtiene documentos filtrados por rango de fechas de emisión basándose en el rol del usuario. El filtrado se realiza automáticamente según el rol del usuario:
+- **Following.Preload.Providers**: Retorna documentos del proveedor cuyo CUIT está en el claim del usuario.
+- **Following.Preload.Societies**: Retorna documentos de todas las sociedades asignadas al usuario mediante `UserSocietyAssignment`.
+- **Following.Preload.ReadOnly** o **Following.Administrator**: Retorna todos los documentos sin filtros adicionales.
 
 **Archivos:**
-- `GetDocumentsByEmissionDatesAndProviderQuery.cs`
-- `GetDocumentsByEmissionDatesAndProviderQueryHandler.cs`
-- `GetDocumentsByEmissionDatesAndProviderValidator.cs`
+- `GetDocumentsByEmissionDatesQuery.cs`
+- `GetDocumentsByEmissionDatesQueryHandler.cs`
 
 **Endpoint:**
 ```
-GET /api/v1/Documents/by-dates-and-provider?dateFrom={dateFrom}&dateTo={dateTo}&providerCuit={providerCuit}
+GET /api/v1/Documents/by-dates?dateFrom={dateFrom}&dateTo={dateTo}
 ```
 
 **Parámetros:**
 - `dateFrom` (requerido) - Fecha de inicio del rango (DateOnly, formato: YYYY-MM-DD)
 - `dateTo` (requerido) - Fecha de fin del rango (DateOnly, formato: YYYY-MM-DD)
-- `providerCuit` (opcional) - CUIT del proveedor (string). Si no se proporciona, retorna documentos de todos los proveedores.
 
 **Respuestas:**
-- `200 OK` - Lista de documentos que cumplen los criterios
-- `400 BadRequest` - Parámetros inválidos (fechas inválidas, dateTo menor que dateFrom)
+- `200 OK` - Lista de documentos que cumplen los criterios según el rol del usuario
+- `400 BadRequest` - Parámetros inválidos (roles no encontrados, email no encontrado en el token para rol Societies, CUIT no encontrado para rol Providers)
 - `401 Unauthorized` - Usuario no autenticado
+- `403 Forbidden` - Usuario no tiene los permisos requeridos
 - `500 InternalServerError` - Error del servidor
 
-**Ejemplo de uso con proveedor:**
+**Ejemplo de uso:**
 ```http
-GET /api/v1/Documents/by-dates-and-provider?dateFrom=2024-01-01&dateTo=2024-12-31&providerCuit=20123456789
-Authorization: Bearer {token}
-```
-
-**Ejemplo de uso sin proveedor (todos los proveedores):**
-```http
-GET /api/v1/Documents/by-dates-and-provider?dateFrom=2024-01-01&dateTo=2024-12-31
+GET /api/v1/Documents/by-dates?dateFrom=2024-01-01&dateTo=2024-12-31
 Authorization: Bearer {token}
 ```
 
@@ -157,8 +158,8 @@ Authorization: Bearer {token}
     "codigoDeBarras": "1234567890123",
     "caecai": "12345678901234",
     "vencimientoCaecai": "2024-12-31",
-    "estadoId": 1,
-    "estadoDescripcion": "Pendiente",
+    "estadoId": 3,
+    "estadoDescripcion": "Aprobado",
     "fechaCreacion": "2024-01-15T10:30:00Z",
     "fechaBaja": null,
     "idDocument": 123,
@@ -173,11 +174,100 @@ Authorization: Bearer {token}
 ]
 ```
 
-**Nota:** Este endpoint requiere autenticación. Solo se retornan documentos que:
+**Nota:** Este endpoint requiere autenticación y el permiso `RequirePreloadRead`. Solo se retornan documentos que:
 - Tengan un valor en `FechaEmisionComprobante` (no nulo)
 - Su `FechaEmisionComprobante` esté dentro del rango especificado (inclusive)
-- Si se proporciona `providerCuit`, su `ProveedorCuit` debe coincidir exactamente con el parámetro proporcionado
-- Si no se proporciona `providerCuit`, se retornan documentos de todos los proveedores en el rango de fechas
+- Su `EstadoId` no sea igual a `1`, `2` o `5` (estos estados se excluyen automáticamente)
+- Los documentos con `EstadoId` nulo se incluyen en los resultados
+
+**Comportamiento según rol:**
+- **Following.Preload.Providers**: Filtra por el CUIT del proveedor obtenido del claim `SocietyCuitClaimType` del token. Si el CUIT no está presente, retorna error `400 BadRequest`.
+- **Following.Preload.Societies**: Filtra por todas las sociedades asignadas al usuario mediante `UserSocietyAssignment` (basado en el `CuitClient` de la asignación). Si el email no está presente, retorna error `400 BadRequest`. Si el usuario no tiene asignaciones, retorna lista vacía.
+- **Following.Preload.ReadOnly** o **Following.Administrator**: Retorna todos los documentos en el rango de fechas sin filtros adicionales.
+- **Otros roles**: Retorna lista vacía por seguridad.
+
+Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (más recientes primero). El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
+
+---
+
+### GetDocumentsByEmissionDatesAndProvider
+
+**Descripción:** Obtiene documentos filtrados por rango de fechas de emisión y CUIT del proveedor. El CUIT del proveedor proporcionado debe coincidir con el CUIT en el token de autenticación del usuario.
+
+**Archivos:**
+- `GetDocumentsByEmissionDatesAndProviderQuery.cs`
+- `GetDocumentsByEmissionDatesAndProviderQueryHandler.cs`
+- `GetDocumentsByEmissionDatesAndProviderValidator.cs`
+
+**Endpoint:**
+```
+GET /api/v1/Documents/by-dates-and-provider?dateFrom={dateFrom}&dateTo={dateTo}&providerCuit={providerCuit}
+```
+
+**Parámetros:**
+- `dateFrom` (requerido) - Fecha de inicio del rango (DateOnly, formato: YYYY-MM-DD)
+- `dateTo` (requerido) - Fecha de fin del rango (DateOnly, formato: YYYY-MM-DD)
+- `providerCuit` (requerido) - CUIT del proveedor (string). Debe coincidir con el CUIT en el token de autenticación del usuario.
+
+**Respuestas:**
+- `200 OK` - Lista de documentos que cumplen los criterios
+- `400 BadRequest` - Parámetros inválidos (fechas inválidas, dateTo menor que dateFrom, providerCuit vacío, CUIT no coincide con el token, CUIT no encontrado en el token)
+- `401 Unauthorized` - Usuario no autenticado
+- `403 Forbidden` - Usuario no tiene los permisos requeridos
+- `500 InternalServerError` - Error del servidor
+
+**Ejemplo de uso:**
+```http
+GET /api/v1/Documents/by-dates-and-provider?dateFrom=2024-01-01&dateTo=2024-12-31&providerCuit=20123456789
+Authorization: Bearer {token}
+```
+
+**Respuesta exitosa:**
+```json
+[
+  {
+    "docId": 1,
+    "proveedorCuit": "20123456789",
+    "proveedorRazonSocial": "Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Ejemplo",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0001",
+    "numeroComprobante": "00001234",
+    "fechaEmisionComprobante": "2024-01-15",
+    "moneda": "ARS",
+    "montoBruto": 100000.50,
+    "codigoDeBarras": "1234567890123",
+    "caecai": "12345678901234",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 3,
+    "estadoDescripcion": "Aprobado",
+    "fechaCreacion": "2024-01-15T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 123,
+    "nombreSolicitante": "Juan Pérez",
+    "idDetalleDePago": 1,
+    "idMetodoDePago": 1,
+    "fechaPago": "2024-01-20T14:00:00Z",
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  }
+]
+```
+
+**Nota:** Este endpoint requiere autenticación y el permiso `RequirePreloadRead`. Solo se retornan documentos que:
+- Tengan un valor en `FechaEmisionComprobante` (no nulo)
+- Su `FechaEmisionComprobante` esté dentro del rango especificado (inclusive)
+- Su `ProveedorCuit` coincida exactamente con el parámetro `providerCuit` proporcionado
+- Su `EstadoId` no sea igual a `1`, `2` o `5` (estos estados se excluyen automáticamente)
+- Los documentos con `EstadoId` nulo se incluyen en los resultados
+
+**Validaciones de seguridad:**
+- El `providerCuit` proporcionado debe coincidir exactamente con el CUIT en el claim `SocietyCuitClaimType` del token de autenticación del usuario
+- Si el CUIT no coincide, se retorna `400 BadRequest` con el mensaje "Provider CUIT does not match the CUIT in the authentication token."
+- Si el CUIT no se encuentra en el token, se retorna `400 BadRequest` con el mensaje "CUIT claim not found in the authentication token."
 
 Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (más recientes primero). El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
 
@@ -457,8 +547,9 @@ _(Pendiente de implementar)_
 
 | Método | Endpoint | Descripción | Códigos de Respuesta |
 |--------|----------|-------------|---------------------|
-| GET | `/api/v1/Documents` | Obtener todos los documentos | 200, 401, 500 |
-| GET | `/api/v1/Documents/by-dates-and-provider` | Obtener documentos por rango de fechas de emisión y opcionalmente por proveedor | 200, 400, 401, 500 |
+| GET | `/api/v1/Documents` | Obtener todos los documentos (excluye EstadoId 1, 2, 5) | 200, 401, 500 |
+| GET | `/api/v1/Documents/by-dates` | Obtener documentos por rango de fechas de emisión según rol del usuario (excluye EstadoId 1, 2, 5) | 200, 400, 401, 403, 500 |
+| GET | `/api/v1/Documents/by-dates-and-provider` | Obtener documentos por rango de fechas de emisión y CUIT del proveedor (excluye EstadoId 1, 2, 5) | 200, 400, 401, 403, 500 |
 | GET | `/api/v1/Documents/pending` | Obtener documentos pendientes según rol del usuario | 200, 400, 401, 403, 500 |
 | GET | `/api/v1/Documents/pending-by-provider` | Obtener documentos pendientes por CUIT del proveedor | 200, 400, 401, 403, 500 |
 
@@ -576,6 +667,7 @@ public override async Task<IEnumerable<Document>> GetAllAsync(CancellationToken 
         .Include(d => d.State)
         .Include(d => d.PurchaseOrders)
         .Include(d => d.Notes)
+        .Where(d => d.EstadoId == null || (d.EstadoId != 1 && d.EstadoId != 2 && d.EstadoId != 5))
         .AsNoTracking()
         .ToListAsync(cancellationToken);
 }
@@ -628,13 +720,17 @@ Documento creado: 2024-12-19
 
 ### Cambios Recientes
 
+- **2024-12-20**: Modificado GetAllDocuments y GetDocumentsByEmissionDates para excluir documentos con EstadoId == 1, 2 o 5
+- **2024-12-20**: Actualizado DocumentRepository.GetAllAsync() para excluir documentos con EstadoId == 1, 2 o 5
+- **2024-12-20**: Actualizado DocumentRepository.GetByEmissionDatesAndProviderCuitAsync() para excluir documentos con EstadoId == 1, 2 o 5
+- **2024-12-20**: Actualizado DocumentRepository.GetByEmissionDatesAndSocietyCuitsAsync() para excluir documentos con EstadoId == 1, 2 o 5
+- **2024-12-20**: Agregado caso de uso GetDocumentsByEmissionDates - Query para obtener documentos por rango de fechas según rol del usuario
 - **2024-12-20**: Implementado GetPendingDocuments - Query para obtener documentos pendientes según rol del usuario (ReadOnly/Administrator: todos los pendientes; Societies: solo de sociedades asignadas)
 - **2024-12-20**: Agregados métodos GetPendingAsync y GetPendingBySocietyCuitsAsync al repositorio para soportar el nuevo caso de uso
 - **2024-12-20**: Implementado GetPendingDocumentsQueryValidator con validaciones para UserRoles (al menos uno requerido) y UserEmail (requerido y formato válido)
 - **2024-12-19**: Implementado GetPendingDocumentsByProvider - Query para obtener documentos pendientes (EstadoId == 2 o 5) por CUIT del proveedor
 - **2024-12-19**: Agregado método GetPendingDocumentsByProviderCuitAsync al repositorio con filtrado por estado pendiente y Include de relaciones
-- **2024-12-19**: Implementado GetDocumentsByEmissionDatesAndProvider - Query para obtener documentos por rango de fechas de emisión y opcionalmente por proveedor CUIT
-- **2024-12-19**: Modificado para que el proveedor sea opcional - si no se proporciona, retorna documentos de todos los proveedores
+- **2024-12-19**: Implementado GetDocumentsByEmissionDatesAndProvider - Query para obtener documentos por rango de fechas de emisión y CUIT del proveedor
 - **2024-12-19**: Agregado método GetByEmissionDatesAndProviderCuitAsync al repositorio con Include de relaciones y AsNoTracking
 - **2024-12-19**: Agregados campos de relaciones (ProveedorRazonSocial, SociedadDescripcion, TipoDocDescripcion, EstadoDescripcion)
 - **2024-12-19**: Agregadas colecciones PurchaseOrders y Notes al DocumentResponse
