@@ -9,7 +9,4 @@
     <ProjectReference Include="..\GeCom.Following.Preload.Contracts\GeCom.Following.Preload.Contracts.csproj" />
     <ProjectReference Include="..\GeCom.Following.Preload.Domain\GeCom.Following.Preload.Domain.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Features\Preload\Societies\GetAllSocieties\" />
-  </ItemGroup>
 </Project>

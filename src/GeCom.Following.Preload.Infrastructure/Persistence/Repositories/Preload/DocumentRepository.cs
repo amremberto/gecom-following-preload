@@ -210,4 +210,24 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Document>> GetPendingDocumentsByProviderCuitAsync(string providerCuit, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
+
+        return await GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.FechaEmisionComprobante.HasValue
+                && d.ProveedorCuit == providerCuit
+                && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5))
+            .OrderBy(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
 }

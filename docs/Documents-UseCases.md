@@ -7,6 +7,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
 - [Queries (Consultas)](#queries-consultas)
   - [GetAllDocuments](#getalldocuments)
   - [GetDocumentsByEmissionDatesAndProvider](#getdocumentsbyemissiondatesandprovider)
+  - [GetPendingDocumentsByProvider](#getpendingdocumentsbyprovider)
 - [Commands (Comandos)](#commands-comandos)
   - _(Pendiente de implementar)_
 
@@ -181,6 +182,114 @@ Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (m�
 
 ---
 
+### GetPendingDocumentsByProvider
+
+**Descripción:** Obtiene documentos pendientes filtrados por CUIT del proveedor. Los documentos pendientes son aquellos con `EstadoId == 2` o `EstadoId == 5` y que tienen `FechaEmisionComprobante` establecida. El CUIT del proveedor proporcionado debe coincidir con el CUIT en el token de autenticación del usuario.
+
+**Archivos:**
+- `GetPendingDocumentsByProviderQuery.cs`
+- `GetPendingDocumentsByProviderQueryHandler.cs`
+- `GetPendingDocumentsByProviderValidator.cs`
+
+**Endpoint:**
+```
+GET /api/v1/Documents/pending-by-provider?providerCuit={providerCuit}
+```
+
+**Parámetros:**
+- `providerCuit` (requerido) - CUIT del proveedor (string). Debe coincidir con el CUIT en el token de autenticación del usuario.
+
+**Respuestas:**
+- `200 OK` - Lista de documentos pendientes que cumplen los criterios
+- `400 BadRequest` - Parámetros inválidos (providerCuit vacío, CUIT no coincide con el token, CUIT no encontrado en el token)
+- `401 Unauthorized` - Usuario no autenticado
+- `403 Forbidden` - Usuario no tiene los permisos requeridos
+- `500 InternalServerError` - Error del servidor
+
+**Ejemplo de uso:**
+```http
+GET /api/v1/Documents/pending-by-provider?providerCuit=20123456789
+Authorization: Bearer {token}
+```
+
+**Respuesta exitosa:**
+```json
+[
+  {
+    "docId": 1,
+    "proveedorCuit": "20123456789",
+    "proveedorRazonSocial": "Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Ejemplo",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0001",
+    "numeroComprobante": "00001234",
+    "fechaEmisionComprobante": "2024-01-15",
+    "moneda": "ARS",
+    "montoBruto": 100000.50,
+    "codigoDeBarras": "1234567890123",
+    "caecai": "12345678901234",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 2,
+    "estadoDescripcion": "Pendiente de Aprobación",
+    "fechaCreacion": "2024-01-15T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 123,
+    "nombreSolicitante": "Juan Pérez",
+    "idDetalleDePago": 1,
+    "idMetodoDePago": 1,
+    "fechaPago": null,
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  },
+  {
+    "docId": 2,
+    "proveedorCuit": "20123456789",
+    "proveedorRazonSocial": "Proveedor S.A.",
+    "sociedadCuit": "30123456789",
+    "sociedadDescripcion": "Sociedad Ejemplo",
+    "tipoDocId": 1,
+    "tipoDocDescripcion": "Factura A",
+    "puntoDeVenta": "0001",
+    "numeroComprobante": "00001235",
+    "fechaEmisionComprobante": "2024-01-16",
+    "moneda": "ARS",
+    "montoBruto": 50000.00,
+    "codigoDeBarras": "1234567890124",
+    "caecai": "12345678901235",
+    "vencimientoCaecai": "2024-12-31",
+    "estadoId": 5,
+    "estadoDescripcion": "Pendiente de Revisión",
+    "fechaCreacion": "2024-01-16T10:30:00Z",
+    "fechaBaja": null,
+    "idDocument": 124,
+    "nombreSolicitante": "María González",
+    "idDetalleDePago": null,
+    "idMetodoDePago": null,
+    "fechaPago": null,
+    "userCreate": "admin@example.com",
+    "purchaseOrders": [],
+    "notes": []
+  }
+]
+```
+
+**Nota:** Este endpoint requiere autenticación y el permiso `RequirePreloadRead`. Solo se retornan documentos que:
+- Tengan un valor en `FechaEmisionComprobante` (no nulo)
+- Su `ProveedorCuit` coincida exactamente con el parámetro `providerCuit` proporcionado
+- Su `EstadoId` sea igual a `2` (Pendiente de Aprobación) o `5` (Pendiente de Revisión)
+
+**Validaciones de seguridad:**
+- El `providerCuit` proporcionado debe coincidir exactamente con el CUIT en el claim `SocietyCuitClaimType` del token de autenticación del usuario
+- Si el CUIT no coincide, se retorna `400 BadRequest` con el mensaje "Provider CUIT does not match the CUIT in the authentication token."
+- Si el CUIT no se encuentra en el token, se retorna `400 BadRequest` con el mensaje "CUIT claim not found in the authentication token."
+
+Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (más recientes primero). El endpoint incluye automáticamente las relaciones con `Provider`, `Society`, `DocumentType`, `State`, `PurchaseOrders` y `Notes` para optimizar las consultas.
+
+---
+
 ## Commands (Comandos)
 
 _(Pendiente de implementar)_
@@ -193,6 +302,7 @@ _(Pendiente de implementar)_
 |--------|----------|-------------|---------------------|
 | GET | `/api/v1/Documents` | Obtener todos los documentos | 200, 401, 500 |
 | GET | `/api/v1/Documents/by-dates-and-provider` | Obtener documentos por rango de fechas de emisión y opcionalmente por proveedor | 200, 400, 401, 500 |
+| GET | `/api/v1/Documents/pending-by-provider` | Obtener documentos pendientes por CUIT del proveedor | 200, 400, 401, 403, 500 |
 
 ---
 
@@ -356,10 +466,12 @@ Si se necesita incluir estas relaciones adicionales, se pueden agregar más `Inc
 
 Documento creado: 2024-12-19
 
-**Última actualización:** 2024-12-19
+**Última actualización:** 2024-12-20
 
 ### Cambios Recientes
 
+- **2024-12-19**: Implementado GetPendingDocumentsByProvider - Query para obtener documentos pendientes (EstadoId == 2 o 5) por CUIT del proveedor
+- **2024-12-19**: Agregado método GetPendingDocumentsByProviderCuitAsync al repositorio con filtrado por estado pendiente y Include de relaciones
 - **2024-12-19**: Implementado GetDocumentsByEmissionDatesAndProvider - Query para obtener documentos por rango de fechas de emisión y opcionalmente por proveedor CUIT
 - **2024-12-19**: Modificado para que el proveedor sea opcional - si no se proporciona, retorna documentos de todos los proveedores
 - **2024-12-19**: Agregado método GetByEmissionDatesAndProviderCuitAsync al repositorio con Include de relaciones y AsNoTracking

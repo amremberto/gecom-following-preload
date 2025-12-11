@@ -117,4 +117,13 @@ public interface IDocumentRepository : IRepository<Document>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of documents.</returns>
     Task<IEnumerable<Document>> GetByEmissionDatesAndSocietyCuitsAsync(DateOnly dateFrom, DateOnly dateTo, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets pending documents by provider CUIT.
+    /// Pending documents are those with EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="providerCuit">Provider CUIT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of pending documents.</returns>
+    Task<IEnumerable<Document>> GetPendingDocumentsByProviderCuitAsync(string providerCuit, CancellationToken cancellationToken = default);
 }

@@ -5,6 +5,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocum
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentById;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocumentsByProvider;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
@@ -111,6 +112,60 @@ public sealed class DocumentsController : VersionedApiController
             dateTo,
             userRoles,
             userEmail,
+            providerCuit);
+
+        Result<IEnumerable<DocumentResponse>> result =
+            await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
+    /// Gets pending documents by provider CUIT.
+    /// Pending documents are those with EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
+    /// </summary>
+    /// <param name="providerCuit">Provider CUIT. Must match the CUIT in the user's claim.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of pending documents for the specified provider.</returns>
+    /// <response code="200">Returns the list of pending documents.</response>
+    /// <response code="400">If the request parameters are invalid or the provider CUIT does not match the claim.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("pending-by-provider")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(IEnumerable<DocumentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetPendingDocumentsByProviderAsync", "Gets pending documents by provider CUIT.")]
+    public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetPendingDocumentsByProviderAsync(
+        [FromQuery] string providerCuit,
+        CancellationToken cancellationToken)
+    {
+        // Validate that providerCuit is provided
+        if (string.IsNullOrWhiteSpace(providerCuit))
+        {
+            return BadRequest("Provider CUIT is required.");
+        }
+
+        // Get CUIT from claim
+        Claim? cuitClaim = User.FindFirst(AuthorizationConstants.SocietyCuitClaimType);
+        if (cuitClaim is null)
+        {
+            return BadRequest("CUIT claim not found in the authentication token.");
+        }
+
+        string claimCuit = cuitClaim.Value;
+
+        // Validate that providerCuit matches the CUIT in the claim
+        if (!string.Equals(providerCuit, claimCuit, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Provider CUIT does not match the CUIT in the authentication token.");
+        }
+
+        GetPendingDocumentsByProviderQuery query = new(
             providerCuit);
 
         Result<IEnumerable<DocumentResponse>> result =
