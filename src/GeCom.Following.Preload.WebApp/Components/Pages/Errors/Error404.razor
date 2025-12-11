@@ -1,0 +1,49 @@
+﻿@page "/error-404"
+
+@layout EmptyLayout
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>404 - Página No Encontrada</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="ri-file-search-line" style="font-size: 5rem; color: #f06548;"></i>
+                </div>
+                <h1 class="display-1 mb-3">404</h1>
+                <h2 class="display-6 mb-3">Página No Encontrada</h2>
+                <p class="lead mb-4">
+                    Lo sentimos, la página que está buscando no existe o ha sido movida.
+                </p>
+                <div class="alert alert-info mb-4" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="ri-information-line me-2"></i>
+                        Posibles causas:
+                    </h5>
+                    <ul class="text-start mb-0">
+                        <li>La URL ingresada es incorrecta.</li>
+                        <li>La página ha sido eliminada o movida.</li>
+                        <li>El enlace que siguió está desactualizado.</li>
+                        <li>Hubo un error al escribir la dirección.</li>
+                    </ul>
+                </div>
+                <p class="text-muted mb-4">
+                    Por favor, verifique la URL o regrese a la página principal.
+                </p>
+                <div class="mt-4">
+                    <button type="button" class="btn btn-primary me-2" @onclick="GoBack">
+                        <i class="ri-arrow-left-line me-2"></i>
+                        Volver Atrás
+                    </button>
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="ri-home-line me-2"></i>
+                        Volver al Inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

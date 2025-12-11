@@ -1,0 +1,42 @@
+﻿@page "/error-403"
+
+@layout EmptyLayout
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>403 - Acceso Prohibido</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="ri-shield-cross-line" style="font-size: 5rem; color: #f06548;"></i>
+                </div>
+                <h1 class="display-1 mb-3">403</h1>
+                <h2 class="display-6 mb-3">Acceso Prohibido</h2>
+                <p class="lead mb-4">
+                    No tiene permisos suficientes para acceder a este recurso.
+                </p>
+                <div class="alert alert-danger mb-4" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="ri-error-warning-line me-2"></i>
+                        Acceso Denegado:
+                    </h5>
+                    <p class="mb-0">
+                        Aunque está autenticado, su cuenta no tiene los permisos necesarios para realizar esta acción.
+                    </p>
+                </div>
+                <p class="text-muted mb-4">
+                    Si cree que esto es un error, contacte al administrador del sistema.
+                </p>
+                <div class="mt-4">
+                    <a href="/" class="btn btn-primary">
+                        <i class="ri-home-line me-2"></i>
+                        Volver al Inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

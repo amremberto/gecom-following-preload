@@ -1,5 +1,5 @@
 ﻿@page "/identity-server-error"
-@using GeCom.Following.Preload.WebApp.Components.Layout
+
 @layout EmptyLayout
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -46,14 +46,4 @@
         </div>
     </div>
 </div>
-
-@inject Microsoft.AspNetCore.Components.NavigationManager NavigationManager
-
-@code {
-    private void RetryConnection()
-    {
-        // Forzar recarga de la página para reintentar la conexión
-        NavigationManager.NavigateTo("/", forceLoad: true);
-    }
-}
 

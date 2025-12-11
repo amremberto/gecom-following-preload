@@ -7,8 +7,6 @@ using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -348,18 +346,18 @@ public partial class Documents : IAsyncDisposable
     {
         if (string.IsNullOrWhiteSpace(estado))
         {
-            return "badge bg-warning rounded-pill text-dark";
+            return "badge badge-outline-warning rounded-pill";
         }
 
         return estado.Trim().ToUpperInvariant() switch
         {
-            "RECHAZO PRECARGA" => "badge bg-danger rounded-pill text-dark",
-            "PENDIENTE PRECARGA" => "badge bg-danger rounded-pill text-dark",
-            "PRECARGA PENDIENTE" => "badge bg-danger rounded-pill text-dark",
-            "PAGADO" => "badge bg-success rounded-pill text-dark",
-            "PAGO EMITIDO" => "badge bg-success rounded-pill text-dark",
+            "RECHAZO PRECARGA" => "badge badge-outline-danger rounded-pill",
+            "PENDIENTE PRECARGA" => "badge badge-outline-danger rounded-pill",
+            "PRECARGA PENDIENTE" => "badge badge-outline-danger rounded-pill",
+            "PAGADO" => "badge badge-outline-success rounded-pill",
+            "PAGO EMITIDO" => "badge badge-outline-success rounded-pill",
             // Agrega más estados según tu dominio
-            _ => "badge bg-warning rounded-pill text-dark"
+            _ => "badge badge-outline-warning rounded-pill"
         };
     }
 

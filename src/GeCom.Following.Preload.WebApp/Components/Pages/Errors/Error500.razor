@@ -1,0 +1,46 @@
+﻿@page "/error-500"
+
+@layout EmptyLayout
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>500 - Error del Servidor</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="ri-server-error-line" style="font-size: 5rem; color: #f06548;"></i>
+                </div>
+                <h1 class="display-1 mb-3">500</h1>
+                <h2 class="display-6 mb-3">Error del Servidor</h2>
+                <p class="lead mb-4">
+                    Ha ocurrido un error interno en el servidor. Estamos trabajando para solucionarlo.
+                </p>
+                <div class="alert alert-danger mb-4" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="ri-error-warning-line me-2"></i>
+                        Error Interno:
+                    </h5>
+                    <p class="mb-0">
+                        El servidor encontró un error inesperado que le impidió completar su solicitud.
+                    </p>
+                </div>
+                <p class="text-muted mb-4">
+                    Por favor, intente nuevamente más tarde. Si el problema persiste, contacte al administrador del sistema.
+                </p>
+                <div class="mt-4">
+                    <button type="button" class="btn btn-primary me-2" @onclick="Retry">
+                        <i class="ri-refresh-line me-2"></i>
+                        Reintentar
+                    </button>
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="ri-home-line me-2"></i>
+                        Volver al Inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

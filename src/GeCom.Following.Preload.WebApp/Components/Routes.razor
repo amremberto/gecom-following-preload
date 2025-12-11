@@ -20,17 +20,8 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <PageTitle>Página no encontrada</PageTitle>
-        <LayoutView Layout="typeof(Layout.VerticalLayout)">
-            <div class="container mt-5">
-                <div class="row justify-content-center">
-                    <div class="col-md-8 text-center">
-                        <h1 class="display-4">404</h1>
-                        <p class="lead">Página no encontrada</p>
-                        <a href="/" class="btn btn-primary">Volver al Inicio</a>
-                    </div>
-                </div>
-            </div>
+        <LayoutView Layout="typeof(Layout.EmptyLayout)">
+            <NotFoundContent />
         </LayoutView>
     </NotFound>
 </Router>

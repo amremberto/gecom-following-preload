@@ -47,7 +47,7 @@
 
             <!--- Documents -->
             <li class="side-nav-item">
-                <a href="documents" class="side-nav-link">
+                <a href="javascript:void(0);" class="side-nav-link" @onclick="@(() => HandleRouteChange("/documents"))">
                     <span class="menu-icon"><i class="ti ti-folders"></i></span>
                     <span class="menu-text"> Documentos </span>
                 </a>
@@ -55,7 +55,7 @@
 
             <!--- Purchase orders -->
             <li class="side-nav-item">
-                <a href="purchase-orders" class="side-nav-link">
+                <a href="javascript:void(0);" class="side-nav-link" @onclick="@(() => HandleRouteChange("/purchase-orders"))">
                     <span class="menu-icon"><i class="ti ti-invoice"></i></span>
                     <span class="menu-text"> Ordenes de Compra </span>
                 </a>
