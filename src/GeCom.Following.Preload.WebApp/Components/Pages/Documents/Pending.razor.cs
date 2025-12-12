@@ -1,4 +1,4 @@
-﻿
+
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
@@ -454,13 +454,26 @@ public partial class Pending : IAsyncDisposable
         {
             await ShowToast($"Documento #{document.DocId} precargado exitosamente.");
 
-            // Navigate to document detail page
-            NavigationManager.NavigateTo($"/documents/{document.DocId}");
+            // Recargar la grilla de documentos pendientes
+            _isDataTableLoading = true;
+            StateHasChanged();
+
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            await GetPendingDocuments();
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+
+            _isDataTableLoading = false;
+            StateHasChanged();
+
+            // Abrir el modal de edición del documento
+            await OpenDocumentEdit(document.DocId);
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al navegar al documento:", ex.Message);
-            await ShowToast("Error al navegar al documento creado.");
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al procesar el documento precargado:", ex.Message);
+            await ShowToast("Error al procesar el documento creado.");
+            _isDataTableLoading = false;
+            StateHasChanged();
         }
     }
 
