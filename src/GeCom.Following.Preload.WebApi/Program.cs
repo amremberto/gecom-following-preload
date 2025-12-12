@@ -126,17 +126,46 @@ try
             settings.DocumentPath = swaggerSettings.JsonRoute;
 
             // Configure OAuth2 client (Authorization Code + PKCE) for Swagger UI
+            // Note: Authorization and Token URLs are automatically taken from the OpenAPI document
+            // configured in OpenApiExtensions.cs. The OAuth2ClientSettings only needs ClientId,
+            // scopes, and PKCE configuration. Swagger UI will read the URLs from the OpenAPI spec.
             IdentityServerSettings? identityServerSettings = app.Services.GetRequiredService<IOptions<IdentityServerSettings>>().Value;
-            settings.OAuth2Client = new OAuth2ClientSettings
+            string clientId = identityServerSettings.OidcSwaggerUIClientId ?? identityServerSettings.SwaggerClientId ?? string.Empty;
+            
+            if (string.IsNullOrWhiteSpace(clientId))
             {
-                ClientId = identityServerSettings.OidcSwaggerUIClientId ?? identityServerSettings.SwaggerClientId ?? string.Empty,
-                AppName = swaggerSettings.Title,
-                UsePkceWithAuthorizationCodeGrant = identityServerSettings.SwaggerUsePkce
-            };
+                Log.Warning("Swagger UI OAuth2 ClientId is not configured. OAuth2 authentication will not work.");
+            }
+            else
+            {
+                settings.OAuth2Client = new OAuth2ClientSettings
+                {
+                    ClientId = clientId,
+                    AppName = swaggerSettings.Title,
+                    UsePkceWithAuthorizationCodeGrant = identityServerSettings.SwaggerUsePkce
+                };
 
-            foreach (string scope in identityServerSettings.RequiredScopes ?? [])
-            {
-                settings.OAuth2Client.Scopes.Add(scope);
+                foreach (string scope in identityServerSettings.RequiredScopes ?? [])
+                {
+                    settings.OAuth2Client.Scopes.Add(scope);
+                }
+
+                // Log the expected redirect URI that Swagger UI will use
+                // Swagger UI automatically uses: {currentOrigin}/swagger/oauth2-redirect.html
+                string? currentOrigin = app.Environment.IsDevelopment() 
+                    ? null // Will be determined at runtime
+                    : "https://qa-fw-api-preload.gcgestion.com.ar"; // QA environment
+                
+                string expectedRedirectUri = currentOrigin is not null 
+                    ? $"{currentOrigin}/swagger/oauth2-redirect.html"
+                    : "{will-be-determined-at-runtime}/swagger/oauth2-redirect.html";
+                
+                Log.Information(
+                    "Swagger UI OAuth2 configured. ClientId: {ClientId}, Authority: {Authority}, PKCE: {UsePkce}, ExpectedRedirectUri: {ExpectedRedirectUri}",
+                    clientId,
+                    identityServerSettings.Authority,
+                    identityServerSettings.SwaggerUsePkce,
+                    expectedRedirectUri);
             }
 
             // Removed audience parameter injection for Duende compatibility

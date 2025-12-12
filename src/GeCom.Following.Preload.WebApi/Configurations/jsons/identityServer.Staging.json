@@ -1,9 +1,9 @@
-{
+﻿{
   "IdentityServer": {
     "Authority": "https://qa-accounts.gcgestion.com.ar",
     "MetadataAddress": "https://qa-accounts.gcgestion.com.ar/.well-known/openid-configuration",
     "ApiAudience": "gecom.following.preload.api",
-    "RequiredScopes": [ "gecom.following.preload.api" ],
+    "RequiredScopes": ["gecom.following.preload.api"],
     "RequireHttpsMetadata": true,
     "SwaggerClientId": "gecom.following.preload.api.swaggerui",
     "SwaggerUsePkce": true,
