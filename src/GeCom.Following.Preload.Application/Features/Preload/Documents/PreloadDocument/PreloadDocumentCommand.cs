@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Application.Abstractions.Messaging;
+﻿using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 
 namespace GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
@@ -9,5 +9,6 @@ namespace GeCom.Following.Preload.Application.Features.Preload.Documents.Preload
 public sealed record PreloadDocumentCommand(
     byte[] FileContent,
     string FileName,
-    string ContentType) : ICommand<DocumentResponse>;
+    string ContentType,
+    string UserEmail) : ICommand<DocumentResponse>;
 

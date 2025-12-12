@@ -79,8 +79,8 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
         }
 
         // Buscar el estado con código "Precargado"
-        State? precargadoState = await _stateRepository.GetByCodeAsync("Precargado", cancellationToken);
-        if (precargadoState is null)
+        State? preloadState = await _stateRepository.GetByCodeAsync("PendPrecarga", cancellationToken);
+        if (preloadState is null)
         {
             return Result.Failure<DocumentResponse>(
                 Error.NotFound(
@@ -88,11 +88,15 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
                     "State with code 'Precargado' was not found. Please ensure the state exists in the database."));
         }
 
+        Attachment addedAttachment = new();
+
         // Crear el documento con valores por defecto
         Document document = new()
         {
-            EstadoId = precargadoState.EstadoId,
-            FechaCreacion = DateTime.UtcNow
+            EstadoId = preloadState.EstadoId,
+            FechaCreacion = DateTime.UtcNow,
+            FechaEmisionComprobante = DateOnly.FromDateTime(DateTime.UtcNow),
+            UserCreate = request.UserEmail
         };
 
         // Agregar el documento al repositorio
@@ -114,15 +118,19 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
             string filePath = await _storageService.SaveFileAsync(request.FileContent, uniqueFileName, cancellationToken);
 
             // Crear el registro de Attachment
-            Attachment attachment = new()
+            var attachment = new Attachment
             {
                 Path = filePath,
                 DocId = addedDocument.DocId,
                 FechaCreacion = DateTime.UtcNow
             };
 
+            attachment.Path = filePath;
+            attachment.DocId = addedDocument.DocId;
+            attachment.FechaCreacion = DateTime.UtcNow;
+
             // Agregar el attachment al repositorio
-            await _attachmentRepository.AddAsync(attachment, cancellationToken);
+            addedAttachment = await _attachmentRepository.AddAsync(attachment, cancellationToken);
 
             // Guardar cambios finales
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -146,6 +154,11 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
         {
             // Si falla la operación de storage, intentar limpiar el documento creado
             // (opcional, dependiendo de los requisitos de negocio)
+            await _attachmentRepository.RemoveByIdAsync(addedAttachment.AdjuntoId, cancellationToken);
+            await _documentRepository.RemoveByIdAsync(addedDocument.DocId, cancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
             return Result.Failure<DocumentResponse>(
                 Error.Failure(
                     "Preload.Failed",

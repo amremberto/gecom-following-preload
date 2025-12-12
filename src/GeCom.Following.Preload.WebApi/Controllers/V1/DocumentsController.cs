@@ -393,9 +393,15 @@ public sealed class DocumentsController : VersionedApiController
             return BadRequest("A PDF file is required.");
         }
 
+        // Get the user name and email from claims
+        string? userName = User.FindFirst(ClaimTypes.Name)?.Value ??
+                           User.FindFirst("name")?.Value ?? "UnknownUser";
+        string? userEmail = User.FindFirst(ClaimTypes.Email)?.Value ??
+                            User.FindFirst("email")?.Value ?? userName;
+
         // Read file content
         byte[] fileContent;
-        using (MemoryStream memoryStream = new())
+        await using (MemoryStream memoryStream = new())
         {
             await file.CopyToAsync(memoryStream, cancellationToken);
             fileContent = memoryStream.ToArray();
@@ -404,7 +410,8 @@ public sealed class DocumentsController : VersionedApiController
         PreloadDocumentCommand command = new(
             fileContent,
             file.FileName,
-            file.ContentType);
+            file.ContentType,
+            userEmail);
 
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 
