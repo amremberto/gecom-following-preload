@@ -1,10 +1,12 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.WebApp.Components.Modals;
+using GeCom.Following.Preload.WebApp.Components.Shared;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
+using GeCom.Following.Preload.WebApp.Enums;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
@@ -23,7 +25,6 @@ public partial class Processed : IAsyncDisposable
     private bool _isLoading = true;
     private bool _isDataTableLoading;
     private bool _isModalLoading;
-    private string _toastMessage = string.Empty;
     private IEnumerable<DocumentResponse> _documents = [];
 
     private bool _hasSupportedRole;
@@ -34,6 +35,8 @@ public partial class Processed : IAsyncDisposable
     private string _selectedPdfFileName = string.Empty;
 
     private IJSObjectReference? _documentsModule;
+    private PreloadDocumentModal? _preloadModal;
+    private Toast? _toast;
     private DateOnly _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
     private DateOnly _dateTo = DateOnly.FromDateTime(DateTime.Today);
 
@@ -46,6 +49,7 @@ public partial class Processed : IAsyncDisposable
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
     [Inject] private IOptions<PreloadApiSettings> ApiSettings { get; set; } = default!;
+    [Inject] private IToastService ToastService { get; set; } = default!;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -78,6 +82,9 @@ public partial class Processed : IAsyncDisposable
                 {
                     // Ensure _isLoading is false after initial render
                     _isLoading = false;
+
+                    // Initialize toast service with component reference
+                    ToastService.SetToast(_toast);
 
                     // Set the initial date range
                     _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -216,7 +223,7 @@ public partial class Processed : IAsyncDisposable
             }
             else
             {
-                await ShowToast("El proveedor es requerido o no tiene los permisos necesarios.");
+                await ShowToast("El proveedor es requerido o no tiene los permisos necesarios.", ToastType.Warning);
                 _documents = [];
                 return;
             }
@@ -270,7 +277,7 @@ public partial class Processed : IAsyncDisposable
             // Check if the date range is valid
             if (_dateFrom > _dateTo)
             {
-                await ShowToast("La (fecha desde) no puede ser mayor a la (fecha hasta).");
+                await ShowToast("La (fecha desde) no puede ser mayor a la (fecha hasta).", ToastType.Warning);
                 return;
             }
 
@@ -278,7 +285,7 @@ public partial class Processed : IAsyncDisposable
             // Users with roles: Provider, Societies, Administrator, or ReadOnly don't need to select a provider
             if (!_isProvider && !_hasSupportedRole && SelectedProvider == null)
             {
-                await ShowToast("El (proveedor) es requerido.");
+                await ShowToast("El (proveedor) es requerido.", ToastType.Warning);
                 return;
             }
 
@@ -301,15 +308,14 @@ public partial class Processed : IAsyncDisposable
     }
 
     /// <summary>
-    /// Displays a toast message using JavaScript interop.
+    /// Displays a toast message using the toast service.
     /// </summary>
-    /// <param name="message"></param>
+    /// <param name="message">The message to display.</param>
+    /// <param name="type">The type of toast (default: Error).</param>
     /// <returns></returns>
-    private async Task ShowToast(string message)
+    private async Task ShowToast(string message, ToastType type = ToastType.Error)
     {
-        _toastMessage = message;
-        await JsRuntime.InvokeVoidAsync("showBlazorToast", "dateRangeToast");
-        StateHasChanged();
+        await ToastService.ShowAsync(message, type);
     }
 
     /// <summary>
@@ -524,8 +530,6 @@ public partial class Processed : IAsyncDisposable
         return hasReadOnlyRole;
     }
 
-    private PreloadDocumentModal? _preloadModal;
-
     /// <summary>
     /// Handles the document click event to open the document details modal.
     /// </summary>
@@ -619,7 +623,7 @@ public partial class Processed : IAsyncDisposable
     {
         try
         {
-            await ShowToast($"Documento #{document.DocId} precargado exitosamente.");
+            await ShowToast($"Documento #{document.DocId} precargado exitosamente.", ToastType.Success);
 
             // Navigate to document detail page
             NavigationManager.NavigateTo($"/documents/{document.DocId}");

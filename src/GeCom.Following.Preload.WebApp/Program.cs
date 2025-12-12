@@ -4,6 +4,7 @@ using GeCom.Following.Preload.WebApp.Extensions;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Logging.Serilog;
 using GeCom.Following.Preload.WebApp.Middlewares;
+using GeCom.Following.Preload.WebApp.Services;
 using Serilog;
 
 // Initialize the logger with a bootstrap logger, to log in console before the configuration is loaded.
@@ -61,6 +62,9 @@ try
 
     // Add API client service
     builder.Services.AddApiClient(builder.Configuration);
+
+    // Add toast service
+    builder.Services.AddScoped<IToastService, ToastService>();
 
     #endregion
 

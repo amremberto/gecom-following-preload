@@ -3,6 +3,8 @@ using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.WebApp.Components.Modals;
+using GeCom.Following.Preload.WebApp.Components.Shared;
+using GeCom.Following.Preload.WebApp.Enums;
 using GeCom.Following.Preload.WebApp.Extensions.Auth;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
@@ -18,6 +20,7 @@ public partial class Pending : IAsyncDisposable
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private IDocumentService DocumentService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private IToastService ToastService { get; set; } = default!;
 
     private bool _isLoading = true;
     private bool _isDataTableLoading;
@@ -25,13 +28,12 @@ public partial class Pending : IAsyncDisposable
 
     private IJSObjectReference? _pendingDocumentsModule;
     private PreloadDocumentModal? _preloadModal;
+    private Toast? _toast;
 
     private bool _isProvider;
     private string? _providerCuit;
     private bool _hasReadOnlyRole;
     private bool _hasSupportedRole;
-
-    private string _toastMessage = string.Empty;
     private IEnumerable<DocumentResponse> _pendingDocuments = [];
     private DocumentResponse? _selectedDocument;
     private string _selectedPdfFileName = string.Empty;
@@ -76,6 +78,9 @@ public partial class Pending : IAsyncDisposable
             {
                 // Ensure _isLoading is false after initial render
                 _isLoading = false;
+
+                // Initialize toast service with component reference
+                ToastService.SetToast(_toast);
 
                 // Check if user has ReadOnly role to hide certain UI elements
                 await HasReadOnlyRoleAsync();
@@ -122,7 +127,7 @@ public partial class Pending : IAsyncDisposable
                 else
                 {
                     await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
-                    await ShowToast("No tiene los permisos necesarios para ver los documentos pendientes. Por favor, contacte al administrador del sistema.");
+                    await ShowToast("No tiene los permisos necesarios para ver los documentos pendientes. Por favor, contacte al administrador del sistema.", ToastType.Warning);
                 }
 
                 await JsRuntime.InvokeVoidAsync("loadThemeConfig");
@@ -188,11 +193,9 @@ public partial class Pending : IAsyncDisposable
         }
     }
 
-    private async Task ShowToast(string message)
+    private async Task ShowToast(string message, ToastType type = ToastType.Error)
     {
-        _toastMessage = message;
-        await JsRuntime.InvokeVoidAsync("showBlazorToast", "dateRangeToast");
-        StateHasChanged();
+        await ToastService.ShowAsync(message, type);
     }
 
     /// <summary>
@@ -348,7 +351,7 @@ public partial class Pending : IAsyncDisposable
         {
             await JsRuntime.InvokeVoidAsync("console.log", $"Eliminando documento con ID: {document.DocId}");
             // Implementar la lógica de eliminación (confirmación, llamada al servicio, etc.)
-            await ShowToast($"Funcionalidad de eliminación para el documento {document.DocId} pendiente de implementar.");
+            await ShowToast($"Funcionalidad de eliminación para el documento {document.DocId} pendiente de implementar.", ToastType.Info);
         }
         catch (Exception ex)
         {
@@ -452,7 +455,7 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            await ShowToast($"Documento #{document.DocId} precargado exitosamente.");
+            await ShowToast($"Documento #{document.DocId} precargado exitosamente.", ToastType.Success);
 
             // Recargar la grilla de documentos pendientes
             _isDataTableLoading = true;
