@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.CreateDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocuments;
@@ -399,6 +399,17 @@ public sealed class DocumentsController : VersionedApiController
         string? userEmail = User.FindFirst(ClaimTypes.Email)?.Value ??
                             User.FindFirst("email")?.Value ?? userName;
 
+        // Check if user is a provider and get provider CUIT from claim
+        string? providerCuit = null;
+        bool isProvider = User.IsInRole(AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                          User.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadProviders) ||
+                          User.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadProviders);
+
+        if (isProvider)
+        {
+            providerCuit = User.FindFirst(AuthorizationConstants.SocietyCuitClaimType)?.Value;
+        }
+
         // Read file content
         byte[] fileContent;
         await using (MemoryStream memoryStream = new())
@@ -411,7 +422,8 @@ public sealed class DocumentsController : VersionedApiController
             fileContent,
             file.FileName,
             file.ContentType,
-            userEmail);
+            userEmail,
+            providerCuit);
 
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 

@@ -1,4 +1,4 @@
-﻿using GeCom.Following.Preload.Application.Abstractions.Repositories;
+using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Application.Abstractions.Storage;
 using GeCom.Following.Preload.Application.Preload.Attachments.Interfaces;
 using GeCom.Following.Preload.Infrastructure.Persistence;
@@ -58,6 +58,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IActionsRegisterRepository, ActionsRegisterRepository>();
         services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IDocumentStateRepository, DocumentStateRepository>();
         services.AddScoped<ISapAccountRepository, SapAccountRepository>();
         services.AddScoped<IUserSocietyAssignmentRepository, UserSocietyAssignmentRepository>();
 

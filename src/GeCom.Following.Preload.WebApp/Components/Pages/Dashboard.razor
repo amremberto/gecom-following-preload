@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
@@ -17,6 +17,46 @@
 else
 {
     <div class="row">
+        <div class="col-md-4">
+            <div class="card bg-danger-subtle">
+                <div class="card-body widget-user">
+                    <div class="text-center">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="avatar-lg bg-danger-subtle rounded">
+                                    <i class="ri-time-line fs-36 text-danger"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h1 class="mb-1 text-danger display-4">@_totalPendingDocuments</h1>
+                                <p class="mb-0 fw-bold text-danger fs-4">Documentos Pendientes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card bg-danger-subtle">
+                <div class="card-body widget-user">
+                    <div class="text-center">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="avatar-lg bg-danger-subtle rounded">
+                                    <i class="ri-shopping-cart-2-line fs-36 text-danger"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h1 class="mb-1 text-danger display-4">@_totalPurchaseOrders</h1>
+                                <p class="mb-0 fw-bold fs-4">Ordenes de Compra</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-md-4">
             <div class="card bg-primary-subtle">
                 <div class="card-body widget-user">
@@ -37,45 +77,9 @@ else
             </div>
         </div>
 
-        <div class="col-md-4">
-            <div class="card bg-danger-subtle">
-                <div class="card-body widget-user">
-                    <div class="text-center">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0 me-3">
-                                <div class="avatar-lg bg-danger-subtle rounded">
-                                    <i class="ri-shopping-cart-2-line fs-36 text-danger"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h1 class="mb-1 text-danger display-4">@_totalPurchaseOrders</h1>
-                                <p class="mb-0 fw-bold fs-4">Total - Ordenes de Compra</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        
 
-        <div class="col-md-4">
-            <div class="card bg-warning-subtle">
-                <div class="card-body widget-user">
-                    <div class="text-center">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0 me-3">
-                                <div class="avatar-lg bg-warning-subtle rounded">
-                                    <i class="ri-time-line fs-36 text-warning"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h1 class="mb-1 text-warning display-4">@_totalPendingDocuments</h1>
-                                <p class="mb-0 fw-bold fs-4">Total - Documentos Pendientes</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        
     </div>
 
     <!-- User Claims, Roles and Tokens Card -->

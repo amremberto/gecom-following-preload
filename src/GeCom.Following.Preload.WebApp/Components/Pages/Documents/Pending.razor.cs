@@ -226,23 +226,10 @@ public partial class Pending : IAsyncDisposable
     /// <returns>True if the document can be deleted, false otherwise.</returns>
     private bool CanDeleteDocument(DocumentResponse document)
     {
-        bool hasCorrectStatus = document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE";
+        bool hasCorrectStatus =
+            document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE" ||
+            document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PENDIENTE PRECARGA";
         bool canDelete = hasCorrectStatus && _hasSupportedRole;
-
-        // Log for debugging (async logging in sync method - fire and forget)
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await JsRuntime.InvokeVoidAsync("console.log",
-                    $"[CanDeleteDocument] DocId: {document.DocId}, Status: {document.EstadoDescripcion}, " +
-                    $"hasCorrectStatus: {hasCorrectStatus}, _hasSupportedRole: {_hasSupportedRole}, canDelete: {canDelete}");
-            }
-            catch
-            {
-                // Ignore errors in logging
-            }
-        });
 
         return canDelete;
     }
