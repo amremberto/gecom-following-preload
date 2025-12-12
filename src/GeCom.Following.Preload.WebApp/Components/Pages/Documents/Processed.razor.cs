@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
@@ -584,15 +584,24 @@ public partial class Processed : IAsyncDisposable
     {
         try
         {
-            await ShowToast($"Documento #{document.DocId} precargado exitosamente.", ToastType.Success);
-
-            // Navigate to document detail page
-            NavigationManager.NavigateTo($"/documents/{document.DocId}");
+            // Navigate to Pending page with the document ID as query parameter
+            // This will allow Pending page to automatically open the edit modal
+            // The success message will be shown in Pending page after Toast is initialized
+            NavigationManager.NavigateTo($"/documents/pending?editDocId={document.DocId}");
         }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al navegar al documento:", ex.Message);
-            await ShowToast("Error al navegar al documento creado.");
+            // Only show error toast if we're still on this page
+            try
+            {
+                await ShowToast("Error al navegar al documento creado.");
+            }
+            catch
+            {
+                // Toast might not be available if navigation already started
+                await JsRuntime.InvokeVoidAsync("console.error", "Error al navegar al documento creado.");
+            }
         }
     }
 

@@ -10,6 +10,7 @@ using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Extensions.Primitives;
 using Microsoft.JSInterop;
 
 namespace GeCom.Following.Preload.WebApp.Components.Pages.Documents;
@@ -133,6 +134,9 @@ public partial class Pending : IAsyncDisposable
                 await JsRuntime.InvokeVoidAsync("loadThemeConfig");
                 await JsRuntime.InvokeVoidAsync("loadApps");
 
+                // Check if there's a document ID in the query string to open edit modal
+                await CheckAndOpenEditModalFromQueryString();
+
                 StateHasChanged();
             }
         }
@@ -142,6 +146,57 @@ public partial class Pending : IAsyncDisposable
             _isLoading = false;
             await JsRuntime.InvokeVoidAsync("console.error", "Error en Documents.OnAfterRenderAsync:", ex.Message);
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Checks the query string for editDocId parameter and opens the edit modal if found.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CheckAndOpenEditModalFromQueryString()
+    {
+        try
+        {
+            Uri? uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+            Dictionary<string, StringValues>? queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+            if (queryParams.TryGetValue("editDocId", out StringValues editDocIdValue) &&
+                int.TryParse(editDocIdValue.ToString(), out int docId))
+            {
+                // Show success message (Toast is already initialized at this point)
+                await ShowToast($"Documento #{docId} precargado exitosamente.", ToastType.Success);
+
+                // Remove the query parameter from the URL to clean it up
+                var uriBuilder = new UriBuilder(uri)
+                {
+                    Query = string.Empty
+                };
+                NavigationManager.NavigateTo(uriBuilder.Uri.PathAndQuery, replace: true);
+
+                // Ensure the grid is loaded with the latest data (including the newly created document)
+                if (UserHasSupportedRole())
+                {
+                    _isDataTableLoading = true;
+                    StateHasChanged();
+
+                    await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                    await GetPendingDocuments();
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+
+                    _isDataTableLoading = false;
+                    StateHasChanged();
+
+                    // Wait a bit to ensure the data table is fully rendered
+                    await Task.Delay(300);
+                }
+
+                // Open the edit modal for the document
+                await OpenDocumentEdit(docId);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al verificar parámetro editDocId:", ex.Message);
         }
     }
 
