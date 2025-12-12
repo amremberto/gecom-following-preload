@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
@@ -350,45 +350,6 @@ public partial class Processed : IAsyncDisposable
     {
         await JsRuntime.InvokeVoidAsync("blurElementById", "dateFrom");
         await JsRuntime.InvokeVoidAsync("blurElementById", "dateTo");
-    }
-
-    /// <summary>
-    /// Handles the edit document action.
-    /// </summary>
-    /// <param name="document">The document to edit.</param>
-    /// <returns></returns>
-    private async Task EditDocument(DocumentResponse document)
-    {
-        await OpenDocumentEdit(document.DocId);
-    }
-
-    /// <summary>
-    /// Opens the document edit modal.
-    /// </summary>
-    /// <param name="docId">The document ID.</param>
-    /// <returns></returns>
-    private async Task OpenDocumentEdit(int docId)
-    {
-        _isModalLoading = true;
-        _selectedDocument = null;
-        _selectedPdfFileName = string.Empty;
-        StateHasChanged();
-
-        await GetDocumentWithDetails(docId);
-
-        _isModalLoading = false;
-        StateHasChanged();
-
-        if (_selectedDocument is not null)
-        {
-            // Show edit modal
-            await JsRuntime.InvokeVoidAsync("eval", "new bootstrap.Modal(document.getElementById('edit-document-modal')).show()");
-        }
-        else
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir el modal de edición del documento: respuesta nula");
-            await ShowToast("Error al cargar el documento para editar.");
-        }
     }
 
     /// <summary>
