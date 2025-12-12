@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
@@ -31,6 +31,7 @@ public partial class Dashboard : IAsyncDisposable
     [Inject] private IDashboardService DashboardService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -404,6 +405,14 @@ public partial class Dashboard : IAsyncDisposable
         {
             await JsRuntime.InvokeVoidAsync("console.error", $"Error al copiar al portapapeles: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Navigates to the pending documents page.
+    /// </summary>
+    private void NavigateToPendingDocuments()
+    {
+        NavigationManager.NavigateTo("/documents/pending");
     }
 
     /// <summary>

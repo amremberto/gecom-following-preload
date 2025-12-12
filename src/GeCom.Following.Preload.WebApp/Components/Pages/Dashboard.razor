@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
@@ -17,8 +17,9 @@
 else
 {
     <div class="row">
+        <!-- Pendind Documents Card -->
         <div class="col-md-4">
-            <div class="card bg-danger-subtle">
+            <div class="card bg-danger-subtle" style="cursor: pointer;" @onclick="NavigateToPendingDocuments">
                 <div class="card-body widget-user">
                     <div class="text-center">
                         <div class="d-flex align-items-center">
