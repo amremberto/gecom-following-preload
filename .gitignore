@@ -38,6 +38,7 @@ bld/
 [Gg]ecom-identityserver/
 [Gg]ecom-fw-helpdesk/
 [Ff]ollowing-precarga-backend/
+[Gg]ecom-following-invoicecopy
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
