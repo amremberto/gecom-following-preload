@@ -38,5 +38,18 @@ public interface ISapAccountRepository : IRepository<SapAccount>
     /// <param name="accountNumber">Account number.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task RemoveByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets SAP accounts by a list of account numbers and customer type code.
+    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
+    /// </summary>
+    /// <param name="accountNumbers">List of account numbers to filter by.</param>
+    /// <param name="customerTypeCode">Customer type code to filter by (e.g., 3 for societies).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of SAP accounts matching the criteria.</returns>
+    Task<IReadOnlyList<SapAccount>> GetByAccountNumbersAndCustomerTypeAsync(
+        IReadOnlyList<string> accountNumbers,
+        int customerTypeCode,
+        CancellationToken cancellationToken = default);
 }
 

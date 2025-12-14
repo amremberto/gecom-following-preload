@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
 using Microsoft.EntityFrameworkCore;
@@ -232,7 +232,8 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
-            .Where(d => d.FechaEmisionComprobante.HasValue
+            .Where(d => d.FechaBaja == null
+                && d.FechaEmisionComprobante.HasValue
                 && d.ProveedorCuit == providerCuit
                 && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5))
             .OrderBy(d => d.FechaEmisionComprobante)
@@ -250,7 +251,8 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
-            .Where(d => d.FechaEmisionComprobante.HasValue
+            .Where(d => d.FechaBaja == null
+                && d.FechaEmisionComprobante.HasValue
                 && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5))
             .OrderBy(d => d.FechaEmisionComprobante)
             .AsNoTracking()
@@ -269,7 +271,8 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
-            .Where(d => d.FechaEmisionComprobante.HasValue
+            .Where(d => d.FechaBaja == null
+                && d.FechaEmisionComprobante.HasValue
                 && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5));
 
         var societyCuitsList = societyCuits

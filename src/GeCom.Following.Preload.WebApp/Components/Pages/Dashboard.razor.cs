@@ -19,6 +19,7 @@ public partial class Dashboard : IAsyncDisposable
     private int _totalDocuments;
     private int _totalPurchaseOrders;
     private int _totalPendingDocuments;
+    private int _totalPaidDocuments;
 
     private IJSObjectReference? _dashboardModule;
 
@@ -58,6 +59,7 @@ public partial class Dashboard : IAsyncDisposable
             _totalDocuments = dashboardResponse.TotalDocuments;
             _totalPurchaseOrders = dashboardResponse.TotalPurchaseOrders;
             _totalPendingDocuments = dashboardResponse.TotalPendingsDocuments;
+            _totalPaidDocuments = dashboardResponse.TotalPaidDocuments;
         }
     }
 
@@ -267,7 +269,7 @@ public partial class Dashboard : IAsyncDisposable
     }
 
     /// <summary>
-    /// Extracts the following.society.cuit claim from the access_token JWT.
+    /// Extracts the following.provider.cuit claim from the access_token JWT.
     /// </summary>
     /// <param name="accessToken">The access token JWT string.</param>
     /// <returns>The CUIT value if found, otherwise null.</returns>
@@ -307,7 +309,7 @@ public partial class Dashboard : IAsyncDisposable
             using var doc = JsonDocument.Parse(payloadJson);
             JsonElement root = doc.RootElement;
 
-            // Extract following.society.cuit claim
+            // Extract following.provider.cuit claim
             if (root.TryGetProperty(AuthorizationConstants.SocietyCuitClaimType, out JsonElement cuitElement))
             {
                 string? cuitValue = cuitElement.GetString();
@@ -352,6 +354,7 @@ public partial class Dashboard : IAsyncDisposable
                     _totalDocuments = 0;
                     _totalPurchaseOrders = 0;
                     _totalPendingDocuments = 0;
+                    _totalPaidDocuments = 0;
                 }
                 finally
                 {

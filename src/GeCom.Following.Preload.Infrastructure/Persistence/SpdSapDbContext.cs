@@ -1,4 +1,5 @@
-﻿using GeCom.Following.Preload.Domain.Spd_Sap.SapAccounts;
+using GeCom.Following.Preload.Domain.Spd_Sap.SapAccounts;
+using GeCom.Following.Preload.Domain.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.Domain.Spd_Sap.SapPurchaseOrders;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,6 +32,11 @@ public class SpdSapDbContext : DbContext
     /// Gets the SAP purchase orders entity set.
     /// </summary>
     public DbSet<SapPurchaseOrder> SapPurchaseOrders => Set<SapPurchaseOrder>();
+
+    /// <summary>
+    /// Gets the SAP provider societies entity set.
+    /// </summary>
+    public DbSet<SapProviderSocietiy> SapProviderSocieties => Set<SapProviderSocietiy>();
 
     /// <summary>
     /// Configures the entity models and their relationships.

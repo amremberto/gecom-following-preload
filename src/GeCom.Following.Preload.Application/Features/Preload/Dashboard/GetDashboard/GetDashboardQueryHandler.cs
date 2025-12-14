@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
@@ -81,7 +81,7 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             if (string.IsNullOrWhiteSpace(request.ProviderCuit))
             {
                 // If no CUIT, return zeros
-                DashboardResponse emptyResponse = new(0, 0, 0);
+                DashboardResponse emptyResponse = new(0, 0, 0, 0);
                 return Result.Success(emptyResponse);
             }
 
@@ -93,7 +93,7 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             if (string.IsNullOrWhiteSpace(request.UserEmail))
             {
                 // If no email, return zeros
-                DashboardResponse emptyResponse = new(0, 0, 0);
+                DashboardResponse emptyResponse = new(0, 0, 0, 0);
                 return Result.Success(emptyResponse);
             }
 
@@ -109,14 +109,14 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             if (societyCuits.Count == 0)
             {
                 // User has no society assignments, return zeros
-                DashboardResponse emptyResponse = new(0, 0, 0);
+                DashboardResponse emptyResponse = new(0, 0, 0, 0);
                 return Result.Success(emptyResponse);
             }
         }
         else
         {
             // Unknown role: Return zeros for security
-            DashboardResponse emptyResponse = new(0, 0, 0);
+            DashboardResponse emptyResponse = new(0, 0, 0, 0);
             return Result.Success(emptyResponse);
         }
 
@@ -126,10 +126,11 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
 
         if (providerCuit is not null)
         {
-            // Filter by provider CUIT and ensure FechaEmisionComprobante is not null
+            // Filter by provider CUIT and ensure FechaEmisionComprobante is not null, FechaBaja is null, and EstadoId is not null
+            // EstadoId != null ensures we only count documents with a defined state (pending or processed)
             string capturedProviderCuit = providerCuit;
-            documentPredicate = d => d.FechaEmisionComprobante.HasValue && d.ProveedorCuit == capturedProviderCuit;
-            purchaseOrderPredicate = po => po.Document.FechaEmisionComprobante.HasValue && po.Document.ProveedorCuit == capturedProviderCuit;
+            documentPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.EstadoId != null && d.ProveedorCuit == capturedProviderCuit;
+            purchaseOrderPredicate = po => po.Document.FechaBaja == null && po.Document.FechaEmisionComprobante.HasValue && po.Document.EstadoId != null && po.Document.ProveedorCuit == capturedProviderCuit;
         }
         else if (societyCuits is not null && societyCuits.Count > 0)
         {
@@ -138,6 +139,14 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
             documentPredicate = BuildSocietyCuitDocumentPredicate(societyCuits);
             purchaseOrderPredicate = BuildSocietyCuitPurchaseOrderPredicate(societyCuits);
+        }
+        else
+        {
+            // Administrator or ReadOnly: Filter out deleted documents, require FechaEmisionComprobante, and EstadoId is not null
+            // EstadoId != null ensures we only count documents with a defined state (pending or processed)
+            // This ensures consistency with other roles and excludes soft-deleted documents
+            documentPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.EstadoId != null;
+            purchaseOrderPredicate = po => po.Document.FechaBaja == null && po.Document.FechaEmisionComprobante.HasValue && po.Document.EstadoId != null;
         }
 
         // Execute COUNT queries sequentially to avoid DbContext concurrency issues
@@ -153,9 +162,10 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
 
         if (providerCuit is not null)
         {
-            // Filter by provider CUIT AND pending state AND FechaEmisionComprobante is not null
+            // Filter by provider CUIT AND pending state AND FechaEmisionComprobante is not null AND FechaBaja is null
+            // Pending documents: EstadoId == 1, 2, or 5
             string capturedProviderCuit = providerCuit;
-            pendingPredicate = d => d.FechaEmisionComprobante.HasValue && d.ProveedorCuit == capturedProviderCuit && (d.EstadoId == 2 || d.EstadoId == 5);
+            pendingPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.ProveedorCuit == capturedProviderCuit && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5);
         }
         else if (societyCuits is not null && societyCuits.Count > 0)
         {
@@ -165,17 +175,43 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         }
         else
         {
-            // Only pending state filter AND FechaEmisionComprobante is not null
-            pendingPredicate = d => d.FechaEmisionComprobante.HasValue && (d.EstadoId == 2 || d.EstadoId == 5);
+            // Only pending state filter AND FechaEmisionComprobante is not null AND FechaBaja is null
+            // Pending documents: EstadoId == 1, 2, or 5
+            pendingPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5);
         }
 
         int totalPendingsDocuments =
             await _documentRepository.CountAsync(predicate: pendingPredicate, cancellationToken);
 
+        // For paid documents, build predicate combining document filter with paid state (FechaPago != null AND EstadoId == 16)
+        System.Linq.Expressions.Expression<System.Func<Domain.Preloads.Documents.Document, bool>>? paidPredicate = null;
+
+        if (providerCuit is not null)
+        {
+            // Filter by provider CUIT AND paid state (FechaPago != null AND EstadoId == 16) AND FechaEmisionComprobante is not null AND FechaBaja is null
+            string capturedProviderCuit = providerCuit;
+            paidPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.FechaPago != null && d.EstadoId == 16 && d.ProveedorCuit == capturedProviderCuit;
+        }
+        else if (societyCuits is not null && societyCuits.Count > 0)
+        {
+            // Filter by society CUITs AND paid state
+            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+            paidPredicate = BuildSocietyCuitPaidDocumentPredicate(societyCuits);
+        }
+        else
+        {
+            // Only paid state filter (FechaPago != null AND EstadoId == 16) AND FechaEmisionComprobante is not null AND FechaBaja is null
+            paidPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.FechaPago != null && d.EstadoId == 16;
+        }
+
+        int totalPaidDocuments =
+            await _documentRepository.CountAsync(predicate: paidPredicate, cancellationToken);
+
         DashboardResponse response = new(
             totalDocuments,
             totalPurchaseOrders,
-            totalPendingsDocuments);
+            totalPendingsDocuments,
+            totalPaidDocuments);
 
         // Cache the result
         MemoryCacheEntryOptions cacheOptions = new()
@@ -241,9 +277,13 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
         MemberExpression property = Expression.Property(parameter, nameof(Document.SociedadCuit));
         MemberExpression fechaEmisionProperty = Expression.Property(parameter, nameof(Document.FechaEmisionComprobante));
+        MemberExpression fechaBajaProperty = Expression.Property(parameter, nameof(Document.FechaBaja));
+        MemberExpression estadoIdProperty = Expression.Property(parameter, nameof(Document.EstadoId));
 
         BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
         MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
+        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
+        BinaryExpression estadoIdIsNotNull = Expression.NotEqual(estadoIdProperty, Expression.Constant(null, typeof(int?)));
 
         Expression? orExpression = null;
         foreach (string cuit in societyCuits)
@@ -260,9 +300,11 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             return Expression.Lambda<Func<Document, bool>>(Expression.Constant(false), parameter);
         }
 
-        // Combine: FechaEmisionComprobante.HasValue AND (SociedadCuit != null AND SociedadCuit IN list)
+        // Combine: FechaBaja == null AND FechaEmisionComprobante.HasValue AND EstadoId != null AND (SociedadCuit != null AND SociedadCuit IN list)
         BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
-        BinaryExpression combinedExpression = Expression.AndAlso(fechaEmisionHasValue, societyFilter);
+        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyFilter);
+        BinaryExpression estadoIdAndFechaEmision = Expression.AndAlso(estadoIdIsNotNull, fechaEmisionAndSociety);
+        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, estadoIdAndFechaEmision);
         return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
     }
 
@@ -278,9 +320,13 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         MemberExpression documentProperty = Expression.Property(parameter, nameof(PurchaseOrder.Document));
         MemberExpression sociedadCuitProperty = Expression.Property(documentProperty, nameof(Document.SociedadCuit));
         MemberExpression fechaEmisionProperty = Expression.Property(documentProperty, nameof(Document.FechaEmisionComprobante));
+        MemberExpression fechaBajaProperty = Expression.Property(documentProperty, nameof(Document.FechaBaja));
+        MemberExpression estadoIdProperty = Expression.Property(documentProperty, nameof(Document.EstadoId));
 
         BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
         MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
+        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
+        BinaryExpression estadoIdIsNotNull = Expression.NotEqual(estadoIdProperty, Expression.Constant(null, typeof(int?)));
 
         Expression? orExpression = null;
         foreach (string cuit in societyCuits)
@@ -297,9 +343,11 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             return Expression.Lambda<Func<PurchaseOrder, bool>>(Expression.Constant(false), parameter);
         }
 
-        // Combine: Document.FechaEmisionComprobante.HasValue AND (Document.SociedadCuit != null AND Document.SociedadCuit IN list)
+        // Combine: Document.FechaBaja == null AND Document.FechaEmisionComprobante.HasValue AND Document.EstadoId != null AND (Document.SociedadCuit != null AND Document.SociedadCuit IN list)
         BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
-        BinaryExpression combinedExpression = Expression.AndAlso(fechaEmisionHasValue, societyFilter);
+        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyFilter);
+        BinaryExpression estadoIdAndFechaEmision = Expression.AndAlso(estadoIdIsNotNull, fechaEmisionAndSociety);
+        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, estadoIdAndFechaEmision);
         return Expression.Lambda<Func<PurchaseOrder, bool>>(combinedExpression, parameter);
     }
 
@@ -315,14 +363,19 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         MemberExpression sociedadCuitProperty = Expression.Property(parameter, nameof(Document.SociedadCuit));
         MemberExpression estadoIdProperty = Expression.Property(parameter, nameof(Document.EstadoId));
         MemberExpression fechaEmisionProperty = Expression.Property(parameter, nameof(Document.FechaEmisionComprobante));
+        MemberExpression fechaBajaProperty = Expression.Property(parameter, nameof(Document.FechaBaja));
 
         BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
         MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
+        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
 
-        // Pending state: EstadoId == 2 || EstadoId == 5
+        // Pending state: EstadoId == 1 || EstadoId == 2 || EstadoId == 5
         // EstadoId is nullable, so we need to use nullable int constants
+        BinaryExpression estado1Or2 = Expression.OrElse(
+            Expression.Equal(estadoIdProperty, Expression.Constant((int?)1, typeof(int?))),
+            Expression.Equal(estadoIdProperty, Expression.Constant((int?)2, typeof(int?))));
         BinaryExpression pendingState = Expression.OrElse(
-            Expression.Equal(estadoIdProperty, Expression.Constant((int?)2, typeof(int?))),
+            estado1Or2,
             Expression.Equal(estadoIdProperty, Expression.Constant((int?)5, typeof(int?))));
 
         Expression? orExpression = null;
@@ -340,10 +393,58 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             return Expression.Lambda<Func<Document, bool>>(Expression.Constant(false), parameter);
         }
 
-        // Combine: FechaEmisionComprobante.HasValue AND (SociedadCuit != null) AND (SociedadCuit IN list) AND (EstadoId == 2 || EstadoId == 5)
+        // Combine: FechaBaja == null AND FechaEmisionComprobante.HasValue AND (SociedadCuit != null) AND (SociedadCuit IN list) AND (EstadoId == 1 || EstadoId == 2 || EstadoId == 5)
         BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
         BinaryExpression societyAndPending = Expression.AndAlso(societyFilter, pendingState);
-        BinaryExpression combinedExpression = Expression.AndAlso(fechaEmisionHasValue, societyAndPending);
+        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyAndPending);
+        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, fechaEmisionAndSociety);
+        return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+    }
+
+    /// <summary>
+    /// Builds a predicate expression for filtering paid documents by society CUITs.
+    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
+    /// </summary>
+    /// <param name="societyCuits">List of society CUITs to filter by.</param>
+    /// <returns>Expression predicate for filtering paid documents.</returns>
+    private static Expression<Func<Document, bool>> BuildSocietyCuitPaidDocumentPredicate(List<string> societyCuits)
+    {
+        ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
+        MemberExpression sociedadCuitProperty = Expression.Property(parameter, nameof(Document.SociedadCuit));
+        MemberExpression fechaPagoProperty = Expression.Property(parameter, nameof(Document.FechaPago));
+        MemberExpression estadoIdProperty = Expression.Property(parameter, nameof(Document.EstadoId));
+        MemberExpression fechaEmisionProperty = Expression.Property(parameter, nameof(Document.FechaEmisionComprobante));
+        MemberExpression fechaBajaProperty = Expression.Property(parameter, nameof(Document.FechaBaja));
+
+        BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
+        MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
+        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
+        BinaryExpression fechaPagoIsNotNull = Expression.NotEqual(fechaPagoProperty, Expression.Constant(null, typeof(DateTime?)));
+        // Paid state: EstadoId == 16
+        // EstadoId is nullable, so we need to use nullable int constant
+        BinaryExpression paidState = Expression.Equal(estadoIdProperty, Expression.Constant((int?)16, typeof(int?)));
+
+        Expression? orExpression = null;
+        foreach (string cuit in societyCuits)
+        {
+            BinaryExpression equalsExpression = Expression.Equal(sociedadCuitProperty, Expression.Constant(cuit, typeof(string)));
+            orExpression = orExpression is null
+                ? equalsExpression
+                : Expression.OrElse(orExpression, equalsExpression);
+        }
+
+        if (orExpression is null)
+        {
+            // If no CUITs, return false predicate
+            return Expression.Lambda<Func<Document, bool>>(Expression.Constant(false), parameter);
+        }
+
+        // Combine: FechaBaja == null AND FechaEmisionComprobante.HasValue AND FechaPago != null AND EstadoId == 16 AND (SociedadCuit != null) AND (SociedadCuit IN list)
+        BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
+        BinaryExpression societyAndPaidState = Expression.AndAlso(societyFilter, paidState);
+        BinaryExpression societyAndPaid = Expression.AndAlso(societyAndPaidState, fechaPagoIsNotNull);
+        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyAndPaid);
+        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, fechaEmisionAndSociety);
         return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
+namespace GeCom.Following.Preload.WebApi.Extensions.Auth;
 
 /// <summary>
 /// Constants for authorization roles.
@@ -11,9 +11,9 @@ public static class AuthorizationConstants
     public const string RoleClaimType = "role";
 
     /// <summary>
-    /// Claim type for society CUIT in JWT tokens.
+    /// Claim type for provider CUIT in JWT tokens.
     /// </summary>
-    public const string SocietyCuitClaimType = "following.society.cuit";
+    public const string SocietyCuitClaimType = "following.provider.cuit";
 
     /// <summary>
     /// Available roles in the system.

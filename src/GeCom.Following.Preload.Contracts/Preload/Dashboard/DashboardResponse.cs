@@ -6,6 +6,7 @@ namespace GeCom.Following.Preload.Contracts.Preload.Dashboard;
 public sealed record DashboardResponse(
     int TotalDocuments,
     int TotalPurchaseOrders,
-    int TotalPendingsDocuments
+    int TotalPendingsDocuments,
+    int TotalPaidDocuments
 );
 

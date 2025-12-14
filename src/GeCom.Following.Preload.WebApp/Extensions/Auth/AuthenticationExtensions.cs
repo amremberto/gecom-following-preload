@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -219,7 +219,7 @@ public static class AuthenticationExtensions
                                 }
                             }
 
-                            // 2.3. Extraer claim following.society.cuit desde el access_token
+                            // 2.3. Extraer claim following.provider.cuit desde el access_token
                             ExtractCuitClaimFromAccessToken(accessToken, identity);
                         }
 
@@ -359,7 +359,7 @@ public static class AuthenticationExtensions
                                     }
                                 }
 
-                                // Ensure following.society.cuit claim is present if it exists in UserInfo
+                                // Ensure following.provider.cuit claim is present if it exists in UserInfo
                                 Claim? cuitClaim = identity.FindFirst(AuthorizationConstants.SocietyCuitClaimType);
                                 if (cuitClaim is not null && !string.IsNullOrWhiteSpace(cuitClaim.Value))
                                 {
@@ -644,7 +644,7 @@ public static class AuthenticationExtensions
     }
 
     /// <summary>
-    /// Extracts the following.society.cuit claim from the access_token JWT and adds it to the ClaimsIdentity.
+    /// Extracts the following.provider.cuit claim from the access_token JWT and adds it to the ClaimsIdentity.
     /// </summary>
     /// <param name="accessToken">The access token JWT string.</param>
     /// <param name="identity">The ClaimsIdentity to add the CUIT claim to.</param>
@@ -684,7 +684,7 @@ public static class AuthenticationExtensions
             using var doc = JsonDocument.Parse(payloadJson);
             JsonElement root = doc.RootElement;
 
-            // Extract following.society.cuit claim
+            // Extract following.provider.cuit claim
             if (root.TryGetProperty(AuthorizationConstants.SocietyCuitClaimType, out JsonElement cuitElement))
             {
                 string? cuitValue = cuitElement.GetString();

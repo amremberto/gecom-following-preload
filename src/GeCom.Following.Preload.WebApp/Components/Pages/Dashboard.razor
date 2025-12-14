@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
@@ -18,7 +18,7 @@ else
 {
     <div class="row">
         <!-- Pendind Documents Card -->
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card bg-danger-subtle" style="cursor: pointer;" @onclick="NavigateToPendingDocuments">
                 <div class="card-body widget-user">
                     <div class="text-center">
@@ -38,19 +38,20 @@ else
             </div>
         </div>
 
-        <div class="col-md-4">
-            <div class="card bg-danger-subtle">
+        <!-- Paid Documents Card -->
+        <div class="col-md-3">
+            <div class="card bg-success-subtle">
                 <div class="card-body widget-user">
                     <div class="text-center">
                         <div class="d-flex align-items-center">
                             <div class="flex-shrink-0 me-3">
-                                <div class="avatar-lg bg-danger-subtle rounded">
-                                    <i class="ri-shopping-cart-2-line fs-36 text-danger"></i>
+                                <div class="avatar-lg bg-success-subtle rounded">
+                                    <i class="ri-checkbox-circle-line fs-36 text-success"></i>
                                 </div>
                             </div>
                             <div class="flex-grow-1">
-                                <h1 class="mb-1 text-danger display-4">@_totalPurchaseOrders</h1>
-                                <p class="mb-0 fw-bold fs-4">Ordenes de Compra</p>
+                                <h1 class="mb-1 text-success display-4">@_totalPaidDocuments</h1>
+                                <p class="mb-0 fw-bold text-success fs-4">Documentos Pagados</p>
                             </div>
                         </div>
                     </div>
@@ -58,7 +59,29 @@ else
             </div>
         </div>
 
-        <div class="col-md-4">
+        <!-- Purchase Orders Card -->
+        <div class="col-md-3">
+            <div class="card bg-warning-subtle">
+                <div class="card-body widget-user">
+                    <div class="text-center">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="avatar-lg bg-warning-subtle rounded">
+                                    <i class="ri-shopping-cart-2-line fs-36 text-warning"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h1 class="mb-1 text-warning display-4">@_totalPurchaseOrders</h1>
+                                <p class="mb-0 fw-bold text-warning fs-4">Ordenes de Compra</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Documents Card -->
+        <div class="col-md-3">
             <div class="card bg-primary-subtle">
                 <div class="card-body widget-user">
                     <div class="text-center">
@@ -70,7 +93,7 @@ else
                             </div>
                             <div class="flex-grow-1">
                                 <h1 class="mb-1 text-primary display-4">@_totalDocuments</h1>
-                                <p class="mb-0 fw-bold fs-4">Total - Documentos</p>
+                                <p class="mb-0 fw-bold fs-4">Total de Documentos</p>
                             </div>
                         </div>
                     </div>

@@ -1,7 +1,11 @@
 
+using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
+using GeCom.Following.Preload.Contracts.Preload.Currencies;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
+using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Components.Shared;
 using GeCom.Following.Preload.WebApp.Enums;
@@ -20,6 +24,9 @@ public partial class Pending : IAsyncDisposable
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private IDocumentService DocumentService { get; set; } = default!;
+    [Inject] private ICurrencyService CurrencyService { get; set; } = default!;
+    [Inject] private IDocumentTypeService DocumentTypeService { get; set; } = default!;
+    [Inject] private ISapProviderSocietyService SapProviderSocietyService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IToastService ToastService { get; set; } = default!;
 
@@ -38,6 +45,14 @@ public partial class Pending : IAsyncDisposable
     private IEnumerable<DocumentResponse> _pendingDocuments = [];
     private DocumentResponse? _selectedDocument;
     private string _selectedPdfFileName = string.Empty;
+    private IEnumerable<CurrencyResponse> _currencies = [];
+    private string? _selectedCurrencyCode;
+    private IEnumerable<DocumentTypeResponse> _documentTypes = [];
+    private int? _selectedDocumentTypeId;
+    private DateOnly? _selectedFechaFactura;
+    private DateOnly? _selectedVencimientoCaecai;
+    private IEnumerable<ProviderSocietyResponse> _providerSocieties = [];
+    private string? _selectedSocietyCuit;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -293,6 +308,22 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Checks if the document is in "Pendiente Precarga" status.
+    /// </summary>
+    /// <param name="document">The document to check.</param>
+    /// <returns>True if the document is in "Pendiente Precarga" status, false otherwise.</returns>
+    private static bool IsPendingPreloadStatus(DocumentResponse document)
+    {
+        if (document is null || string.IsNullOrWhiteSpace(document.EstadoDescripcion))
+        {
+            return false;
+        }
+
+        string estado = document.EstadoDescripcion.Trim().ToUpperInvariant();
+        return estado == "PENDIENTE PRECARGA";
+    }
+
+    /// <summary>
     /// Handles the document click event to open the document details modal.
     /// </summary>
     /// <param name="docId">The document ID.</param>
@@ -376,22 +407,442 @@ public partial class Pending : IAsyncDisposable
         _isModalLoading = true;
         _selectedDocument = null;
         _selectedPdfFileName = string.Empty;
+        _selectedCurrencyCode = null;
+        _selectedDocumentTypeId = null;
+        _selectedFechaFactura = null;
+        _selectedVencimientoCaecai = null;
+        _selectedSocietyCuit = null;
         StateHasChanged();
 
         await GetDocumentWithDetails(docId);
+        await LoadCurrencies();
+        await LoadDocumentTypes();
+        
+        // Load provider societies if user is a provider
+        if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+        {
+            await LoadProviderSocieties();
+        }
+
+        if (_selectedDocument is not null)
+        {
+            // Set the selected currency code from the document
+            _selectedCurrencyCode = _selectedDocument.Moneda;
+            // Set the selected document type ID from the document
+            _selectedDocumentTypeId = _selectedDocument.TipoDocId;
+            // Set the selected dates from the document
+            _selectedFechaFactura = _selectedDocument.FechaEmisionComprobante;
+            _selectedVencimientoCaecai = _selectedDocument.VencimientoCaecai;
+            // Set the selected society CUIT from the document
+            _selectedSocietyCuit = _selectedDocument.SociedadCuit;
+        }
 
         _isModalLoading = false;
         StateHasChanged();
 
         if (_selectedDocument is not null)
         {
-            // Show edit modal
-            await JsRuntime.InvokeVoidAsync("eval", "new bootstrap.Modal(document.getElementById('edit-document-modal')).show()");
+            // Show edit modal and set up cleanup on close
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var modalElement = document.getElementById('edit-document-modal');
+                    var modal = new bootstrap.Modal(modalElement);
+                    
+                    // Clean up SELECT2 and Flatpickr when modal is hidden
+                    modalElement.addEventListener('hidden.bs.modal', function() {
+                        // Clean up SELECT2
+                        var select = $('#currency-select-edit');
+                        if (select.data('select2')) {
+                            select.select2('destroy');
+                        }
+                        var selectDocType = $('#document-type-select-edit');
+                        if (selectDocType.data('select2')) {
+                            selectDocType.select2('destroy');
+                        }
+                        var selectSociety = $('#society-select-edit');
+                        if (selectSociety.data('select2')) {
+                            selectSociety.select2('destroy');
+                        }
+                        
+                        // Clean up Flatpickr
+                        var fechaFacturaInput = document.getElementById('fecha-factura-edit');
+                        if (fechaFacturaInput && fechaFacturaInput._flatpickr) {
+                            fechaFacturaInput._flatpickr.destroy();
+                        }
+                        var vencCaecaiInput = document.getElementById('venc-caecai-edit');
+                        if (vencCaecaiInput && vencCaecaiInput._flatpickr) {
+                            vencCaecaiInput._flatpickr.destroy();
+                        }
+                    }, { once: true });
+                    
+                    modal.show();
+                })();
+            ");
+
+            // Initialize SELECT2 and Flatpickr after modal is shown and DOM is updated
+            await Task.Delay(300); // Delay to ensure modal and DOM are fully rendered
+            await InitializeCurrencySelect2();
+            await InitializeDocumentTypeSelect2();
+            
+            // Initialize society SELECT2 only if user is a provider
+            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            {
+                await InitializeSocietySelect2();
+            }
+            
+            await InitializeDatePickers();
         }
         else
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir el modal de edición del documento: respuesta nula");
             await ShowToast("Error al cargar el documento para editar.");
+        }
+    }
+
+    /// <summary>
+    /// Loads all currencies from the API.
+    /// </summary>
+    /// <returns></returns>
+    private async Task LoadCurrencies()
+    {
+        try
+        {
+            IEnumerable<CurrencyResponse>? response = await CurrencyService.GetAllAsync(cancellationToken: default);
+            _currencies = response ?? [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar monedas:", ex.Message);
+            await ShowToast("Error al cargar las monedas disponibles.");
+            _currencies = [];
+        }
+    }
+
+    /// <summary>
+    /// Initializes SELECT2 for the currency dropdown.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeCurrencySelect2()
+    {
+        try
+        {
+            // Destroy existing SELECT2 instance if it exists and initialize
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var select = $('#currency-select-edit');
+                    if (select.length === 0) {
+                        console.warn('Currency select element not found');
+                        return;
+                    }
+                    
+                    // Destroy existing SELECT2 instance if it exists
+                    if (select.data('select2')) {
+                        select.select2('destroy');
+                    }
+                    
+                    // Initialize SELECT2
+                    select.select2({
+                        placeholder: 'Seleccione una moneda',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#edit-document-modal')
+                    });
+                    
+                    // Set the selected value if available
+                    var selectedValue = select.attr('data-selected-value');
+                    if (selectedValue) {
+                        select.val(selectedValue).trigger('change');
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar SELECT2:", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Handles the currency selection change.
+    /// </summary>
+    /// <param name="e">The change event arguments.</param>
+    /// <returns></returns>
+    private async Task OnCurrencyChanged(ChangeEventArgs e)
+    {
+        _selectedCurrencyCode = e.Value?.ToString();
+
+        // Update SELECT2 to reflect the change
+        await JsRuntime.InvokeVoidAsync("eval", @"
+            (function() {
+                var select = $('#currency-select-edit');
+                if (select.data('select2')) {
+                    select.trigger('change');
+                }
+            })();
+        ");
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Loads all document types from the API.
+    /// </summary>
+    /// <returns></returns>
+    private async Task LoadDocumentTypes()
+    {
+        try
+        {
+            IEnumerable<DocumentTypeResponse>? response = await DocumentTypeService.GetAllAsync(cancellationToken: default);
+            _documentTypes = response ?? [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar tipos de documento:", ex.Message);
+            await ShowToast("Error al cargar los tipos de documento disponibles.");
+            _documentTypes = [];
+        }
+    }
+
+    /// <summary>
+    /// Initializes SELECT2 for the document type dropdown.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeDocumentTypeSelect2()
+    {
+        try
+        {
+            // Destroy existing SELECT2 instance if it exists and initialize
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var select = $('#document-type-select-edit');
+                    if (select.length === 0) {
+                        console.warn('Document type select element not found');
+                        return;
+                    }
+                    
+                    // Destroy existing SELECT2 instance if it exists
+                    if (select.data('select2')) {
+                        select.select2('destroy');
+                    }
+                    
+                    // Initialize SELECT2
+                    select.select2({
+                        placeholder: 'Seleccione un tipo de documento',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#edit-document-modal')
+                    });
+                    
+                    // Set the selected value if available
+                    var selectedValue = select.attr('data-selected-value');
+                    if (selectedValue) {
+                        select.val(selectedValue).trigger('change');
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar SELECT2 para tipo de documento:", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Handles the document type selection change.
+    /// </summary>
+    /// <param name="e">The change event arguments.</param>
+    /// <returns></returns>
+    private async Task OnDocumentTypeChanged(ChangeEventArgs e)
+    {
+        _selectedDocumentTypeId = int.TryParse(e.Value?.ToString(), out int tipoDocId) ? tipoDocId : null;
+
+        // Update SELECT2 to reflect the change
+        await JsRuntime.InvokeVoidAsync("eval", @"
+            (function() {
+                var select = $('#document-type-select-edit');
+                if (select.data('select2')) {
+                    select.trigger('change');
+                }
+            })();
+        ");
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Loads all provider societies from the API.
+    /// </summary>
+    /// <returns></returns>
+    private async Task LoadProviderSocieties()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_providerCuit))
+            {
+                _providerSocieties = [];
+                return;
+            }
+
+            IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByProviderCuitAsync(
+                _providerCuit,
+                cancellationToken: default);
+            _providerSocieties = response ?? [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar sociedades del proveedor:", ex.Message);
+            await ShowToast("Error al cargar las sociedades disponibles.");
+            _providerSocieties = [];
+        }
+    }
+
+    /// <summary>
+    /// Initializes SELECT2 for the society dropdown.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeSocietySelect2()
+    {
+        try
+        {
+            // Destroy existing SELECT2 instance if it exists and initialize
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var select = $('#society-select-edit');
+                    if (select.length === 0) {
+                        console.warn('Society select element not found');
+                        return;
+                    }
+                    
+                    // Destroy existing SELECT2 instance if it exists
+                    if (select.data('select2')) {
+                        select.select2('destroy');
+                    }
+                    
+                    // Initialize SELECT2
+                    select.select2({
+                        placeholder: 'Seleccione un cliente',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#edit-document-modal')
+                    });
+                    
+                    // Set the selected value if available
+                    var selectedValue = select.attr('data-selected-value');
+                    if (selectedValue) {
+                        select.val(selectedValue).trigger('change');
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar SELECT2 para cliente:", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Handles the society selection change.
+    /// </summary>
+    /// <param name="e">The change event arguments.</param>
+    /// <returns></returns>
+    private async Task OnSocietyChanged(ChangeEventArgs e)
+    {
+        _selectedSocietyCuit = e.Value?.ToString();
+
+        // Update SELECT2 to reflect the change
+        await JsRuntime.InvokeVoidAsync("eval", @"
+            (function() {
+                var select = $('#society-select-edit');
+                if (select.data('select2')) {
+                    select.trigger('change');
+                }
+            })();
+        ");
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Initializes Flatpickr for the date fields.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeDatePickers()
+    {
+        try
+        {
+            // Initialize Fecha Factura
+            if (_selectedFechaFactura.HasValue)
+            {
+                await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
+                    "#fecha-factura-edit",
+                    new { defaultDate = _selectedFechaFactura.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
+            }
+            else
+            {
+                await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
+                    "#fecha-factura-edit",
+                    new { });
+            }
+
+            // Initialize Venc. CAE / CAI
+            if (_selectedVencimientoCaecai.HasValue)
+            {
+                await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
+                    "#venc-caecai-edit",
+                    new { defaultDate = _selectedVencimientoCaecai.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
+            }
+            else
+            {
+                await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
+                    "#venc-caecai-edit",
+                    new { });
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar Flatpickr:", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Cleans up SELECT2 and Flatpickr when the modal is closed.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CleanupCurrencySelect2()
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    // Clean up SELECT2
+                    var select = $('#currency-select-edit');
+                    if (select.data('select2')) {
+                        select.select2('destroy');
+                    }
+                    var selectDocType = $('#document-type-select-edit');
+                    if (selectDocType.data('select2')) {
+                        selectDocType.select2('destroy');
+                    }
+                    var selectSociety = $('#society-select-edit');
+                    if (selectSociety.data('select2')) {
+                        selectSociety.select2('destroy');
+                    }
+                    
+                    // Clean up Flatpickr
+                    var fechaFacturaInput = document.getElementById('fecha-factura-edit');
+                    if (fechaFacturaInput && fechaFacturaInput._flatpickr) {
+                        fechaFacturaInput._flatpickr.destroy();
+                    }
+                    var vencCaecaiInput = document.getElementById('venc-caecai-edit');
+                    if (vencCaecaiInput && vencCaecaiInput._flatpickr) {
+                        vencCaecaiInput._flatpickr.destroy();
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al limpiar SELECT2 y Flatpickr:", ex.Message);
         }
     }
 

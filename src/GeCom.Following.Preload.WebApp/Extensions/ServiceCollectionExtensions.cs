@@ -55,6 +55,15 @@ public static class ServiceCollectionExtensions
         // Register document service
         services.AddScoped<IDocumentService, DocumentService>();
 
+        // Register currency service
+        services.AddScoped<ICurrencyService, CurrencyService>();
+
+        // Register document type service
+        services.AddScoped<IDocumentTypeService, DocumentTypeService>();
+
+        // Register SAP provider society service
+        services.AddScoped<ISapProviderSocietyService, SapProviderSocietyService>();
+
         return services;
     }
 }

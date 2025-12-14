@@ -43,7 +43,7 @@ El claim `"email"` no está llegando en el access token aunque el scope `"email"
 2. **Claims de Autorización**:
    - `role` - Roles del usuario para autorización
    - `permission` - Permisos específicos si se usan
-   - Claims personalizados de autorización (ej: `following.society.cuit`)
+   - Claims personalizados de autorización (ej: `following.provider.cuit`)
 
 3. **Claims de Contexto de la API**:
    - Claims específicos que la API necesita para procesar requests
@@ -255,7 +255,7 @@ Para cada ApiScope/ApiResource, verifica:
 ```json
 {
   "UserClaims": [
-    "following.society.cuit",  // CUIT de la sociedad asignada
+    "following.provider.cuit",  // CUIT del proveedor asignado
     "provider.cuit"            // CUIT del proveedor
   ]
 }
