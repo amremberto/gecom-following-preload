@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -60,8 +60,8 @@ public partial class PdfViewer : IAsyncDisposable
 
         // Load PDF after DOM is ready and AdjuntoId is valid
         // Only load if not already loading, not already loaded, and AdjuntoId changed
-        if (AdjuntoId > 0 && 
-            !_isLoadingPdf && 
+        if (AdjuntoId > 0 &&
+            !_isLoadingPdf &&
             _lastLoadedAdjuntoId != AdjuntoId &&
             _pdfViewerModule is not null)
         {
@@ -134,7 +134,7 @@ public partial class PdfViewer : IAsyncDisposable
             // Use proxy endpoint URL (same origin, no token exposure)
             // The proxy endpoint handles authentication server-side
             string proxyUrl = $"/api/AttachmentsProxy/{AdjuntoId}/download";
-            
+
             // Load PDF document directly from URL (more efficient than Base64)
             // Wrap in try-catch to get more detailed error information
             JsonObject? result;
@@ -144,15 +144,11 @@ public partial class PdfViewer : IAsyncDisposable
                 result = await _pdfViewerModule.InvokeAsync<JsonObject>(
                     "loadPdfFromUrl", proxyUrl);
             }
-            catch (JSException jsEx)
+            catch (JSException)
             {
-                // Log the full error message from JavaScript
+                // File not found or corrupt - use the same message as the Toast for consistency
                 _hasError = true;
-                _errorMessage = $"Error al cargar el PDF desde la URL: {jsEx.Message}";
-                if (jsEx.InnerException is not null)
-                {
-                    _errorMessage += $" Detalles: {jsEx.InnerException.Message}";
-                }
+                _errorMessage = "Error al cargar el PDF. El documento no se encontró o está corrupto.";
                 await OnError.InvokeAsync();
                 return;
             }
@@ -160,13 +156,14 @@ public partial class PdfViewer : IAsyncDisposable
             if (result is null)
             {
                 _hasError = true;
-                _errorMessage = "Error al procesar el PDF. El documento podría estar corrupto.";
+                // Use the same message as the Toast for consistency
+                _errorMessage = "Error al cargar el PDF. El documento no se encontró o está corrupto.";
                 await OnError.InvokeAsync();
                 return;
             }
 
             _totalPages = result["totalPages"]?.GetValue<int>() ?? 0;
-            
+
             if (_totalPages == 0)
             {
                 _hasError = true;
@@ -176,17 +173,17 @@ public partial class PdfViewer : IAsyncDisposable
             }
 
             _currentPage = 1;
-            
+
             // Change state to show canvas (stop loading, show viewer)
             _isLoading = false;
             StateHasChanged();
-            
+
             // Wait for DOM to update and canvas to be available
             // Use a more robust method to wait for canvas
             int retries = 0;
             const int maxRetries = 10;
             bool canvasExists = false;
-            
+
             while (!canvasExists && retries < maxRetries)
             {
                 await Task.Delay(100);
@@ -194,7 +191,7 @@ public partial class PdfViewer : IAsyncDisposable
                     "eval", $"document.getElementById('{_canvasId}') !== null");
                 retries++;
             }
-            
+
             if (!canvasExists)
             {
                 _hasError = true;
@@ -202,7 +199,7 @@ public partial class PdfViewer : IAsyncDisposable
                 await OnError.InvokeAsync();
                 return;
             }
-            
+
             // Render first page
             await RenderPageAsync(1);
         }
@@ -221,24 +218,49 @@ public partial class PdfViewer : IAsyncDisposable
         catch (Services.ApiRequestException apiEx)
         {
             _hasError = true;
-            _errorMessage = apiEx.Message;
+            // Check if it's a 404 or file not found error
+            if (apiEx.Message.Contains("No se pudo encontrar", StringComparison.OrdinalIgnoreCase) ||
+                apiEx.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+                apiEx.Message.Contains("404", StringComparison.OrdinalIgnoreCase))
+            {
+                // Use the same message as the Toast for consistency
+                _errorMessage = "Error al cargar el PDF. El documento no se encontró o está corrupto.";
+            }
+            else
+            {
+                _errorMessage = apiEx.Message;
+            }
             await OnError.InvokeAsync();
         }
         catch (JSException jsEx)
         {
             _hasError = true;
-            // Use the error message from JavaScript (which may have been improved)
-            _errorMessage = jsEx.Message;
-            if (string.IsNullOrWhiteSpace(_errorMessage))
+            // Check if it's a file not found error
+            if (jsEx.Message.Contains("No se pudo encontrar", StringComparison.OrdinalIgnoreCase) ||
+                jsEx.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+                jsEx.Message.Contains("404", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(jsEx.Message))
             {
-                _errorMessage = "Error de JavaScript al cargar el PDF. Por favor, intente nuevamente.";
+                // Use the same message as the Toast for consistency
+                _errorMessage = "Error al cargar el PDF. El documento no se encontró o está corrupto.";
+            }
+            else
+            {
+                _errorMessage = jsEx.Message;
             }
             await OnError.InvokeAsync();
         }
         catch (Exception ex)
         {
             _hasError = true;
-            _errorMessage = $"Error al cargar el PDF: {ex.Message}";
+            // Use the same message as the Toast for consistency when file is not found or corrupt
+            _errorMessage =
+                ex.Message.Contains("No se pudo encontrar", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("corrupto", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("corrupt", StringComparison.OrdinalIgnoreCase)
+                ? "Error al cargar el PDF. El documento no se encontró o está corrupto."
+                : $"Error al cargar el PDF: {ex.Message}";
             await OnError.InvokeAsync();
         }
         finally
@@ -270,7 +292,7 @@ public partial class PdfViewer : IAsyncDisposable
             // Ensure canvas exists in DOM before rendering
             bool canvasExists = await JSRuntime.InvokeAsync<bool>(
                 "eval", $"document.getElementById('{_canvasId}') !== null");
-            
+
             if (!canvasExists)
             {
                 // Wait a bit more and try again with retries
@@ -283,7 +305,7 @@ public partial class PdfViewer : IAsyncDisposable
                         "eval", $"document.getElementById('{_canvasId}') !== null");
                     retries++;
                 }
-                
+
                 if (!canvasExists)
                 {
                     _hasError = true;
@@ -292,13 +314,13 @@ public partial class PdfViewer : IAsyncDisposable
                     return;
                 }
             }
-            
+
             double scale = _zoomLevel / 100.0;
-            
+
             // Call the exported function directly from the module
             await _pdfViewerModule.InvokeVoidAsync(
                 "renderPage", _canvasId, pageNumber, scale);
-            
+
             StateHasChanged();
         }
         catch (JSException jsEx)

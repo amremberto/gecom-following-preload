@@ -72,7 +72,7 @@ internal sealed class SapAccountRepository : GenericRepository<SapAccount, SpdSa
 
         if (accountNumbers.Count == 0)
         {
-            return Array.Empty<SapAccount>();
+            return [];
         }
 
         // Build query base with customer type and CUIT filters
@@ -111,7 +111,7 @@ internal sealed class SapAccountRepository : GenericRepository<SapAccount, SpdSa
         else
         {
             // If no valid account numbers, return empty result
-            return Array.Empty<SapAccount>();
+            return [];
         }
 
         List<SapAccount> accounts = await query.ToListAsync(cancellationToken);

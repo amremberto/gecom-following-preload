@@ -84,7 +84,12 @@ public partial class Processed : IAsyncDisposable
                     _isLoading = false;
 
                     // Initialize toast service with component reference
-                    ToastService.SetToast(_toast);
+                    // Wait a bit to ensure Toast component is fully rendered
+                    await Task.Delay(100);
+                    if (_toast is not null)
+                    {
+                        ToastService.SetToast(_toast);
+                    }
 
                     // Set the initial date range
                     _dateFrom = DateOnly.FromDateTime(DateTime.Today.AddYears(-1));
@@ -315,7 +320,40 @@ public partial class Processed : IAsyncDisposable
     /// <returns></returns>
     private async Task ShowToast(string message, ToastType type = ToastType.Error)
     {
-        await ToastService.ShowAsync(message, type);
+        try
+        {
+            // Ensure Toast is initialized before showing message
+            if (_toast is not null)
+            {
+                ToastService.SetToast(_toast);
+            }
+
+            await ToastService.ShowAsync(message, type);
+        }
+        catch (InvalidOperationException)
+        {
+            // Toast not initialized - log to console as fallback
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("console.warn", $"Toast no disponible: {message}");
+            }
+            catch
+            {
+                // Silently fail to prevent breaking the app
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log any other errors but don't break the app
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", $"Error al mostrar toast: {ex.Message}. Mensaje original: {message}");
+            }
+            catch
+            {
+                // Silently fail to prevent breaking the app
+            }
+        }
     }
 
     /// <summary>
@@ -501,6 +539,13 @@ public partial class Processed : IAsyncDisposable
         _isModalLoading = true;
         _selectedDocument = null;
         _selectedPdfFileName = string.Empty;
+        
+        // Ensure Toast is initialized before opening modal
+        if (_toast is not null)
+        {
+            ToastService.SetToast(_toast);
+        }
+        
         StateHasChanged();
 
         await GetDocumentWithDetails(docId);
@@ -668,7 +713,43 @@ public partial class Processed : IAsyncDisposable
     /// <returns></returns>
     private async Task HandlePdfError()
     {
-        await ShowToast("Error al cargar el PDF. Por favor, intente nuevamente.");
+        try
+        {
+            // Verify Toast is initialized before showing error message
+            if (_toast is not null)
+            {
+                await ShowToast("Error al cargar el PDF. El documento no se encontró o está corrupto.", ToastType.Error);
+            }
+            else
+            {
+                // Fallback: Log to console if Toast is not available
+                await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar el PDF. El documento no se encontró o está corrupto.");
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Toast service not initialized - log to console as fallback
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar el PDF. El documento no se encontró o está corrupto.");
+            }
+            catch
+            {
+                // If even console logging fails, silently fail to prevent breaking the app
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log any other errors but don't break the app
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", $"Error al manejar el error del PDF: {ex.Message}");
+            }
+            catch
+            {
+                // Silently fail to prevent breaking the app
+            }
+        }
     }
 
     public async ValueTask DisposeAsync()
