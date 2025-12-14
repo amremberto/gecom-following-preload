@@ -40,3 +40,4 @@ internal sealed class DocumentTypeService : IDocumentTypeService
         return response;
     }
 }
+

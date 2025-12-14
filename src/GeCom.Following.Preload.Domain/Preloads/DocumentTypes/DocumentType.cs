@@ -53,6 +53,11 @@ public partial class DocumentType : BaseEntity
     public bool IsFec { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the document is classified as either a debit note or a credit note.
+    /// </summary>
+    public bool IsNotaDebitoCredito { get; set; }
+
+    /// <summary>
     /// Gets or sets the collection of documents that use this document type.
     /// </summary>
     public virtual ICollection<Document> Documents { get; set; } = [];

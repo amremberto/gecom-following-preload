@@ -15,3 +15,4 @@ public interface IDocumentTypeService
     Task<IEnumerable<DocumentTypeResponse>?> GetAllAsync(
         CancellationToken cancellationToken = default);
 }
+

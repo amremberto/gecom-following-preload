@@ -15,15 +15,27 @@ public class DocumentTypeConfigurations : IEntityTypeConfiguration<DocumentType>
         builder.Property(e => e.Codigo)
                 .HasMaxLength(4)
                 .IsUnicode(false);
+
         builder.Property(e => e.Descripcion)
             .HasMaxLength(90)
             .IsUnicode(false);
+
         builder.Property(e => e.DescripcionLarga)
             .HasMaxLength(90)
             .IsUnicode(false);
-        builder.Property(e => e.FechaBaja).HasColumnType("datetime");
-        builder.Property(e => e.FechaCreacion).HasColumnType("datetime");
-        builder.Property(e => e.IsFec).HasColumnName("IsFEC");
+
+        builder.Property(e => e.FechaBaja)
+            .HasColumnType("datetime");
+
+        builder.Property(e => e.FechaCreacion)
+            .HasColumnType("datetime");
+
+        builder.Property(e => e.IsFec)
+            .HasColumnName("IsFEC");
+
+        builder.Property(e => e.IsNotaDebitoCredito)
+            .HasColumnName("IsNotaDebitoCredito");
+
         builder.Property(e => e.Letra)
             .HasMaxLength(1)
             .IsUnicode(false);
