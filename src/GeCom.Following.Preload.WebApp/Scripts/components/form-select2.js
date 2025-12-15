@@ -42,35 +42,82 @@ window.initSelect2 = function (selector, options, selectedValue) {
         // Initialize SELECT2
         $select.select2(select2Options);
 
+        // Helper function to apply validation classes to SELECT2
+        var applyValidationClasses = function($selectElement) {
+            var selectElement = $selectElement[0];
+            
+            // Get SELECT2 container using SELECT2 API (most reliable method)
+            var $container = null;
+            if ($selectElement.data('select2')) {
+                var select2Data = $selectElement.data('select2');
+                if (select2Data && select2Data.$container && select2Data.$container.length > 0) {
+                    $container = select2Data.$container;
+                }
+            }
+            
+            // Fallback: try to find container by ID or next to select
+            if (!$container || $container.length === 0) {
+                var selectId = selectElement.id || '';
+                if (selectId) {
+                    // SELECT2 creates container with ID based on select ID
+                    $container = $('#select2-' + selectId + '-container');
+                }
+                // If still not found, try next sibling
+                if (!$container || $container.length === 0) {
+                    $container = $selectElement.next('.select2-container');
+                }
+                // Last resort: search in parent
+                if (!$container || $container.length === 0) {
+                    $container = $selectElement.parent().find('.select2-container').first();
+                }
+            }
+            
+            // Remove both validation classes first from both SELECT and container
+            $selectElement.removeClass('is-valid is-invalid');
+            if ($container && $container.length > 0) {
+                $container.removeClass('is-valid is-invalid');
+            }
+            
+            // Check if field is required
+            if (selectElement.hasAttribute('required')) {
+                var value = $selectElement.val();
+                if (value && value !== '' && value !== null) {
+                    // Valid value selected - apply to both SELECT and container
+                    $selectElement.addClass('is-valid');
+                    $selectElement.removeClass('is-invalid');
+                    if ($container && $container.length > 0) {
+                        $container.addClass('is-valid');
+                        $container.removeClass('is-invalid');
+                    }
+                    selectElement.setCustomValidity('');
+                } else {
+                    // No value selected (invalid for required field)
+                    $selectElement.addClass('is-invalid');
+                    $selectElement.removeClass('is-valid');
+                    if ($container && $container.length > 0) {
+                        $container.addClass('is-invalid');
+                        $container.removeClass('is-valid');
+                    }
+                    selectElement.setCustomValidity('Por favor seleccione una opción');
+                }
+            } else {
+                // Not required, but if has value, mark as valid
+                var value = $selectElement.val();
+                if (value && value !== '' && value !== null) {
+                    $selectElement.addClass('is-valid');
+                    if ($container && $container.length > 0) {
+                        $container.addClass('is-valid');
+                    }
+                }
+            }
+        };
+
         // Add validation listeners for SELECT2
         // Apply Bootstrap validation classes when value changes
         $select.on('select2:select select2:clear', function () {
-            var selectElement = this;
+            var $selectElement = $(this);
             setTimeout(function () {
-                // Remove both validation classes first
-                $(selectElement).removeClass('is-valid is-invalid');
-                
-                // Check if field is required
-                if (selectElement.hasAttribute('required')) {
-                    var value = $(selectElement).val();
-                    if (value && value !== '' && value !== null) {
-                        // Valid value selected
-                        $(selectElement).addClass('is-valid');
-                        $(selectElement).removeClass('is-invalid');
-                        selectElement.setCustomValidity('');
-                    } else {
-                        // No value selected (invalid for required field)
-                        $(selectElement).addClass('is-invalid');
-                        $(selectElement).removeClass('is-valid');
-                        selectElement.setCustomValidity('Por favor seleccione una opción');
-                    }
-                } else {
-                    // Not required, but if has value, mark as valid
-                    var value = $(selectElement).val();
-                    if (value && value !== '' && value !== null) {
-                        $(selectElement).addClass('is-valid');
-                    }
-                }
+                applyValidationClasses($selectElement);
             }, 10);
         });
 
@@ -85,23 +132,11 @@ window.initSelect2 = function (selector, options, selectedValue) {
             }
         }
         
-        // Validate initial value after a short delay to ensure SELECT2 is fully initialized
+        // Validate initial value after a delay to ensure SELECT2 is fully initialized
+        // SELECT2 needs time to create the container DOM element
         setTimeout(function () {
-            var value = $select.val();
-            if ($select[0].hasAttribute('required')) {
-                if (value && value !== '' && value !== null) {
-                    $select.addClass('is-valid');
-                    $select.removeClass('is-invalid');
-                    $select[0].setCustomValidity('');
-                } else {
-                    $select.addClass('is-invalid');
-                    $select.removeClass('is-valid');
-                    $select[0].setCustomValidity('Por favor seleccione una opción');
-                }
-            } else if (value && value !== '' && value !== null) {
-                $select.addClass('is-valid');
-            }
-        }, 100);
+            applyValidationClasses($select);
+        }, 300);
     } catch (error) {
         console.error('Error al inicializar SELECT2:', error);
     }

@@ -416,14 +416,18 @@
                                         </li>
                                         <li class="nav-item" data-target-form="#purchaseOrdersForm">
                                             <a href="#purchase-orders-step" data-bs-toggle="tab" data-toggle="tab"
-                                                class="nav-link rounded-0 py-2">
+                                                class="nav-link rounded-0 py-2 @(IsPendingPreloadStatus(_selectedDocument) ? "disabled" : "")"
+                                                @onclick:preventDefault="@IsPendingPreloadStatus(_selectedDocument)"
+                                                style="@(IsPendingPreloadStatus(_selectedDocument) ? "pointer-events: none; opacity: 0.5; cursor: not-allowed;" : "")">
                                                 <i class="ri-shopping-cart-line fs-18 align-middle me-1"></i>
                                                 <span class="d-none d-sm-inline">Órdenes de Compra</span>
                                             </a>
                                         </li>
                                         <li class="nav-item" data-target-form="#notesForm">
                                             <a href="#notes-step" data-bs-toggle="tab" data-toggle="tab"
-                                                class="nav-link rounded-0 py-2">
+                                                class="nav-link rounded-0 py-2 @(IsPendingPreloadStatus(_selectedDocument) ? "disabled" : "")"
+                                                @onclick:preventDefault="@IsPendingPreloadStatus(_selectedDocument)"
+                                                style="@(IsPendingPreloadStatus(_selectedDocument) ? "pointer-events: none; opacity: 0.5; cursor: not-allowed;" : "")">
                                                 <i class="ri-sticky-note-line fs-18 align-middle me-1"></i>
                                                 <span class="d-none d-sm-inline">Notas</span>
                                             </a>
@@ -433,6 +437,13 @@
                                     <div class="tab-content">
                                         <!-- Paso 1: Propiedades del Documento -->
                                         <div class="tab-pane" id="document-properties-step">
+                                            @if (IsPendingPreloadStatus(_selectedDocument))
+                                            {
+                                                <div class="alert alert-warning mb-3">
+                                                    <i class="ri-alert-line me-2"></i>
+                                                    <strong>Atención:</strong> Debe completar todos los campos de este paso antes de poder avanzar a los siguientes tabs.
+                                                </div>
+                                            }
                                             <form id="documentPropertiesForm" method="post" action="#" class="form-horizontal needs-validation" novalidate>
                                                 <div class="card shadow-sm mb-3 border border-primary-subtle">
                                                     <div class="card-header bg-primary-subtle">

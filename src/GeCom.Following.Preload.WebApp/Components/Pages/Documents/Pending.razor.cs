@@ -1,4 +1,4 @@
-
+﻿
 using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
@@ -38,6 +38,7 @@ public partial class Pending : IAsyncDisposable
     private IJSObjectReference? _formWizardModule;
     private PreloadDocumentModal? _preloadModal;
     private Toast? _toast;
+    private DotNetObjectReference<Pending>? _dotNetObjectReference;
 
     private bool _isProvider;
     private string? _providerCuit;
@@ -519,11 +520,11 @@ public partial class Pending : IAsyncDisposable
 
             // Initialize SELECT2 and Flatpickr after modal is shown and DOM is updated
             await Task.Delay(300); // Delay to ensure modal and DOM are fully rendered
-            
+
             // Force StateHasChanged to ensure DOM is updated with current values before initializing SELECT2
             StateHasChanged();
             await Task.Delay(100); // Small delay to ensure DOM update is complete
-            
+
             await InitializeCurrencySelect2();
             await InitializeDocumentTypeSelect2();
 
@@ -534,7 +535,7 @@ public partial class Pending : IAsyncDisposable
             }
 
             await InitializeDatePickers();
-            
+
             // Initialize wizard with validation
             await InitializeEditDocumentWizard();
         }
@@ -572,36 +573,7 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            // Destroy existing SELECT2 instance if it exists and initialize
-            await JsRuntime.InvokeVoidAsync("eval", @"
-                (function() {
-                    var select = $('#currency-select-edit');
-                    if (select.length === 0) {
-                        console.warn('Currency select element not found');
-                        return;
-                    }
-                    
-                    // Destroy existing SELECT2 instance if it exists
-                    if (select.data('select2')) {
-                        select.select2('destroy');
-                    }
-                    
-                    // Initialize SELECT2 first
-                    select.select2({
-                        placeholder: 'Seleccione una moneda',
-                        allowClear: true,
-                        width: '100%',
-                        dropdownParent: $('#edit-document-modal')
-                    });
-                    
-                    // Set the selected value AFTER SELECT2 initialization
-                    // SELECT2 will automatically update its display
-                    var selectedValue = select.attr('data-selected-value');
-                    if (selectedValue) {
-                        select.val(selectedValue).trigger('change.select2');
-                    }
-                })();
-            ");
+            await JsRuntime.InvokeVoidAsync("initCurrencySelect2", _selectedCurrencyCode);
         }
         catch (Exception ex)
         {
@@ -648,36 +620,7 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            // Destroy existing SELECT2 instance if it exists and initialize
-            await JsRuntime.InvokeVoidAsync("eval", @"
-                (function() {
-                    var select = $('#document-type-select-edit');
-                    if (select.length === 0) {
-                        console.warn('Document type select element not found');
-                        return;
-                    }
-                    
-                    // Destroy existing SELECT2 instance if it exists
-                    if (select.data('select2')) {
-                        select.select2('destroy');
-                    }
-                    
-                    // Initialize SELECT2 first
-                    select.select2({
-                        placeholder: 'Seleccione un tipo de documento',
-                        allowClear: true,
-                        width: '100%',
-                        dropdownParent: $('#edit-document-modal')
-                    });
-                    
-                    // Set the selected value AFTER SELECT2 initialization
-                    // SELECT2 will automatically update its display
-                    var selectedValue = select.attr('data-selected-value');
-                    if (selectedValue) {
-                        select.val(selectedValue).trigger('change.select2');
-                    }
-                })();
-            ");
+            await JsRuntime.InvokeVoidAsync("initDocumentTypeSelect2", _selectedDocumentTypeId?.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
         catch (Exception ex)
         {
@@ -732,36 +675,7 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            // Destroy existing SELECT2 instance if it exists and initialize
-            await JsRuntime.InvokeVoidAsync("eval", @"
-                (function() {
-                    var select = $('#society-select-edit');
-                    if (select.length === 0) {
-                        console.warn('Society select element not found');
-                        return;
-                    }
-                    
-                    // Destroy existing SELECT2 instance if it exists
-                    if (select.data('select2')) {
-                        select.select2('destroy');
-                    }
-                    
-                    // Initialize SELECT2 first
-                    select.select2({
-                        placeholder: 'Seleccione un cliente',
-                        allowClear: true,
-                        width: '100%',
-                        dropdownParent: $('#edit-document-modal')
-                    });
-                    
-                    // Set the selected value AFTER SELECT2 initialization
-                    // SELECT2 will automatically update its display
-                    var selectedValue = select.attr('data-selected-value');
-                    if (selectedValue) {
-                        select.val(selectedValue).trigger('change.select2');
-                    }
-                })();
-            ");
+            await JsRuntime.InvokeVoidAsync("initSocietySelect2", _selectedSocietyCuit);
         }
         catch (Exception ex)
         {
@@ -824,6 +738,16 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Shows a toast message from JavaScript. This method is called from JavaScript when validation fails.
+    /// </summary>
+    /// <param name="message">The message to display.</param>
+    [JSInvokable]
+    public async Task ShowValidationToast(string message)
+    {
+        await ShowToast(message, ToastType.Warning);
+    }
+
+    /// <summary>
     /// Initializes the edit document wizard with validation.
     /// </summary>
     /// <returns></returns>
@@ -831,142 +755,13 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            // Initialize wizard with validation enabled
-            // The Wizard class should be available globally from vendor-forms.js
-            await JsRuntime.InvokeVoidAsync("eval", @"
-                (function() {
-                    function initWizard() {
-                        var wizardElement = document.getElementById('edit-document-wizard');
-                        if (!wizardElement) {
-                            console.warn('Wizard element not found');
-                            return false;
-                        }
-                        
-                        // Check if Wizard class is available
-                        if (typeof Wizard === 'undefined') {
-                            console.warn('Wizard class not found, retrying...');
-                            return false;
-                        }
-                        
-                        try {
-                            // Create new wizard instance with validation
-                            var wizard = new Wizard('#edit-document-wizard', {
-                                validate: true
-                            });
-                            
-                            // Ensure empty required fields are validated correctly
-                            var form = document.getElementById('documentPropertiesForm');
-                            if (form) {
-                                // Validate all required fields on initialization
-                                var validateField = function(input) {
-                                    if (input.hasAttribute('required')) {
-                                        if (input.type === 'text' || input.type === 'number') {
-                                            if (!input.value || input.value.trim() === '') {
-                                                input.setCustomValidity('Este campo es obligatorio');
-                                                input.classList.add('is-invalid');
-                                                input.classList.remove('is-valid');
-                                                return false;
-                                            } else {
-                                                input.setCustomValidity('');
-                                                input.classList.remove('is-invalid');
-                                                if (input.checkValidity()) {
-                                                    input.classList.add('is-valid');
-                                                }
-                                                return true;
-                                            }
-                                        } else if (input.tagName === 'SELECT') {
-                                            if (!input.value || input.value === '') {
-                                                input.setCustomValidity('Por favor seleccione una opción');
-                                                input.classList.add('is-invalid');
-                                                input.classList.remove('is-valid');
-                                                return false;
-                                            } else {
-                                                input.setCustomValidity('');
-                                                input.classList.remove('is-invalid');
-                                                input.classList.add('is-valid');
-                                                return true;
-                                            }
-                                        }
-                                    }
-                                    return true;
-                                };
-                                
-                                // Add custom validation to check for empty strings
-                                var requiredInputs = form.querySelectorAll('input[required], select[required]');
-                                requiredInputs.forEach(function(input) {
-                                    // Validate on initialization
-                                    validateField(input);
-                                    
-                                    // For SELECT2 selects, listen to SELECT2 events without interfering
-                                    if (input.tagName === 'SELECT' && $(input).data('select2')) {
-                                        $(input).on('select2:select select2:clear', function() {
-                                            // Small delay to ensure SELECT2 has updated the native select value
-                                            var selectElement = this;
-                                            setTimeout(function() {
-                                                validateField(selectElement);
-                                            }, 10);
-                                        });
-                                    } else {
-                                        // For regular inputs and selects without SELECT2
-                                        input.addEventListener('blur', function() {
-                                            validateField(this);
-                                        });
-                                        
-                                        // Validate on input change
-                                        input.addEventListener('input', function() {
-                                            validateField(this);
-                                        });
-                                        
-                                        // Validate on change (for selects)
-                                        input.addEventListener('change', function() {
-                                            validateField(this);
-                                        });
-                                    }
-                                });
-                                
-                                // Also listen for SELECT2 initialization after wizard is created
-                                // This handles cases where SELECT2 is initialized after the wizard
-                                setTimeout(function() {
-                                    form.querySelectorAll('select[required]').forEach(function(selectElement) {
-                                        var $select = $(selectElement);
-                                        if ($select.data('select2')) {
-                                            // Only add validation listener, don't interfere with SELECT2's native change event
-                                            $select.on('select2:select select2:clear', function() {
-                                                // Small delay to ensure SELECT2 has updated the native select value
-                                                setTimeout(function() {
-                                                    validateField(selectElement);
-                                                }, 10);
-                                            });
-                                        }
-                                    });
-                                }, 500);
-                            }
-                            
-                            console.log('Edit document wizard initialized successfully');
-                            return true;
-                        } catch (e) {
-                            console.error('Error initializing wizard:', e);
-                            return false;
-                        }
-                    }
-                    
-                    // Try to initialize immediately
-                    if (!initWizard()) {
-                        // If Wizard class is not available, wait a bit and try again
-                        var attempts = 0;
-                        var maxAttempts = 10;
-                        var interval = setInterval(function() {
-                            attempts++;
-                            if (initWizard() || attempts >= maxAttempts) {
-                                clearInterval(interval);
-                                if (attempts >= maxAttempts && typeof Wizard === 'undefined') {
-                                    console.error('Wizard class not found after multiple attempts');
-                                }
-                            }
-                        }, 100);
-                    }
-                })();
-            ");
+            bool isPendingPreload = _selectedDocument is not null && IsPendingPreloadStatus(_selectedDocument);
+
+            // Dispose previous reference if exists
+            _dotNetObjectReference?.Dispose();
+
+            _dotNetObjectReference = DotNetObjectReference.Create(this);
+            await JsRuntime.InvokeVoidAsync("initEditDocumentWizard", isPendingPreload, _dotNetObjectReference);
         }
         catch (Exception ex)
         {
@@ -982,54 +777,9 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            await JsRuntime.InvokeVoidAsync("eval", @"
-                (function() {
-                    // Clean up SELECT2
-                    var select = $('#currency-select-edit');
-                    if (select.data('select2')) {
-                        select.select2('destroy');
-                    }
-                    var selectDocType = $('#document-type-select-edit');
-                    if (selectDocType.data('select2')) {
-                        selectDocType.select2('destroy');
-                    }
-                    var selectSociety = $('#society-select-edit');
-                    if (selectSociety.data('select2')) {
-                        selectSociety.select2('destroy');
-                    }
-                    
-                    // Clean up Flatpickr
-                    var fechaFacturaInput = document.getElementById('fecha-factura-edit');
-                    if (fechaFacturaInput && fechaFacturaInput._flatpickr) {
-                        fechaFacturaInput._flatpickr.destroy();
-                    }
-                    var vencCaecaiInput = document.getElementById('venc-caecai-edit');
-                    if (vencCaecaiInput && vencCaecaiInput._flatpickr) {
-                        vencCaecaiInput._flatpickr.destroy();
-                    }
-                    
-                    // Reset wizard to first step
-                    var wizardElement = document.getElementById('edit-document-wizard');
-                    if (wizardElement) {
-                        var firstTab = wizardElement.querySelector('.nav-link');
-                        if (firstTab) {
-                            var firstTabPane = document.querySelector(firstTab.getAttribute('href'));
-                            if (firstTabPane) {
-                                // Reset all tabs
-                                wizardElement.querySelectorAll('.nav-link').forEach(function(link) {
-                                    link.classList.remove('active');
-                                });
-                                wizardElement.querySelectorAll('.tab-pane').forEach(function(pane) {
-                                    pane.classList.remove('show', 'active');
-                                });
-                                // Activate first tab
-                                firstTab.classList.add('active');
-                                firstTabPane.classList.add('show', 'active');
-                            }
-                        }
-                    }
-                })();
-            ");
+            await JsRuntime.InvokeVoidAsync("cleanupSelect2InModal");
+            await JsRuntime.InvokeVoidAsync("cleanupFlatpickrInModal");
+            await JsRuntime.InvokeVoidAsync("resetEditDocumentWizard");
         }
         catch (Exception ex)
         {
@@ -1093,8 +843,8 @@ public partial class Pending : IAsyncDisposable
     private bool HasAttachment()
     {
         return _selectedDocument is not null &&
-               _selectedDocument.Attachments is not null &&
-               _selectedDocument.Attachments.Any(a => a.FechaBorrado is null);
+               _selectedDocument.Attachments?
+                .Any(a => a.FechaBorrado is null) == true;
     }
 
     /// <summary>
@@ -1325,6 +1075,19 @@ public partial class Pending : IAsyncDisposable
             {
                 // El circuito ya está desconectado, no podemos hacer llamadas de JavaScript interop
                 // Esto es normal cuando el componente se está eliminando
+            }
+        }
+
+        // Dispose DotNetObjectReference
+        if (_dotNetObjectReference is not null)
+        {
+            try
+            {
+                _dotNetObjectReference.Dispose();
+            }
+            catch
+            {
+                // Ignore disposal errors
             }
         }
 
