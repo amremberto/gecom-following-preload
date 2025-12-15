@@ -514,11 +514,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="d-flex justify-content-end gap-2 mt-3">
-                                <button type="button" class="btn btn-primary" disabled>
-                                    <i class="ri-save-line me-1"></i>Guardar Cambios
-                                </button>
-                            </div>
                             @if (IsPendingPreloadStatus(_selectedDocument))
                             {
                                 <div class="alert alert-info mb-0">
@@ -669,6 +664,12 @@
                 }
             </div>
             <div class="modal-footer">
+                @if (_selectedDocument is not null && !IsPendingPreloadStatus(_selectedDocument))
+                {
+                    <button type="button" class="btn btn-primary" disabled>
+                        <i class="ri-save-line me-1"></i>Guardar Cambios
+                    </button>
+                }
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CleanupCurrencySelect2">
                     <i class="ri-close-line me-1"></i>Cancelar
                 </button>
