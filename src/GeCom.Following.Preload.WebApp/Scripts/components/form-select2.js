@@ -42,6 +42,38 @@ window.initSelect2 = function (selector, options, selectedValue) {
         // Initialize SELECT2
         $select.select2(select2Options);
 
+        // Add validation listeners for SELECT2
+        // Apply Bootstrap validation classes when value changes
+        $select.on('select2:select select2:clear', function () {
+            var selectElement = this;
+            setTimeout(function () {
+                // Remove both validation classes first
+                $(selectElement).removeClass('is-valid is-invalid');
+                
+                // Check if field is required
+                if (selectElement.hasAttribute('required')) {
+                    var value = $(selectElement).val();
+                    if (value && value !== '' && value !== null) {
+                        // Valid value selected
+                        $(selectElement).addClass('is-valid');
+                        $(selectElement).removeClass('is-invalid');
+                        selectElement.setCustomValidity('');
+                    } else {
+                        // No value selected (invalid for required field)
+                        $(selectElement).addClass('is-invalid');
+                        $(selectElement).removeClass('is-valid');
+                        selectElement.setCustomValidity('Por favor seleccione una opción');
+                    }
+                } else {
+                    // Not required, but if has value, mark as valid
+                    var value = $(selectElement).val();
+                    if (value && value !== '' && value !== null) {
+                        $(selectElement).addClass('is-valid');
+                    }
+                }
+            }, 10);
+        });
+
         // Set the selected value AFTER SELECT2 initialization
         if (selectedValue) {
             $select.val(selectedValue).trigger('change.select2');
@@ -52,6 +84,24 @@ window.initSelect2 = function (selector, options, selectedValue) {
                 $select.val(dataValue).trigger('change.select2');
             }
         }
+        
+        // Validate initial value after a short delay to ensure SELECT2 is fully initialized
+        setTimeout(function () {
+            var value = $select.val();
+            if ($select[0].hasAttribute('required')) {
+                if (value && value !== '' && value !== null) {
+                    $select.addClass('is-valid');
+                    $select.removeClass('is-invalid');
+                    $select[0].setCustomValidity('');
+                } else {
+                    $select.addClass('is-invalid');
+                    $select.removeClass('is-valid');
+                    $select[0].setCustomValidity('Por favor seleccione una opción');
+                }
+            } else if (value && value !== '' && value !== null) {
+                $select.addClass('is-valid');
+            }
+        }, 100);
     } catch (error) {
         console.error('Error al inicializar SELECT2:', error);
     }

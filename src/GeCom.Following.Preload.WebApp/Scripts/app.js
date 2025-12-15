@@ -1151,69 +1151,66 @@ window.blurElementById = function (id) {
 };
 
 window.initFlatpickrWithStrictValidation = function (selector, options) {
-    options.allowInput = true;
-    options.altInput = true;
-    options.altFormat = "d/m/Y";
-    options.dateFormat = "Y-m-d";
-    options.locale = "es";
-    options.onChange = [
-        function (selectedDates, dateStr, instance) {
-            if (instance.altInput) {
-                // Si el campo queda vacío, marcar como inválido
-                if (!instance.altInput.value || instance.altInput.value.trim() === "") {
-                    instance.altInput.classList.add("is-invalid");
-                } else {
-                    instance.altInput.classList.remove("is-invalid");
+    if (typeof flatpickr === 'undefined') {
+        console.error('Flatpickr is not loaded.');
+        return;
+    }
+
+    try {
+        var input = document.querySelector(selector);
+        if (!input) {
+            console.warn('Input element not found:', selector);
+            return;
+        }
+
+        // Destroy existing Flatpickr instance if it exists
+        if (input._flatpickr) {
+            input._flatpickr.destroy();
+        }
+
+        // Ensure options is an object (handle null/undefined)
+        if (!options || typeof options !== 'object' || options === null) {
+            options = {};
+        }
+
+        // Preserve defaultDate if it exists (from C# anonymous object)
+        var defaultDate = options.defaultDate;
+
+        // Set options to match Processed.razor implementation
+        options.allowInput = true;
+        options.altInput = true;
+        options.altFormat = "d/m/Y";
+        options.dateFormat = "Y-m-d";
+        options.locale = "es";
+        
+        // Restore defaultDate if it was provided
+        if (defaultDate) {
+            options.defaultDate = defaultDate;
+        }
+        
+        options.onChange = [
+            function (selectedDates, dateStr, instance) {
+                if (instance.altInput) {
+                    // Si el campo queda vacÃ­o, marcar como invÃ¡lido
+                    if (!instance.altInput.value || instance.altInput.value.trim() === "") {
+                        instance.altInput.classList.add("is-invalid");
+                    } else {
+                        instance.altInput.classList.remove("is-invalid");
+                    }
                 }
             }
-        }
-    ];
-    options.onClose = [
-        function (selectedDates, dateStr, instance) {
-            var input = instance.altInput;
-            var val = input ? input.value : "";
-            var isValid = false;
-            if (val.length === 10) {
-                var parts = val.split("/");
-                if (parts.length === 3) {
-                    var day = parseInt(parts[0], 10);
-                    var month = parseInt(parts[1], 10);
-                    var year = parseInt(parts[2], 10);
-                    var date = new Date(year, month - 1, day);
-                    isValid =
-                        date.getFullYear() === year &&
-                        (date.getMonth() + 1) === month &&
-                        date.getDate() === day;
-                }
-            }
-            // Marcar como inválido si está vacío o es inválido
-            if (!val || !isValid) {
-                input.classList.add("is-invalid");
-                instance.input.value = '';
-                input.value = '';
-                instance.clear();
-            } else {
-                input.classList.remove("is-invalid");
-            }
-        }
-    ];
-    var fp = flatpickr(selector, options);
-
-    setTimeout(function () {
-        if (fp && fp.altInput && window.Inputmask) {
-            fp.altInput.removeAttribute('readonly');
-            Inputmask('99/99/9999').mask(fp.altInput);
-
-            // Validación en input: marca como inválido si está vacío o es inválido
-            fp.altInput.addEventListener('input', function () {
-                var val = fp.altInput.value;
+        ];
+        options.onClose = [
+            function (selectedDates, dateStr, instance) {
+                var input = instance.altInput;
+                var val = input ? input.value : "";
                 var isValid = false;
                 if (val.length === 10) {
-                    var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
-                    if (match) {
-                        var day = parseInt(match[1], 10);
-                        var month = parseInt(match[2], 10);
-                        var year = parseInt(match[3], 10);
+                    var parts = val.split("/");
+                    if (parts.length === 3) {
+                        var day = parseInt(parts[0], 10);
+                        var month = parseInt(parts[1], 10);
+                        var year = parseInt(parts[2], 10);
                         var date = new Date(year, month - 1, day);
                         isValid =
                             date.getFullYear() === year &&
@@ -1221,67 +1218,106 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
                             date.getDate() === day;
                     }
                 }
-                if (!val || val.length < 10 || !isValid) {
-                    fp.altInput.classList.add('is-invalid');
+                // Marcar como invÃ¡lido si estÃ¡ vacÃ­o o es invÃ¡lido
+                if (!val || !isValid) {
+                    input.classList.add("is-invalid");
+                    instance.input.value = '';
+                    input.value = '';
+                    instance.clear();
                 } else {
-                    fp.altInput.classList.remove('is-invalid');
+                    input.classList.remove("is-invalid");
                 }
-            });
+            }
+        ];
 
-            // Intercepta Enter y Tab para evitar que Flatpickr ajuste la fecha inválida o vacía
-            fp.altInput.addEventListener('keydown', function (e) {
-                var val = fp.altInput.value;
-                var isValid = false;
-                if (val.length === 10) {
-                    var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
-                    if (match) {
-                        var day = parseInt(match[1], 10);
-                        var month = parseInt(match[2], 10);
-                        var year = parseInt(match[3], 10);
-                        var date = new Date(year, month - 1, day);
-                        isValid =
-                            date.getFullYear() === year &&
-                            (date.getMonth() + 1) === month &&
-                            date.getDate() === day;
-                    }
-                }
-                if ((e.key === 'Enter' || e.key === 'Tab') && (!val || val.length < 10 || !isValid)) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    fp.altInput.classList.add('is-invalid');
-                    fp.input.value = '';
-                    fp.altInput.value = '';
-                    if (fp) fp.clear();
-                    return false;
-                }
-            }, true);
+        var fp = flatpickr(selector, options);
 
-            // Validación final al perder el foco
-            fp.altInput.addEventListener('blur', function () {
-                var val = fp.altInput.value;
-                var isValid = false;
-                if (val.length === 10) {
-                    var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
-                    if (match) {
-                        var day = parseInt(match[1], 10);
-                        var month = parseInt(match[2], 10);
-                        var year = parseInt(match[3], 10);
-                        var date = new Date(year, month - 1, day);
-                        isValid =
-                            date.getFullYear() === year &&
-                            (date.getMonth() + 1) === month &&
-                            date.getDate() === day;
+        setTimeout(function () {
+            if (fp && fp.altInput && window.Inputmask) {
+                fp.altInput.removeAttribute('readonly');
+                Inputmask('99/99/9999').mask(fp.altInput);
+
+                // ValidaciÃ³n en input: marca como invÃ¡lido si estÃ¡ vacÃ­o o es invÃ¡lido
+                fp.altInput.addEventListener('input', function () {
+                    var val = fp.altInput.value;
+                    var isValid = false;
+                    if (val.length === 10) {
+                        var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
+                        if (match) {
+                            var day = parseInt(match[1], 10);
+                            var month = parseInt(match[2], 10);
+                            var year = parseInt(match[3], 10);
+                            var date = new Date(year, month - 1, day);
+                            isValid =
+                                date.getFullYear() === year &&
+                                (date.getMonth() + 1) === month &&
+                                date.getDate() === day;
+                        }
                     }
-                }
-                if (!val || val.length < 10 || !isValid) {
-                    fp.altInput.classList.add('is-invalid');
-                    fp.input.value = '';
-                    fp.altInput.value = '';
-                    if (fp) fp.clear();
-                } else {
-                    fp.altInput.classList.remove('is-invalid');
-                }
-            });
-        }
-    }, 100);
+                    if (!val || val.length < 10 || !isValid) {
+                        fp.altInput.classList.add('is-invalid');
+                    } else {
+                        fp.altInput.classList.remove('is-invalid');
+                    }
+                });
+
+                // Intercepta Enter y Tab para evitar que Flatpickr ajuste la fecha invÃ¡lida o vacÃ­a
+                fp.altInput.addEventListener('keydown', function (e) {
+                    var val = fp.altInput.value;
+                    var isValid = false;
+                    if (val.length === 10) {
+                        var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
+                        if (match) {
+                            var day = parseInt(match[1], 10);
+                            var month = parseInt(match[2], 10);
+                            var year = parseInt(match[3], 10);
+                            var date = new Date(year, month - 1, day);
+                            isValid =
+                                date.getFullYear() === year &&
+                                (date.getMonth() + 1) === month &&
+                                date.getDate() === day;
+                        }
+                    }
+                    if ((e.key === 'Enter' || e.key === 'Tab') && (!val || val.length < 10 || !isValid)) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        fp.altInput.classList.add('is-invalid');
+                        fp.input.value = '';
+                        fp.altInput.value = '';
+                        if (fp) fp.clear();
+                        return false;
+                    }
+                }, true);
+
+                // ValidaciÃ³n final al perder el foco
+                fp.altInput.addEventListener('blur', function () {
+                    var val = fp.altInput.value;
+                    var isValid = false;
+                    if (val.length === 10) {
+                        var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(val);
+                        if (match) {
+                            var day = parseInt(match[1], 10);
+                            var month = parseInt(match[2], 10);
+                            var year = parseInt(match[3], 10);
+                            var date = new Date(year, month - 1, day);
+                            isValid =
+                                date.getFullYear() === year &&
+                                (date.getMonth() + 1) === month &&
+                                date.getDate() === day;
+                        }
+                    }
+                    if (!val || val.length < 10 || !isValid) {
+                        fp.altInput.classList.add('is-invalid');
+                        fp.input.value = '';
+                        fp.altInput.value = '';
+                        if (fp) fp.clear();
+                    } else {
+                        fp.altInput.classList.remove('is-invalid');
+                    }
+                });
+            }
+        }, 100);
+    } catch (error) {
+        console.error('Error al inicializar Flatpickr:', error);
+    }
 };
