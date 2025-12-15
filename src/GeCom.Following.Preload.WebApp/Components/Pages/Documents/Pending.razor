@@ -496,7 +496,7 @@
                                                                     @foreach (var docType in _documentTypes)
                                                                     {
                                                                         <option value="@docType.TipoDocId" selected="@(docType.TipoDocId == _selectedDocumentTypeId)">
-                                                                            @docType.Codigo - @docType.Descripcion
+                                                                            @docType.Codigo@(docType.Letra != null ? $" - {docType.Letra}" : "") - @docType.Descripcion
                                                                         </option>
                                                                     }
                                                                 </select>
