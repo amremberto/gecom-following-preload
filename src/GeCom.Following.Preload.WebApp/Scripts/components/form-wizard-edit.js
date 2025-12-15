@@ -84,6 +84,26 @@ function updateTabsState(wizardElement, isPendingPreload) {
             navLinks[i].style.cursor = 'not-allowed';
         }
     }
+    
+    // Update warning alert visibility
+    updateWarningAlertVisibility(isValid);
+}
+
+/**
+ * Updates the visibility of the first tab warning alert
+ * @param {boolean} isValid - Whether all required fields are valid
+ */
+function updateWarningAlertVisibility(isValid) {
+    var warningAlert = document.getElementById('first-tab-warning-alert');
+    if (warningAlert) {
+        if (isValid) {
+            // Hide the alert if all fields are valid
+            warningAlert.style.display = 'none';
+        } else {
+            // Show the alert if any field is invalid
+            warningAlert.style.display = 'block';
+        }
+    }
 }
 
 /**
@@ -148,6 +168,10 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                     validateField(selectElement);
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        // Still update warning alert visibility even if not pending preload
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
                     }
                 }, 10);
             });
@@ -155,6 +179,12 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
             // For regular inputs and selects without SELECT2
             input.addEventListener('blur', function () {
                 validateField(this);
+                if (isPendingPreload) {
+                    updateTabsState(wizardElement, isPendingPreload);
+                } else {
+                    var isValid = validateFirstTabFields();
+                    updateWarningAlertVisibility(isValid);
+                }
             });
 
             // Validate on input change
@@ -162,6 +192,9 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                 validateField(this);
                 if (isPendingPreload) {
                     updateTabsState(wizardElement, isPendingPreload);
+                } else {
+                    var isValid = validateFirstTabFields();
+                    updateWarningAlertVisibility(isValid);
                 }
             });
 
@@ -170,6 +203,9 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                 validateField(this);
                 if (isPendingPreload) {
                     updateTabsState(wizardElement, isPendingPreload);
+                } else {
+                    var isValid = validateFirstTabFields();
+                    updateWarningAlertVisibility(isValid);
                 }
             });
         }
@@ -188,6 +224,9 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                         validateField(selectElement);
                         if (isPendingPreload) {
                             updateTabsState(wizardElement, isPendingPreload);
+                        } else {
+                            var isValid = validateFirstTabFields();
+                            updateWarningAlertVisibility(isValid);
                         }
                     }, 10);
                 });
@@ -225,8 +264,14 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
 
     var validationMessage = 'Por favor debe completar todos los campos requeridos del documento para poder avanzar.';
 
-    // Initially disable tabs after the first one
+    // Initially disable tabs after the first one and update warning alert visibility
     updateTabsState(wizardElement, isPendingPreload);
+    
+    // Also check initial state for warning alert (in case not pending preload)
+    if (!isPendingPreload) {
+        var isValid = validateFirstTabFields();
+        updateWarningAlertVisibility(isValid);
+    }
 
     // Prevent navigation to other tabs when clicking on disabled tabs
     var tabLinks = wizardElement.querySelectorAll('.nav-link');
@@ -328,6 +373,10 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference) {
             setTimeout(function () {
                 if (isPendingPreload) {
                     updateTabsState(wizardElement, isPendingPreload);
+                } else {
+                    // Check initial state for warning alert visibility even if not pending preload
+                    var isValid = validateFirstTabFields();
+                    updateWarningAlertVisibility(isValid);
                 }
             }, 600);
 
