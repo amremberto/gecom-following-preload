@@ -378,7 +378,12 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference) {
                     var isValid = validateFirstTabFields();
                     updateWarningAlertVisibility(isValid);
                 }
+                // Update save button visibility on initialization
+                updateSaveButtonVisibility(wizardElement);
             }, 600);
+
+            // Set up event listener to update save button visibility when tab changes
+            setupSaveButtonVisibility(wizardElement);
 
             console.log('Edit document wizard initialized successfully');
             return true;
@@ -406,6 +411,58 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference) {
 };
 
 /**
+ * Updates the visibility of the save button based on the current active tab
+ * @param {HTMLElement} wizardElement - The wizard container element
+ */
+function updateSaveButtonVisibility(wizardElement) {
+    if (!wizardElement) return;
+
+    var saveButtonContainer = wizardElement.querySelector('.wizard .last');
+    if (!saveButtonContainer) return;
+
+    // Get the active tab
+    var activeTab = wizardElement.querySelector('.nav-link.active');
+    if (!activeTab) {
+        // Hide save button if no active tab
+        saveButtonContainer.style.display = 'none';
+        return;
+    }
+
+    var activeTabHref = activeTab.getAttribute('href');
+    
+    // Show save button only on the last step (notes-step)
+    if (activeTabHref === '#notes-step') {
+        saveButtonContainer.style.display = '';
+    } else {
+        saveButtonContainer.style.display = 'none';
+    }
+}
+
+/**
+ * Sets up event listeners to update save button visibility when tabs change
+ * @param {HTMLElement} wizardElement - The wizard container element
+ */
+function setupSaveButtonVisibility(wizardElement) {
+    if (!wizardElement) return;
+
+    // Listen for Bootstrap tab show events
+    wizardElement.addEventListener('shown.bs.tab', function (e) {
+        updateSaveButtonVisibility(wizardElement);
+    });
+
+    // Also listen for tab click events as fallback
+    var tabLinks = wizardElement.querySelectorAll('.nav-link');
+    tabLinks.forEach(function (link) {
+        link.addEventListener('click', function () {
+            // Use setTimeout to ensure the tab has changed before updating visibility
+            setTimeout(function () {
+                updateSaveButtonVisibility(wizardElement);
+            }, 100);
+        });
+    });
+}
+
+/**
  * Resets the wizard to the first step
  */
 window.resetEditDocumentWizard = function () {
@@ -425,6 +482,9 @@ window.resetEditDocumentWizard = function () {
                 // Activate first tab
                 firstTab.classList.add('active');
                 firstTabPane.classList.add('show', 'active');
+                
+                // Update save button visibility after reset
+                updateSaveButtonVisibility(wizardElement);
             }
         }
     }
