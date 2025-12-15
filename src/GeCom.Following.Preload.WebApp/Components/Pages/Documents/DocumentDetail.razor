@@ -1,4 +1,4 @@
-﻿@page "/documents/{DocId:int}"
+@page "/documents/{DocId:int}"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
@@ -77,7 +77,7 @@ else
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Tipo de Documento:</td>
-                                        <td>@(_document.TipoDocDescripcion ?? "N/A")</td>
+                                        <td>@FormatDocumentType(_document)</td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Punto de Venta:</td>

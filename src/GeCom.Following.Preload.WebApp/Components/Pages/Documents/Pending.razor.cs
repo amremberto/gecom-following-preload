@@ -1,4 +1,4 @@
-﻿
+
 using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
@@ -891,6 +891,45 @@ public partial class Pending : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir modal de precarga:", ex.Message);
             await ShowToast("Error al intentar abrir el formulario de precarga.");
         }
+    }
+
+    /// <summary>
+    /// Formats the document type display string (Codigo - Letra - Descripcion).
+    /// </summary>
+    /// <param name="document">The document response.</param>
+    /// <returns>Formatted document type string.</returns>
+    private static string FormatDocumentType(DocumentResponse? document)
+    {
+        if (document is null)
+        {
+            return "N/A";
+        }
+
+        if (string.IsNullOrWhiteSpace(document.TipoDocCodigo) && 
+            string.IsNullOrWhiteSpace(document.TipoDocLetra) && 
+            string.IsNullOrWhiteSpace(document.TipoDocDescripcion))
+        {
+            return "N/A";
+        }
+
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(document.TipoDocCodigo))
+        {
+            parts.Add(document.TipoDocCodigo);
+        }
+
+        if (!string.IsNullOrWhiteSpace(document.TipoDocLetra))
+        {
+            parts.Add(document.TipoDocLetra);
+        }
+
+        if (!string.IsNullOrWhiteSpace(document.TipoDocDescripcion))
+        {
+            parts.Add(document.TipoDocDescripcion);
+        }
+
+        return string.Join(" - ", parts);
     }
 
     /// <summary>

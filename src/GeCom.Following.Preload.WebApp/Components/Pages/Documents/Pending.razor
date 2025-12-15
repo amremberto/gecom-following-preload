@@ -117,7 +117,7 @@
                                         {
                                             <td>@doc.ProveedorRazonSocial</td>
                                         }
-                                        <td>@doc.TipoDocDescripcion</td>
+                                        <td>@FormatDocumentType(doc)</td>
                                         <td>@doc.PuntoDeVenta</td>
                                         <td>@doc.NumeroComprobante</td>
                                         <td data-order="@(doc.FechaEmisionComprobante?.ToString("yyyy-MM-dd") ?? "")">
@@ -185,7 +185,7 @@
                                         </div>
                                         <div class="col-md-4">
                                             <label class="fw-bold text-primary">Tipo de Documento</label>
-                                            <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.TipoDocDescripcion</div>
+                                            <div class="form-control-plaintext bg-light rounded w-auto px-2">@FormatDocumentType(_selectedDocument)</div>
                                         </div>
                                         <div class="col-md-4">
                                             <label class="fw-bold text-primary">Punto de Venta</label>

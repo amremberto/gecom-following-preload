@@ -14,6 +14,8 @@ public sealed record DocumentResponse(
     string? SociedadCuit,
     string? SociedadDescripcion,
     int? TipoDocId,
+    string? TipoDocCodigo,
+    string? TipoDocLetra,
     string? TipoDocDescripcion,
     string? PuntoDeVenta,
     string? NumeroComprobante,

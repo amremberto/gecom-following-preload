@@ -1,4 +1,4 @@
-﻿using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 
@@ -62,6 +62,45 @@ public partial class DocumentDetail
     {
         // La edición se realizará en esta misma página en el futuro
         // Por ahora, la página muestra todos los detalles del documento
+    }
+
+    /// <summary>
+    /// Formats the document type display string (Codigo - Letra - Descripcion).
+    /// </summary>
+    /// <param name="document">The document response.</param>
+    /// <returns>Formatted document type string.</returns>
+    private static string FormatDocumentType(DocumentResponse? document)
+    {
+        if (document is null)
+        {
+            return "N/A";
+        }
+
+        if (string.IsNullOrWhiteSpace(document.TipoDocCodigo) && 
+            string.IsNullOrWhiteSpace(document.TipoDocLetra) && 
+            string.IsNullOrWhiteSpace(document.TipoDocDescripcion))
+        {
+            return "N/A";
+        }
+
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(document.TipoDocCodigo))
+        {
+            parts.Add(document.TipoDocCodigo);
+        }
+
+        if (!string.IsNullOrWhiteSpace(document.TipoDocLetra))
+        {
+            parts.Add(document.TipoDocLetra);
+        }
+
+        if (!string.IsNullOrWhiteSpace(document.TipoDocDescripcion))
+        {
+            parts.Add(document.TipoDocDescripcion);
+        }
+
+        return string.Join(" - ", parts);
     }
 
     /// <summary>

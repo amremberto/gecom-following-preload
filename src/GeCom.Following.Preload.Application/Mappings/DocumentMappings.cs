@@ -27,6 +27,8 @@ internal static class DocumentMappings
             document.SociedadCuit,
             document.Society?.Descripcion,
             document.TipoDocId,
+            document.DocumentType?.Codigo,
+            document.DocumentType?.Letra,
             document.DocumentType?.Descripcion,
             document.PuntoDeVenta,
             document.NumeroComprobante,
