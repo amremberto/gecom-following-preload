@@ -403,221 +403,343 @@
                 else if (_selectedDocument is not null)
                 {
                     <div class="row g-4">
-                        <!-- Mitad izquierda: Datos del documento -->
+                        <!-- Mitad izquierda: Wizard de edición -->
                         <div class="col-md-6 border-end pe-4">
-                            <div class="card shadow-sm mb-3 border border-primary-subtle">
-                                <div class="card-header bg-primary-subtle">
-                                    <h5 class="card-title mb-0">
-                                        <span class="@GetEstadoBadgeClass(_selectedDocument.EstadoDescripcion) fs-6">@_selectedDocument.EstadoDescripcion</span>
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <label class="fw-bold text-primary">Cliente / Razón Social</label>
-                                            @if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
-                                            {
-                                                <select id="society-select-edit" 
-                                                        class="form-control" 
-                                                        data-selected-value="@_selectedSocietyCuit"
-                                                        @onchange="OnSocietyChanged">
-                                                    <option value="">Seleccione un cliente</option>
-                                                    @foreach (var society in _providerSocieties)
-                                                    {
-                                                        <option value="@society.Cuit" selected="@(society.Cuit == _selectedSocietyCuit)">
-                                                            @society.Cuit - @(society.Name ?? "Sin nombre")
-                                                        </option>
-                                                    }
-                                                </select>
-                                            }
-                                            else
-                                            {
-                                                <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.SociedadCuit - @_selectedDocument.SociedadDescripcion</div>
-                                            }
+                            <div id="edit-document-wizard">
+                                    <ul class="nav nav-pills nav-justified form-wizard-header mb-3">
+                                        <li class="nav-item" data-target-form="#documentPropertiesForm">
+                                            <a href="#document-properties-step" data-bs-toggle="tab" data-toggle="tab"
+                                                class="nav-link rounded-0 py-2">
+                                                <i class="ri-file-text-line fs-18 align-middle me-1"></i>
+                                                <span class="d-none d-sm-inline">Propiedades</span>
+                                            </a>
+                                        </li>
+                                        <li class="nav-item" data-target-form="#purchaseOrdersForm">
+                                            <a href="#purchase-orders-step" data-bs-toggle="tab" data-toggle="tab"
+                                                class="nav-link rounded-0 py-2">
+                                                <i class="ri-shopping-cart-line fs-18 align-middle me-1"></i>
+                                                <span class="d-none d-sm-inline">Órdenes de Compra</span>
+                                            </a>
+                                        </li>
+                                        <li class="nav-item" data-target-form="#notesForm">
+                                            <a href="#notes-step" data-bs-toggle="tab" data-toggle="tab"
+                                                class="nav-link rounded-0 py-2">
+                                                <i class="ri-sticky-note-line fs-18 align-middle me-1"></i>
+                                                <span class="d-none d-sm-inline">Notas</span>
+                                            </a>
+                                        </li>
+                                    </ul>
+
+                                    <div class="tab-content">
+                                        <!-- Paso 1: Propiedades del Documento -->
+                                        <div class="tab-pane" id="document-properties-step">
+                                            <form id="documentPropertiesForm" method="post" action="#" class="form-horizontal needs-validation" novalidate>
+                                                <div class="card shadow-sm mb-3 border border-primary-subtle">
+                                                    <div class="card-header bg-primary-subtle">
+                                                        <h5 class="card-title mb-0">
+                                                            <span class="@GetEstadoBadgeClass(_selectedDocument.EstadoDescripcion) fs-6">@_selectedDocument.EstadoDescripcion</span>
+                                                        </h5>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="row g-3">
+                                                            <div class="col-md-6">
+                                                                <label class="fw-bold text-primary" for="society-select-edit">Cliente / Razón Social</label>
+                                                                @if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+                                                                {
+                                                                    <select id="society-select-edit" 
+                                                                            name="society-select-edit"
+                                                                            class="form-control" 
+                                                                            data-selected-value="@_selectedSocietyCuit"
+                                                                            @onchange="OnSocietyChanged"
+                                                                            required>
+                                                                        <option value="">Seleccione un cliente</option>
+                                                                        @foreach (var society in _providerSocieties)
+                                                                        {
+                                                                            <option value="@society.Cuit" selected="@(society.Cuit == _selectedSocietyCuit)">
+                                                                                @society.Cuit - @(society.Name ?? "Sin nombre")
+                                                                            </option>
+                                                                        }
+                                                                    </select>
+                                                                    <div class="invalid-feedback">
+                                                                        Por favor seleccione un cliente.
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.SociedadCuit - @_selectedDocument.SociedadDescripcion</div>
+                                                                }
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="fw-bold text-primary">Proveedor</label>
+                                                                <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.ProveedorCuit - @_selectedDocument.ProveedorRazonSocial</div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="fw-bold text-primary" for="document-type-select-edit">Tipo de Documento</label>
+                                                                <select id="document-type-select-edit" 
+                                                                        name="document-type-select-edit"
+                                                                        class="form-control" 
+                                                                        data-selected-value="@_selectedDocumentTypeId"
+                                                                        @onchange="OnDocumentTypeChanged"
+                                                                        required>
+                                                                    <option value="">Seleccione un tipo de documento</option>
+                                                                    @foreach (var docType in _documentTypes)
+                                                                    {
+                                                                        <option value="@docType.TipoDocId" selected="@(docType.TipoDocId == _selectedDocumentTypeId)">
+                                                                            @docType.Codigo - @docType.Descripcion
+                                                                        </option>
+                                                                    }
+                                                                </select>
+                                                                <div class="invalid-feedback">
+                                                                    Por favor seleccione un tipo de documento.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="fw-bold text-primary" for="punto-venta-edit">Punto de Venta</label>
+                                                                <input id="punto-venta-edit"
+                                                                       name="punto-venta-edit"
+                                                                       type="text" 
+                                                                       class="form-control" 
+                                                                       @bind="_selectedPuntoDeVenta"
+                                                                       @bind:event="oninput"
+                                                                       required>
+                                                                <div class="invalid-feedback">
+                                                                    Por favor ingrese el punto de venta.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="fw-bold text-primary" for="numero-comprobante-edit">Nro. Comprobante</label>
+                                                                <input id="numero-comprobante-edit"
+                                                                       name="numero-comprobante-edit"
+                                                                       type="text" 
+                                                                       class="form-control" 
+                                                                       @bind="_selectedNumeroComprobante"
+                                                                       @bind:event="oninput"
+                                                                       required>
+                                                                <div class="invalid-feedback">
+                                                                    Por favor ingrese el número de comprobante.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="fw-bold text-primary" for="fecha-factura-edit">Fecha Factura</label>
+                                                                <input id="fecha-factura-edit"
+                                                                       name="fecha-factura-edit"
+                                                                       type="text"
+                                                                       class="form-control"
+                                                                       data-provider="flatpickr"
+                                                                       data-date-format="d/m/Y"
+                                                                       data-allow-input="true"
+                                                                       @bind="_selectedFechaFactura"
+                                                                       required>
+                                                                <div class="invalid-feedback">
+                                                                    Ingrese una fecha válida.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="fw-bold text-primary" for="currency-select-edit">Moneda</label>
+                                                                <select id="currency-select-edit" 
+                                                                        name="currency-select-edit"
+                                                                        class="form-control" 
+                                                                        data-selected-value="@_selectedCurrencyCode"
+                                                                        @onchange="OnCurrencyChanged"
+                                                                        required>
+                                                                    <option value="">Seleccione una moneda</option>
+                                                                    @foreach (var currency in _currencies)
+                                                                    {
+                                                                        <option value="@currency.Codigo" selected="@(currency.Codigo == _selectedCurrencyCode)">
+                                                                            @currency.Codigo - @currency.Descripcion
+                                                                        </option>
+                                                                    }
+                                                                </select>
+                                                                <div class="invalid-feedback">
+                                                                    Por favor seleccione una moneda.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="fw-bold text-primary" for="monto-bruto-edit">Importe Total</label>
+                                                                <input id="monto-bruto-edit"
+                                                                       name="monto-bruto-edit"
+                                                                       type="number" 
+                                                                       step="0.01" 
+                                                                       class="form-control" 
+                                                                       @bind="_selectedMontoBruto"
+                                                                       @bind:event="oninput"
+                                                                       min="0.01"
+                                                                       required>
+                                                                <div class="invalid-feedback">
+                                                                    Ingrese un importe válido mayor a cero.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="fw-bold text-primary" for="caecai-edit">Nro. CAE / CAI</label>
+                                                                <input id="caecai-edit"
+                                                                       name="caecai-edit"
+                                                                       type="text" 
+                                                                       class="form-control" 
+                                                                       @bind="_selectedCaecai"
+                                                                       @bind:event="oninput"
+                                                                       required>
+                                                                <div class="invalid-feedback">
+                                                                    Por favor ingrese el número de CAE / CAI.
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="fw-bold text-primary" for="venc-caecai-edit">Venc. CAE / CAI</label>
+                                                                <input id="venc-caecai-edit"
+                                                                       name="venc-caecai-edit"
+                                                                       type="text"
+                                                                       class="form-control"
+                                                                       data-provider="flatpickr"
+                                                                       data-date-format="d/m/Y"
+                                                                       data-allow-input="true"
+                                                                       @bind="_selectedVencimientoCaecai"
+                                                                       required>
+                                                                <div class="invalid-feedback">
+                                                                    Ingrese una fecha válida.
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </form>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="fw-bold text-primary">Proveedor</label>
-                                            <div class="form-control-plaintext bg-light rounded w-auto px-2">@_selectedDocument.ProveedorCuit - @_selectedDocument.ProveedorRazonSocial</div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="fw-bold text-primary">Tipo de Documento</label>
-                                            <select id="document-type-select-edit" 
-                                                    class="form-control" 
-                                                    data-selected-value="@_selectedDocumentTypeId"
-                                                    @onchange="OnDocumentTypeChanged">
-                                                <option value="">Seleccione un tipo de documento</option>
-                                                @foreach (var docType in _documentTypes)
-                                                {
-                                                    <option value="@docType.TipoDocId" selected="@(docType.TipoDocId == _selectedDocumentTypeId)">
-                                                        @docType.Codigo - @docType.Descripcion
-                                                    </option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="fw-bold text-primary">Punto de Venta</label>
-                                            <input type="text" class="form-control" value="@_selectedDocument.PuntoDeVenta" />
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="fw-bold text-primary">Nro. Comprobante</label>
-                                            <input type="text" class="form-control" value="@_selectedDocument.NumeroComprobante" />
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="fw-bold text-primary">Fecha Factura</label>
-                                            <input id="fecha-factura-edit"
-                                                   type="text"
-                                                   class="form-control"
-                                                   data-provider="flatpickr"
-                                                   data-date-format="d/m/Y"
-                                                   data-allow-input="true"
-                                                   @bind="_selectedFechaFactura">
-                                            <div class="invalid-feedback">
-                                                Ingrese una fecha válida.
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="fw-bold text-primary">Moneda</label>
-                                            <select id="currency-select-edit" 
-                                                    class="form-control" 
-                                                    data-selected-value="@_selectedCurrencyCode"
-                                                    @onchange="OnCurrencyChanged">
-                                                <option value="">Seleccione una moneda</option>
-                                                @foreach (var currency in _currencies)
-                                                {
-                                                    <option value="@currency.Codigo" selected="@(currency.Codigo == _selectedCurrencyCode)">
-                                                        @currency.Codigo - @currency.Descripcion
-                                                    </option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="fw-bold text-primary">Importe Total</label>
-                                            <input type="number" step="0.01" class="form-control" value="@_selectedDocument.MontoBruto" />
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="fw-bold text-primary">Nro. CAE / CAI</label>
-                                            <input type="text" class="form-control" value="@_selectedDocument.Caecai" />
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="fw-bold text-primary">Venc. CAE / CAI</label>
-                                            <input id="venc-caecai-edit"
-                                                   type="text"
-                                                   class="form-control"
-                                                   data-provider="flatpickr"
-                                                   data-date-format="d/m/Y"
-                                                   data-allow-input="true"
-                                                   @bind="_selectedVencimientoCaecai">
-                                            <div class="invalid-feedback">
-                                                Ingrese una fecha válida.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            @if (IsPendingPreloadStatus(_selectedDocument))
-                            {
-                                <div class="alert alert-info mb-0">
-                                    <i class="ri-information-line me-2"></i>
-                                    <strong>Información:</strong> Solo podrá editar órdenes de compra y notas cuando el documento no esté en estado "Pendiente Precarga".
-                                </div>
-                            }
-                            else
-                            {
-                                <ul class="nav nav-tabs mb-3" id="editTab" role="tablist">
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" id="edit-oc-tab" data-bs-toggle="tab" data-bs-target="#editOrdenesCompra" type="button" role="tab" aria-controls="editOrdenesCompra" aria-selected="true">
-                                            <i class="ri-shopping-cart-line"></i> Ordenes de Compra
-                                        </button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="edit-comentarios-tab" data-bs-toggle="tab" data-bs-target="#editComentarios" type="button" role="tab" aria-controls="editComentarios" aria-selected="false">
-                                            <i class="ri-chat-1-line"></i> Comentarios
-                                        </button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="edit-notas-tab" data-bs-toggle="tab" data-bs-target="#editNotas" type="button" role="tab" aria-controls="editNotas" aria-selected="false">
-                                            <i class="ri-sticky-note-line"></i> Notas
-                                        </button>
-                                    </li>
-                                </ul>
-                                <div class="tab-content">
-                                    <div class="tab-pane fade show active" id="editOrdenesCompra" role="tabpanel" aria-labelledby="edit-oc-tab">
-                                        @if (_selectedDocument.PurchaseOrders.Any())
-                                        {
-                                            <div>
-                                                <table id="edit-document-oc-datatable" class="table table-striped w-100 nowrap">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Número OC</th>
-                                                            <th>Posición</th>
-                                                            <th>Código Recepción</th>
-                                                            <th>Cantidad a Facturar</th>
-                                                            <th>Código Sociedad FI</th>
-                                                            <th>Proveedor SAP</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach (var po in _selectedDocument.PurchaseOrders)
+
+                                        <!-- Paso 2: Órdenes de Compra -->
+                                        <div class="tab-pane fade" id="purchase-orders-step">
+                                            <form id="purchaseOrdersForm" method="post" action="#" class="form-horizontal">
+                                                <div class="card shadow-sm border border-info-subtle">
+                                                    <div class="card-header bg-info-subtle">
+                                                        <h5 class="card-title mb-0">
+                                                            <i class="ri-shopping-cart-line me-2"></i> Órdenes de Compra
+                                                        </h5>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        @if (IsPendingPreloadStatus(_selectedDocument))
                                                         {
-                                                            <tr>
-                                                                <td>@po.NroOc</td>
-                                                                <td>@po.PosicionOc</td>
-                                                                <td>@po.CodigoRecepcion</td>
-                                                                <td>@po.CantidadAfacturar.ToString("N2")</td>
-                                                                <td>@po.CodigoSociedadFi</td>
-                                                                <td>@po.ProveedorSap</td>
-                                                            </tr>
+                                                            <div class="alert alert-info mb-0">
+                                                                <i class="ri-information-line me-2"></i>
+                                                                <strong>Información:</strong> Solo podrá editar órdenes de compra cuando el documento no esté en estado "Pendiente Precarga".
+                                                            </div>
                                                         }
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="alert alert-info mb-0">
-                                                <i class="ri-information-line me-2"></i>No hay órdenes de compra asociadas a este documento.
-                                            </div>
-                                        }
-                                    </div>
-                                    <div class="tab-pane fade" id="editComentarios" role="tabpanel" aria-labelledby="edit-comentarios-tab">
-                                        <div class="alert alert-info mb-0">
-                                            <i class="ri-information-line me-2"></i>No hay comentarios disponibles.
-                                        </div>
-                                    </div>
-                                    <div class="tab-pane fade" id="editNotas" role="tabpanel" aria-labelledby="edit-notas-tab">
-                                        @if (_selectedDocument.Notes.Any())
-                                        {
-                                            <div>
-                                                <table id="edit-document-notes-datatable" class="table table-striped w-100 nowrap">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Usuario</th>
-                                                            <th>Fecha</th>
-                                                            <th>Observaciones</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach (var note in _selectedDocument.Notes)
+                                                        else if (_selectedDocument.PurchaseOrders.Any())
                                                         {
-                                                            <tr>
-                                                                <td>@note.UsuarioCreacion</td>
-                                                                <td>@note.FechaCreacion.ToString("dd/MM/yyyy")</td>
-                                                                <td>@note.Descripcion</td>
-                                                            </tr>
+                                                            <div>
+                                                                <table id="edit-document-oc-datatable" class="table table-striped w-100 nowrap">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Número OC</th>
+                                                                            <th>Posición</th>
+                                                                            <th>Código Recepción</th>
+                                                                            <th>Cantidad a Facturar</th>
+                                                                            <th>Código Sociedad FI</th>
+                                                                            <th>Proveedor SAP</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        @foreach (var po in _selectedDocument.PurchaseOrders)
+                                                                        {
+                                                                            <tr>
+                                                                                <td>@po.NroOc</td>
+                                                                                <td>@po.PosicionOc</td>
+                                                                                <td>@po.CodigoRecepcion</td>
+                                                                                <td>@po.CantidadAfacturar.ToString("N2")</td>
+                                                                                <td>@po.CodigoSociedadFi</td>
+                                                                                <td>@po.ProveedorSap</td>
+                                                                            </tr>
+                                                                        }
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
                                                         }
-                                                    </tbody>
-                                                </table>
+                                                        else
+                                                        {
+                                                            <div class="alert alert-info mb-0">
+                                                                <i class="ri-information-line me-2"></i>No hay órdenes de compra asociadas a este documento.
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <!-- Paso 3: Notas -->
+                                        <div class="tab-pane fade" id="notes-step">
+                                            <form id="notesForm" method="post" action="#" class="form-horizontal">
+                                                <div class="card shadow-sm border border-success-subtle">
+                                                    <div class="card-header bg-success-subtle">
+                                                        <h5 class="card-title mb-0">
+                                                            <i class="ri-sticky-note-line me-2"></i> Notas
+                                                        </h5>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        @if (IsPendingPreloadStatus(_selectedDocument))
+                                                        {
+                                                            <div class="alert alert-info mb-0">
+                                                                <i class="ri-information-line me-2"></i>
+                                                                <strong>Información:</strong> Solo podrá editar notas cuando el documento no esté en estado "Pendiente Precarga".
+                                                            </div>
+                                                        }
+                                                        else if (_selectedDocument.Notes.Any())
+                                                        {
+                                                            <div>
+                                                                <table id="edit-document-notes-datatable" class="table table-striped w-100 nowrap">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Usuario</th>
+                                                                            <th>Fecha</th>
+                                                                            <th>Observaciones</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        @foreach (var note in _selectedDocument.Notes)
+                                                                        {
+                                                                            <tr>
+                                                                                <td>@note.UsuarioCreacion</td>
+                                                                                <td>@note.FechaCreacion.ToString("dd/MM/yyyy")</td>
+                                                                                <td>@note.Descripcion</td>
+                                                                            </tr>
+                                                                        }
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="alert alert-info mb-0">
+                                                                <i class="ri-information-line me-2"></i>No hay notas disponibles.
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <!-- Botones de navegación del wizard -->
+                                        <div class="d-flex wizard justify-content-between flex-wrap gap-2 mt-3">
+                                            <div class="first">
+                                                <a href="javascript:void(0);" class="btn btn-primary">
+                                                    Inicio
+                                                </a>
                                             </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="alert alert-info mb-0">
-                                                <i class="ri-information-line me-2"></i>No hay notas disponibles.
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="previous">
+                                                    <a href="javascript:void(0);" class="btn btn-primary">
+                                                        <i class="ri-arrow-left-line me-2"></i>Anterior
+                                                    </a>
+                                                </div>
+                                                <div class="next">
+                                                    <a href="javascript:void(0);" class="btn btn-primary mt-3 mt-md-0">
+                                                        Siguiente<i class="ri-arrow-right-line ms-2"></i>
+                                                    </a>
+                                                </div>
                                             </div>
-                                        }
-                                    </div>
-                                </div>
-                            }
+                                            <div class="last">
+                                                <a href="javascript:void(0);" class="btn btn-success mt-3 mt-md-0">
+                                                    <i class="ri-save-line me-1"></i>Guardar
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div> <!-- tab-content -->
+                                </div> <!-- end #edit-document-wizard-->
                         </div>
                         <!-- Mitad derecha: Visualización de PDF -->
                         <div class="col-md-6 ps-4">

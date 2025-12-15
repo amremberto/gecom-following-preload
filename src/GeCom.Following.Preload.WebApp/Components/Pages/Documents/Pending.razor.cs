@@ -34,7 +34,8 @@ public partial class Pending : IAsyncDisposable
     private bool _isDataTableLoading;
     private bool _isModalLoading;
 
-    private IJSObjectReference? _pendingDocumentsModule;
+    private IJSObjectReference? _tableDatatableModule;
+    private IJSObjectReference? _formWizardModule;
     private PreloadDocumentModal? _preloadModal;
     private Toast? _toast;
 
@@ -53,6 +54,12 @@ public partial class Pending : IAsyncDisposable
     private DateOnly? _selectedVencimientoCaecai;
     private IEnumerable<ProviderSocietyResponse> _providerSocieties = [];
     private string? _selectedSocietyCuit;
+#pragma warning disable S4487 // Unread private fields - Used in Razor @bind directive
+    private string _selectedPuntoDeVenta = string.Empty;
+    private string _selectedNumeroComprobante = string.Empty;
+    private string _selectedCaecai = string.Empty;
+    private decimal? _selectedMontoBruto;
+#pragma warning restore S4487
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -112,7 +119,8 @@ public partial class Pending : IAsyncDisposable
 
                 StateHasChanged();
 
-                _pendingDocumentsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
+                _tableDatatableModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/table-datatable.min.js");
+                _formWizardModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/components/form-wizard.min.js");
                 await InvokeAsync(StateHasChanged); // Fuerza renderizado
 
 
@@ -412,12 +420,16 @@ public partial class Pending : IAsyncDisposable
         _selectedFechaFactura = null;
         _selectedVencimientoCaecai = null;
         _selectedSocietyCuit = null;
+        _selectedPuntoDeVenta = string.Empty;
+        _selectedNumeroComprobante = string.Empty;
+        _selectedCaecai = string.Empty;
+        _selectedMontoBruto = null;
         StateHasChanged();
 
         await GetDocumentWithDetails(docId);
         await LoadCurrencies();
         await LoadDocumentTypes();
-        
+
         // Load provider societies if user is a provider
         if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
         {
@@ -435,6 +447,11 @@ public partial class Pending : IAsyncDisposable
             _selectedVencimientoCaecai = _selectedDocument.VencimientoCaecai;
             // Set the selected society CUIT from the document
             _selectedSocietyCuit = _selectedDocument.SociedadCuit;
+            // Set the selected text fields from the document
+            _selectedPuntoDeVenta = _selectedDocument.PuntoDeVenta ?? string.Empty;
+            _selectedNumeroComprobante = _selectedDocument.NumeroComprobante ?? string.Empty;
+            _selectedCaecai = _selectedDocument.Caecai ?? string.Empty;
+            _selectedMontoBruto = _selectedDocument.MontoBruto;
         }
 
         _isModalLoading = false;
@@ -448,7 +465,7 @@ public partial class Pending : IAsyncDisposable
                     var modalElement = document.getElementById('edit-document-modal');
                     var modal = new bootstrap.Modal(modalElement);
                     
-                    // Clean up SELECT2 and Flatpickr when modal is hidden
+                    // Clean up SELECT2, Flatpickr, and Wizard when modal is hidden
                     modalElement.addEventListener('hidden.bs.modal', function() {
                         // Clean up SELECT2
                         var select = $('#currency-select-edit');
@@ -473,6 +490,27 @@ public partial class Pending : IAsyncDisposable
                         if (vencCaecaiInput && vencCaecaiInput._flatpickr) {
                             vencCaecaiInput._flatpickr.destroy();
                         }
+                        
+                        // Reset wizard to first step
+                        var wizardElement = document.getElementById('edit-document-wizard');
+                        if (wizardElement) {
+                            var firstTab = wizardElement.querySelector('.nav-link');
+                            if (firstTab) {
+                                var firstTabPane = document.querySelector(firstTab.getAttribute('href'));
+                                if (firstTabPane) {
+                                    // Reset all tabs
+                                    wizardElement.querySelectorAll('.nav-link').forEach(function(link) {
+                                        link.classList.remove('active');
+                                    });
+                                    wizardElement.querySelectorAll('.tab-pane').forEach(function(pane) {
+                                        pane.classList.remove('show', 'active');
+                                    });
+                                    // Activate first tab
+                                    firstTab.classList.add('active');
+                                    firstTabPane.classList.add('show', 'active');
+                                }
+                            }
+                        }
                     }, { once: true });
                     
                     modal.show();
@@ -481,16 +519,24 @@ public partial class Pending : IAsyncDisposable
 
             // Initialize SELECT2 and Flatpickr after modal is shown and DOM is updated
             await Task.Delay(300); // Delay to ensure modal and DOM are fully rendered
+            
+            // Force StateHasChanged to ensure DOM is updated with current values before initializing SELECT2
+            StateHasChanged();
+            await Task.Delay(100); // Small delay to ensure DOM update is complete
+            
             await InitializeCurrencySelect2();
             await InitializeDocumentTypeSelect2();
-            
+
             // Initialize society SELECT2 only if user is a provider
             if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
             {
                 await InitializeSocietySelect2();
             }
-            
+
             await InitializeDatePickers();
+            
+            // Initialize wizard with validation
+            await InitializeEditDocumentWizard();
         }
         else
         {
@@ -540,7 +586,7 @@ public partial class Pending : IAsyncDisposable
                         select.select2('destroy');
                     }
                     
-                    // Initialize SELECT2
+                    // Initialize SELECT2 first
                     select.select2({
                         placeholder: 'Seleccione una moneda',
                         allowClear: true,
@@ -548,10 +594,11 @@ public partial class Pending : IAsyncDisposable
                         dropdownParent: $('#edit-document-modal')
                     });
                     
-                    // Set the selected value if available
+                    // Set the selected value AFTER SELECT2 initialization
+                    // SELECT2 will automatically update its display
                     var selectedValue = select.attr('data-selected-value');
                     if (selectedValue) {
-                        select.val(selectedValue).trigger('change');
+                        select.val(selectedValue).trigger('change.select2');
                     }
                 })();
             ");
@@ -567,21 +614,11 @@ public partial class Pending : IAsyncDisposable
     /// </summary>
     /// <param name="e">The change event arguments.</param>
     /// <returns></returns>
-    private async Task OnCurrencyChanged(ChangeEventArgs e)
+    private Task OnCurrencyChanged(ChangeEventArgs e)
     {
         _selectedCurrencyCode = e.Value?.ToString();
-
-        // Update SELECT2 to reflect the change
-        await JsRuntime.InvokeVoidAsync("eval", @"
-            (function() {
-                var select = $('#currency-select-edit');
-                if (select.data('select2')) {
-                    select.trigger('change');
-                }
-            })();
-        ");
-
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -625,7 +662,7 @@ public partial class Pending : IAsyncDisposable
                         select.select2('destroy');
                     }
                     
-                    // Initialize SELECT2
+                    // Initialize SELECT2 first
                     select.select2({
                         placeholder: 'Seleccione un tipo de documento',
                         allowClear: true,
@@ -633,10 +670,11 @@ public partial class Pending : IAsyncDisposable
                         dropdownParent: $('#edit-document-modal')
                     });
                     
-                    // Set the selected value if available
+                    // Set the selected value AFTER SELECT2 initialization
+                    // SELECT2 will automatically update its display
                     var selectedValue = select.attr('data-selected-value');
                     if (selectedValue) {
-                        select.val(selectedValue).trigger('change');
+                        select.val(selectedValue).trigger('change.select2');
                     }
                 })();
             ");
@@ -652,21 +690,11 @@ public partial class Pending : IAsyncDisposable
     /// </summary>
     /// <param name="e">The change event arguments.</param>
     /// <returns></returns>
-    private async Task OnDocumentTypeChanged(ChangeEventArgs e)
+    private Task OnDocumentTypeChanged(ChangeEventArgs e)
     {
         _selectedDocumentTypeId = int.TryParse(e.Value?.ToString(), out int tipoDocId) ? tipoDocId : null;
-
-        // Update SELECT2 to reflect the change
-        await JsRuntime.InvokeVoidAsync("eval", @"
-            (function() {
-                var select = $('#document-type-select-edit');
-                if (select.data('select2')) {
-                    select.trigger('change');
-                }
-            })();
-        ");
-
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -718,7 +746,7 @@ public partial class Pending : IAsyncDisposable
                         select.select2('destroy');
                     }
                     
-                    // Initialize SELECT2
+                    // Initialize SELECT2 first
                     select.select2({
                         placeholder: 'Seleccione un cliente',
                         allowClear: true,
@@ -726,10 +754,11 @@ public partial class Pending : IAsyncDisposable
                         dropdownParent: $('#edit-document-modal')
                     });
                     
-                    // Set the selected value if available
+                    // Set the selected value AFTER SELECT2 initialization
+                    // SELECT2 will automatically update its display
                     var selectedValue = select.attr('data-selected-value');
                     if (selectedValue) {
-                        select.val(selectedValue).trigger('change');
+                        select.val(selectedValue).trigger('change.select2');
                     }
                 })();
             ");
@@ -745,21 +774,11 @@ public partial class Pending : IAsyncDisposable
     /// </summary>
     /// <param name="e">The change event arguments.</param>
     /// <returns></returns>
-    private async Task OnSocietyChanged(ChangeEventArgs e)
+    private Task OnSocietyChanged(ChangeEventArgs e)
     {
         _selectedSocietyCuit = e.Value?.ToString();
-
-        // Update SELECT2 to reflect the change
-        await JsRuntime.InvokeVoidAsync("eval", @"
-            (function() {
-                var select = $('#society-select-edit');
-                if (select.data('select2')) {
-                    select.trigger('change');
-                }
-            })();
-        ");
-
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -805,7 +824,158 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Cleans up SELECT2 and Flatpickr when the modal is closed.
+    /// Initializes the edit document wizard with validation.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeEditDocumentWizard()
+    {
+        try
+        {
+            // Initialize wizard with validation enabled
+            // The Wizard class should be available globally from vendor-forms.js
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    function initWizard() {
+                        var wizardElement = document.getElementById('edit-document-wizard');
+                        if (!wizardElement) {
+                            console.warn('Wizard element not found');
+                            return false;
+                        }
+                        
+                        // Check if Wizard class is available
+                        if (typeof Wizard === 'undefined') {
+                            console.warn('Wizard class not found, retrying...');
+                            return false;
+                        }
+                        
+                        try {
+                            // Create new wizard instance with validation
+                            var wizard = new Wizard('#edit-document-wizard', {
+                                validate: true
+                            });
+                            
+                            // Ensure empty required fields are validated correctly
+                            var form = document.getElementById('documentPropertiesForm');
+                            if (form) {
+                                // Validate all required fields on initialization
+                                var validateField = function(input) {
+                                    if (input.hasAttribute('required')) {
+                                        if (input.type === 'text' || input.type === 'number') {
+                                            if (!input.value || input.value.trim() === '') {
+                                                input.setCustomValidity('Este campo es obligatorio');
+                                                input.classList.add('is-invalid');
+                                                input.classList.remove('is-valid');
+                                                return false;
+                                            } else {
+                                                input.setCustomValidity('');
+                                                input.classList.remove('is-invalid');
+                                                if (input.checkValidity()) {
+                                                    input.classList.add('is-valid');
+                                                }
+                                                return true;
+                                            }
+                                        } else if (input.tagName === 'SELECT') {
+                                            if (!input.value || input.value === '') {
+                                                input.setCustomValidity('Por favor seleccione una opción');
+                                                input.classList.add('is-invalid');
+                                                input.classList.remove('is-valid');
+                                                return false;
+                                            } else {
+                                                input.setCustomValidity('');
+                                                input.classList.remove('is-invalid');
+                                                input.classList.add('is-valid');
+                                                return true;
+                                            }
+                                        }
+                                    }
+                                    return true;
+                                };
+                                
+                                // Add custom validation to check for empty strings
+                                var requiredInputs = form.querySelectorAll('input[required], select[required]');
+                                requiredInputs.forEach(function(input) {
+                                    // Validate on initialization
+                                    validateField(input);
+                                    
+                                    // For SELECT2 selects, listen to SELECT2 events without interfering
+                                    if (input.tagName === 'SELECT' && $(input).data('select2')) {
+                                        $(input).on('select2:select select2:clear', function() {
+                                            // Small delay to ensure SELECT2 has updated the native select value
+                                            var selectElement = this;
+                                            setTimeout(function() {
+                                                validateField(selectElement);
+                                            }, 10);
+                                        });
+                                    } else {
+                                        // For regular inputs and selects without SELECT2
+                                        input.addEventListener('blur', function() {
+                                            validateField(this);
+                                        });
+                                        
+                                        // Validate on input change
+                                        input.addEventListener('input', function() {
+                                            validateField(this);
+                                        });
+                                        
+                                        // Validate on change (for selects)
+                                        input.addEventListener('change', function() {
+                                            validateField(this);
+                                        });
+                                    }
+                                });
+                                
+                                // Also listen for SELECT2 initialization after wizard is created
+                                // This handles cases where SELECT2 is initialized after the wizard
+                                setTimeout(function() {
+                                    form.querySelectorAll('select[required]').forEach(function(selectElement) {
+                                        var $select = $(selectElement);
+                                        if ($select.data('select2')) {
+                                            // Only add validation listener, don't interfere with SELECT2's native change event
+                                            $select.on('select2:select select2:clear', function() {
+                                                // Small delay to ensure SELECT2 has updated the native select value
+                                                setTimeout(function() {
+                                                    validateField(selectElement);
+                                                }, 10);
+                                            });
+                                        }
+                                    });
+                                }, 500);
+                            }
+                            
+                            console.log('Edit document wizard initialized successfully');
+                            return true;
+                        } catch (e) {
+                            console.error('Error initializing wizard:', e);
+                            return false;
+                        }
+                    }
+                    
+                    // Try to initialize immediately
+                    if (!initWizard()) {
+                        // If Wizard class is not available, wait a bit and try again
+                        var attempts = 0;
+                        var maxAttempts = 10;
+                        var interval = setInterval(function() {
+                            attempts++;
+                            if (initWizard() || attempts >= maxAttempts) {
+                                clearInterval(interval);
+                                if (attempts >= maxAttempts && typeof Wizard === 'undefined') {
+                                    console.error('Wizard class not found after multiple attempts');
+                                }
+                            }
+                        }, 100);
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar el wizard:", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Cleans up SELECT2, Flatpickr, and Wizard when the modal is closed.
     /// </summary>
     /// <returns></returns>
     private async Task CleanupCurrencySelect2()
@@ -836,6 +1006,27 @@ public partial class Pending : IAsyncDisposable
                     var vencCaecaiInput = document.getElementById('venc-caecai-edit');
                     if (vencCaecaiInput && vencCaecaiInput._flatpickr) {
                         vencCaecaiInput._flatpickr.destroy();
+                    }
+                    
+                    // Reset wizard to first step
+                    var wizardElement = document.getElementById('edit-document-wizard');
+                    if (wizardElement) {
+                        var firstTab = wizardElement.querySelector('.nav-link');
+                        if (firstTab) {
+                            var firstTabPane = document.querySelector(firstTab.getAttribute('href'));
+                            if (firstTabPane) {
+                                // Reset all tabs
+                                wizardElement.querySelectorAll('.nav-link').forEach(function(link) {
+                                    link.classList.remove('active');
+                                });
+                                wizardElement.querySelectorAll('.tab-pane').forEach(function(pane) {
+                                    pane.classList.remove('show', 'active');
+                                });
+                                // Activate first tab
+                                firstTab.classList.add('active');
+                                firstTabPane.classList.add('show', 'active');
+                            }
+                        }
                     }
                 })();
             ");
@@ -1111,11 +1302,11 @@ public partial class Pending : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_pendingDocumentsModule is not null)
+        if (_tableDatatableModule is not null)
         {
             try
             {
-                await _pendingDocumentsModule.DisposeAsync();
+                await _tableDatatableModule.DisposeAsync();
             }
             catch (JSDisconnectedException)
             {
@@ -1123,6 +1314,20 @@ public partial class Pending : IAsyncDisposable
                 // Esto es normal cuando el componente se está eliminando
             }
         }
+
+        if (_formWizardModule is not null)
+        {
+            try
+            {
+                await _formWizardModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // El circuito ya está desconectado, no podemos hacer llamadas de JavaScript interop
+                // Esto es normal cuando el componente se está eliminando
+            }
+        }
+
         GC.SuppressFinalize(this);
     }
 }
