@@ -542,7 +542,7 @@
                                                                        @bind="_selectedFechaFactura"
                                                                        required>
                                                                 <div class="invalid-feedback">
-                                                                    Ingrese una fecha válida.
+                                                                    La fecha de factura no puede ser mayor al día actual.
                                                                 </div>
                                                             </div>
                                                             <div class="col-md-4">
@@ -588,9 +588,11 @@
                                                                        class="form-control" 
                                                                        @bind="_selectedCaecai"
                                                                        @bind:event="oninput"
+                                                                       maxlength="14"
+                                                                       pattern="[0-9]{14}"
                                                                        required>
                                                                 <div class="invalid-feedback">
-                                                                    Por favor ingrese el número de CAE / CAI.
+                                                                    El nro. CAE/CAI debe tener exactamente 14 dígitos.
                                                                 </div>
                                                             </div>
                                                             <div class="col-md-6">
@@ -605,7 +607,7 @@
                                                                        @bind="_selectedVencimientoCaecai"
                                                                        required>
                                                                 <div class="invalid-feedback">
-                                                                    Ingrese una fecha válida.
+                                                                    La fecha Venc. CAE/CAI no puede ser anterior a la fecha de factura.
                                                                 </div>
                                                             </div>
                                                         </div>

@@ -1,4 +1,4 @@
-
+﻿
 using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
@@ -703,32 +703,62 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            // Initialize Fecha Factura
+            // Get today's date for maxDate validation
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            string? todayStr = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+            // Initialize Fecha Factura with maxDate = today
             if (_selectedFechaFactura.HasValue)
             {
                 await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
                     "#fecha-factura-edit",
-                    new { defaultDate = _selectedFechaFactura.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
+                    new
+                    {
+                        defaultDate = _selectedFechaFactura.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                        maxDate = todayStr,
+                        fieldId = "fecha-factura-edit"
+                    });
             }
             else
             {
                 await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
                     "#fecha-factura-edit",
-                    new { });
+                    new
+                    {
+                        maxDate = todayStr,
+                        fieldId = "fecha-factura-edit"
+                    });
             }
 
-            // Initialize Venc. CAE / CAI
+            // Initialize Venc. CAE / CAI with minDate = fecha factura (if available)
+            string? minDateStr = null;
+            if (_selectedFechaFactura.HasValue)
+            {
+                minDateStr = _selectedFechaFactura.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            }
+
             if (_selectedVencimientoCaecai.HasValue)
             {
                 await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
                     "#venc-caecai-edit",
-                    new { defaultDate = _selectedVencimientoCaecai.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
+                    new
+                    {
+                        defaultDate = _selectedVencimientoCaecai.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                        minDate = minDateStr,
+                        fieldId = "venc-caecai-edit",
+                        dependsOnFieldId = "fecha-factura-edit"
+                    });
             }
             else
             {
                 await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation",
                     "#venc-caecai-edit",
-                    new { });
+                    new
+                    {
+                        minDate = minDateStr,
+                        fieldId = "venc-caecai-edit",
+                        dependsOnFieldId = "fecha-factura-edit"
+                    });
             }
         }
         catch (Exception ex)
@@ -905,8 +935,8 @@ public partial class Pending : IAsyncDisposable
             return "N/A";
         }
 
-        if (string.IsNullOrWhiteSpace(document.TipoDocCodigo) && 
-            string.IsNullOrWhiteSpace(document.TipoDocLetra) && 
+        if (string.IsNullOrWhiteSpace(document.TipoDocCodigo) &&
+            string.IsNullOrWhiteSpace(document.TipoDocLetra) &&
             string.IsNullOrWhiteSpace(document.TipoDocDescripcion))
         {
             return "N/A";

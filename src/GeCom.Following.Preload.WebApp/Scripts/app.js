@@ -1150,6 +1150,89 @@ window.blurElementById = function (id) {
     }
 };
 
+/**
+ * Validates a date field against maxDate and minDate constraints
+ * @param {Object} instance - Flatpickr instance
+ * @param {string} fieldId - Field identifier
+ * @param {string} maxDate - Maximum date allowed (YYYY-MM-DD format)
+ * @param {string} minDate - Minimum date allowed (YYYY-MM-DD format)
+ * @param {string} dependsOnFieldId - Field ID this field depends on
+ * @returns {boolean} True if valid, false otherwise
+ */
+function validateDateField(instance, fieldId, maxDate, minDate, dependsOnFieldId) {
+    if (!instance || !instance.altInput) {
+        return true;
+    }
+
+    var val = instance.altInput.value;
+    if (!val || val.length !== 10) {
+        return false;
+    }
+
+    var parts = val.split("/");
+    if (parts.length !== 3) {
+        return false;
+    }
+
+    var day = parseInt(parts[0], 10);
+    var month = parseInt(parts[1], 10);
+    var year = parseInt(parts[2], 10);
+    var date = new Date(year, month - 1, day);
+
+    // Validate date is valid
+    if (date.getFullYear() !== year || (date.getMonth() + 1) !== month || date.getDate() !== day) {
+        return false;
+    }
+
+    // Validate maxDate (for fecha factura - cannot be greater than today)
+    if (fieldId === "fecha-factura-edit" && maxDate) {
+        var maxDateObj = new Date(maxDate + "T00:00:00");
+        maxDateObj.setHours(0, 0, 0, 0);
+        date.setHours(0, 0, 0, 0);
+        if (date > maxDateObj) {
+            instance.altInput.setCustomValidity("La fecha de factura no puede ser mayor al día actual.");
+            return false;
+        }
+    }
+
+    // Validate minDate (for vencimiento CAE/CAI - cannot be before fecha factura)
+    if (fieldId === "venc-caecai-edit") {
+        // Get fecha factura value if depends on it
+        if (dependsOnFieldId === "fecha-factura-edit") {
+            var fechaFacturaInput = document.querySelector("#fecha-factura-edit");
+            if (fechaFacturaInput && fechaFacturaInput._flatpickr && fechaFacturaInput._flatpickr.selectedDates.length > 0) {
+                var fechaFacturaDate = fechaFacturaInput._flatpickr.selectedDates[0];
+                fechaFacturaDate.setHours(0, 0, 0, 0);
+                date.setHours(0, 0, 0, 0);
+                if (date < fechaFacturaDate) {
+                    instance.altInput.setCustomValidity("La fecha Venc. CAE/CAI no puede ser anterior a la fecha de factura.");
+                    return false;
+                }
+            } else if (minDate) {
+                // Fallback to minDate if fecha factura is not set
+                var minDateObj = new Date(minDate + "T00:00:00");
+                minDateObj.setHours(0, 0, 0, 0);
+                date.setHours(0, 0, 0, 0);
+                if (date < minDateObj) {
+                    instance.altInput.setCustomValidity("La fecha Venc. CAE/CAI no puede ser anterior a la fecha de factura.");
+                    return false;
+                }
+            }
+        } else if (minDate) {
+            var minDateObj = new Date(minDate + "T00:00:00");
+            minDateObj.setHours(0, 0, 0, 0);
+            date.setHours(0, 0, 0, 0);
+            if (date < minDateObj) {
+                instance.altInput.setCustomValidity("La fecha Venc. CAE/CAI no puede ser anterior a la fecha de factura.");
+                return false;
+            }
+        }
+    }
+
+    instance.altInput.setCustomValidity("");
+    return true;
+}
+
 window.initFlatpickrWithStrictValidation = function (selector, options) {
     if (typeof flatpickr === 'undefined') {
         console.error('Flatpickr is not loaded.');
@@ -1173,8 +1256,12 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
             options = {};
         }
 
-        // Preserve defaultDate if it exists (from C# anonymous object)
+        // Preserve values from C# anonymous object
         var defaultDate = options.defaultDate;
+        var maxDate = options.maxDate;
+        var minDate = options.minDate;
+        var fieldId = options.fieldId;
+        var dependsOnFieldId = options.dependsOnFieldId;
 
         // Set options to match Processed.razor implementation
         options.allowInput = true;
@@ -1187,6 +1274,16 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
         if (defaultDate) {
             options.defaultDate = defaultDate;
         }
+
+        // Set maxDate if provided (for fecha factura - cannot be greater than today)
+        if (maxDate) {
+            options.maxDate = maxDate;
+        }
+
+        // Set minDate if provided (for vencimiento CAE/CAI - cannot be before fecha factura)
+        if (minDate) {
+            options.minDate = minDate;
+        }
         
         options.onChange = [
             function (selectedDates, dateStr, instance) {
@@ -1197,6 +1294,20 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
                     } else {
                         instance.altInput.classList.remove("is-invalid");
                     }
+
+                    // If this is fecha-factura-edit and venc-caecai-edit depends on it, update minDate
+                    if (fieldId === "fecha-factura-edit" && dependsOnFieldId === "venc-caecai-edit") {
+                        var vencInput = document.querySelector("#venc-caecai-edit");
+                        if (vencInput && vencInput._flatpickr) {
+                            var fechaFacturaDate = selectedDates.length > 0 ? selectedDates[0] : null;
+                            if (fechaFacturaDate) {
+                                vencInput._flatpickr.set('minDate', fechaFacturaDate);
+                            }
+                        }
+                    }
+
+                    // Validate date constraints
+                    validateDateField(instance, fieldId, maxDate, minDate, dependsOnFieldId);
                 }
             }
         ];
@@ -1225,7 +1336,13 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
                     input.value = '';
                     instance.clear();
                 } else {
-                    input.classList.remove("is-invalid");
+                    // Validate date constraints
+                    var dateValid = validateDateField(instance, fieldId, maxDate, minDate, dependsOnFieldId);
+                    if (!dateValid) {
+                        input.classList.add("is-invalid");
+                    } else {
+                        input.classList.remove("is-invalid");
+                    }
                 }
             }
         ];
@@ -1257,7 +1374,13 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
                     if (!val || val.length < 10 || !isValid) {
                         fp.altInput.classList.add('is-invalid');
                     } else {
-                        fp.altInput.classList.remove('is-invalid');
+                        // Validate date constraints
+                        var dateValid = validateDateField(fp, fieldId, maxDate, minDate, dependsOnFieldId);
+                        if (!dateValid) {
+                            fp.altInput.classList.add('is-invalid');
+                        } else {
+                            fp.altInput.classList.remove('is-invalid');
+                        }
                     }
                 });
 
@@ -1312,7 +1435,13 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
                         fp.altInput.value = '';
                         if (fp) fp.clear();
                     } else {
-                        fp.altInput.classList.remove('is-invalid');
+                        // Validate date constraints
+                        var dateValid = validateDateField(fp, fieldId, maxDate, minDate, dependsOnFieldId);
+                        if (!dateValid) {
+                            fp.altInput.classList.add('is-invalid');
+                        } else {
+                            fp.altInput.classList.remove('is-invalid');
+                        }
                     }
                 });
             }

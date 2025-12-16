@@ -35,7 +35,100 @@ function validateFirstTabFields() {
         } else {
             // For regular inputs
             var value = input.value;
-            if (input.type === 'number') {
+            
+            // Special validation for CAE/CAI field - must have exactly 14 digits
+            if (input.id === 'caecai-edit') {
+                // Remove non-digit characters for validation
+                var digitsOnly = value.replace(/\D/g, '');
+                if (!value || value.trim() === '' || digitsOnly.length !== 14) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                    if (input.nextElementSibling && input.nextElementSibling.classList.contains('invalid-feedback')) {
+                        input.nextElementSibling.textContent = 'El nro. CAE/CAI debe tener exactamente 14 dígitos.';
+                    }
+                } else {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                }
+            }
+            // Special validation for date fields using Flatpickr
+            else if (input.id === 'fecha-factura-edit' || input.id === 'venc-caecai-edit') {
+                // Check if Flatpickr instance exists
+                var flatpickrInput = input.id === 'fecha-factura-edit' 
+                    ? document.querySelector('#fecha-factura-edit')
+                    : document.querySelector('#venc-caecai-edit');
+                
+                if (flatpickrInput && flatpickrInput._flatpickr) {
+                    var altInput = flatpickrInput._flatpickr.altInput;
+                    if (altInput) {
+                        var dateValue = altInput.value;
+                        if (!dateValue || dateValue.trim() === '') {
+                            isValid = false;
+                            altInput.classList.add('is-invalid');
+                            altInput.classList.remove('is-valid');
+                        } else {
+                            // Validate date constraints
+                            var dateValid = true;
+                            
+                            // Validate fecha factura - cannot be greater than today
+                            if (input.id === 'fecha-factura-edit') {
+                                if (flatpickrInput._flatpickr.selectedDates.length > 0) {
+                                    var fechaFacturaDate = flatpickrInput._flatpickr.selectedDates[0];
+                                    var today = new Date();
+                                    today.setHours(0, 0, 0, 0);
+                                    fechaFacturaDate.setHours(0, 0, 0, 0);
+                                    if (fechaFacturaDate > today) {
+                                        dateValid = false;
+                                        altInput.setCustomValidity('La fecha de factura no puede ser mayor al día actual.');
+                                    } else {
+                                        altInput.setCustomValidity('');
+                                    }
+                                }
+                            }
+                            
+                            // Validate vencimiento CAE/CAI - cannot be before fecha factura
+                            if (input.id === 'venc-caecai-edit') {
+                                var fechaFacturaInput = document.querySelector('#fecha-factura-edit');
+                                if (fechaFacturaInput && fechaFacturaInput._flatpickr && fechaFacturaInput._flatpickr.selectedDates.length > 0) {
+                                    var fechaFacturaDate = fechaFacturaInput._flatpickr.selectedDates[0];
+                                    if (flatpickrInput._flatpickr.selectedDates.length > 0) {
+                                        var vencCaecaiDate = flatpickrInput._flatpickr.selectedDates[0];
+                                        fechaFacturaDate.setHours(0, 0, 0, 0);
+                                        vencCaecaiDate.setHours(0, 0, 0, 0);
+                                        if (vencCaecaiDate < fechaFacturaDate) {
+                                            dateValid = false;
+                                            altInput.setCustomValidity('La fecha Venc. CAE/CAI no puede ser anterior a la fecha de factura.');
+                                        } else {
+                                            altInput.setCustomValidity('');
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!dateValid || altInput.classList.contains('is-invalid')) {
+                                isValid = false;
+                                altInput.classList.add('is-invalid');
+                                altInput.classList.remove('is-valid');
+                            } else {
+                                altInput.classList.remove('is-invalid');
+                                altInput.classList.add('is-valid');
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback validation if Flatpickr is not initialized
+                    if (!value || value.trim() === '') {
+                        isValid = false;
+                        input.classList.add('is-invalid');
+                        input.classList.remove('is-valid');
+                    } else {
+                        input.classList.remove('is-invalid');
+                        input.classList.add('is-valid');
+                    }
+                }
+            }
+            else if (input.type === 'number') {
                 if (!value || value === '' || parseFloat(value) <= 0) {
                     isValid = false;
                     input.classList.add('is-invalid');
@@ -104,6 +197,51 @@ function updateWarningAlertVisibility(isValid) {
             warningAlert.style.display = 'block';
         }
     }
+}
+
+/**
+ * Validates the CAE/CAI field - must have exactly 14 digits
+ * @param {HTMLElement} input - The input element to validate
+ * @returns {boolean} True if valid, false otherwise
+ */
+function validateCaecaiField(input) {
+    if (!input || input.id !== 'caecai-edit') {
+        return true;
+    }
+
+    var value = input.value || '';
+    // Remove non-digit characters for validation
+    var digitsOnly = value.replace(/\D/g, '');
+    
+    if (!value || value.trim() === '') {
+        if (input.hasAttribute('required')) {
+            input.setCustomValidity('Por favor ingrese el número de CAE / CAI.');
+            input.classList.add('is-invalid');
+            input.classList.remove('is-valid');
+            return false;
+        }
+        input.setCustomValidity('');
+        input.classList.remove('is-invalid');
+        input.classList.remove('is-valid');
+        return true;
+    }
+
+    if (digitsOnly.length !== 14) {
+        input.setCustomValidity('El nro. CAE/CAI debe tener exactamente 14 dígitos.');
+        input.classList.add('is-invalid');
+        input.classList.remove('is-valid');
+        // Update invalid-feedback message
+        var feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = 'El nro. CAE/CAI debe tener exactamente 14 dígitos.';
+        }
+        return false;
+    }
+
+    input.setCustomValidity('');
+    input.classList.remove('is-invalid');
+    input.classList.add('is-valid');
+    return true;
 }
 
 /**
@@ -176,38 +314,119 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                 }, 10);
             });
         } else {
+            // Special handling for CAE/CAI field - validate 14 digits
+            if (input.id === 'caecai-edit') {
+                // Only allow digits
+                input.addEventListener('input', function (e) {
+                    // Remove non-digit characters
+                    var value = this.value.replace(/\D/g, '');
+                    // Limit to 14 digits
+                    if (value.length > 14) {
+                        value = value.substring(0, 14);
+                    }
+                    this.value = value;
+                    validateCaecaiField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+
+                input.addEventListener('blur', function () {
+                    validateCaecaiField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+
+                // Prevent non-digit characters on keypress
+                input.addEventListener('keypress', function (e) {
+                    var char = String.fromCharCode(e.which);
+                    if (!/[0-9]/.test(char)) {
+                        e.preventDefault();
+                    }
+                });
+            }
+            // Special handling for date fields - validate date constraints
+            else if (input.id === 'fecha-factura-edit' || input.id === 'venc-caecai-edit') {
+                // Date fields are handled by Flatpickr, but we add listeners to the altInput
+                setTimeout(function() {
+                    var flatpickrInput = input.id === 'fecha-factura-edit' 
+                        ? document.querySelector('#fecha-factura-edit')
+                        : document.querySelector('#venc-caecai-edit');
+                    
+                    if (flatpickrInput && flatpickrInput._flatpickr && flatpickrInput._flatpickr.altInput) {
+                        var altInput = flatpickrInput._flatpickr.altInput;
+                        
+                        altInput.addEventListener('blur', function () {
+                            validateFirstTabFields();
+                            if (isPendingPreload) {
+                                updateTabsState(wizardElement, isPendingPreload);
+                            } else {
+                                var isValid = validateFirstTabFields();
+                                updateWarningAlertVisibility(isValid);
+                            }
+                        });
+
+                        // Listen for changes in fecha-factura to update venc-caecai minDate
+                        if (input.id === 'fecha-factura-edit') {
+                            flatpickrInput._flatpickr.config.onChange.push(function(selectedDates) {
+                                var vencInput = document.querySelector('#venc-caecai-edit');
+                                if (vencInput && vencInput._flatpickr && selectedDates.length > 0) {
+                                    vencInput._flatpickr.set('minDate', selectedDates[0]);
+                                    // Re-validate venc-caecai field
+                                    validateFirstTabFields();
+                                    if (isPendingPreload) {
+                                        updateTabsState(wizardElement, isPendingPreload);
+                                    } else {
+                                        var isValid = validateFirstTabFields();
+                                        updateWarningAlertVisibility(isValid);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }, 500);
+            }
             // For regular inputs and selects without SELECT2
-            input.addEventListener('blur', function () {
-                validateField(this);
-                if (isPendingPreload) {
-                    updateTabsState(wizardElement, isPendingPreload);
-                } else {
-                    var isValid = validateFirstTabFields();
-                    updateWarningAlertVisibility(isValid);
-                }
-            });
+            else {
+                input.addEventListener('blur', function () {
+                    validateField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
 
-            // Validate on input change
-            input.addEventListener('input', function () {
-                validateField(this);
-                if (isPendingPreload) {
-                    updateTabsState(wizardElement, isPendingPreload);
-                } else {
-                    var isValid = validateFirstTabFields();
-                    updateWarningAlertVisibility(isValid);
-                }
-            });
+                // Validate on input change
+                input.addEventListener('input', function () {
+                    validateField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
 
-            // Validate on change (for selects)
-            input.addEventListener('change', function () {
-                validateField(this);
-                if (isPendingPreload) {
-                    updateTabsState(wizardElement, isPendingPreload);
-                } else {
-                    var isValid = validateFirstTabFields();
-                    updateWarningAlertVisibility(isValid);
-                }
-            });
+                // Validate on change (for selects)
+                input.addEventListener('change', function () {
+                    validateField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+            }
         }
     });
 
