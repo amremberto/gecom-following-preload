@@ -52,6 +52,52 @@ function validateFirstTabFields() {
                     input.classList.add('is-valid');
                 }
             }
+            // Special validation for Punto de Venta field - must have maximum 5 digits
+            else if (input.id === 'punto-venta-edit') {
+                // Remove non-digit characters for validation
+                var digitsOnly = value.replace(/\D/g, '');
+                if (!value || value.trim() === '' || digitsOnly.length === 0) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                    if (input.nextElementSibling && input.nextElementSibling.classList.contains('invalid-feedback')) {
+                        input.nextElementSibling.textContent = 'Por favor ingrese el punto de venta.';
+                    }
+                } else if (digitsOnly.length > 5) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                    if (input.nextElementSibling && input.nextElementSibling.classList.contains('invalid-feedback')) {
+                        input.nextElementSibling.textContent = 'El punto de venta no debe tener más de 5 dígitos.';
+                    }
+                } else {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                }
+            }
+            // Special validation for Número de Comprobante field - must have maximum 8 digits
+            else if (input.id === 'numero-comprobante-edit') {
+                // Remove non-digit characters for validation
+                var digitsOnly = value.replace(/\D/g, '');
+                if (!value || value.trim() === '' || digitsOnly.length === 0) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                    if (input.nextElementSibling && input.nextElementSibling.classList.contains('invalid-feedback')) {
+                        input.nextElementSibling.textContent = 'Por favor ingrese el número de comprobante.';
+                    }
+                } else if (digitsOnly.length > 8) {
+                    isValid = false;
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                    if (input.nextElementSibling && input.nextElementSibling.classList.contains('invalid-feedback')) {
+                        input.nextElementSibling.textContent = 'El número de comprobante no debe tener más de 8 dígitos.';
+                    }
+                } else {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                }
+            }
             // Special validation for date fields using Flatpickr
             else if (input.id === 'fecha-factura-edit' || input.id === 'venc-caecai-edit') {
                 // Check if Flatpickr instance exists
@@ -245,11 +291,126 @@ function validateCaecaiField(input) {
 }
 
 /**
+ * Validates the Punto de Venta field - must have maximum 5 digits
+ * @param {HTMLElement} input - The input element to validate
+ * @returns {boolean} True if valid, false otherwise
+ */
+function validatePuntoDeVentaField(input) {
+    if (!input || input.id !== 'punto-venta-edit') {
+        return true;
+    }
+
+    var value = input.value || '';
+    // Remove non-digit characters for validation
+    var digitsOnly = value.replace(/\D/g, '');
+    
+    if (!value || value.trim() === '' || digitsOnly.length === 0) {
+        if (input.hasAttribute('required')) {
+            input.setCustomValidity('Por favor ingrese el punto de venta.');
+            input.classList.add('is-invalid');
+            input.classList.remove('is-valid');
+            // Update invalid-feedback message
+            var feedback = input.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+                feedback.textContent = 'Por favor ingrese el punto de venta.';
+            }
+            return false;
+        }
+        input.setCustomValidity('');
+        input.classList.remove('is-invalid');
+        input.classList.remove('is-valid');
+        return true;
+    }
+
+    if (digitsOnly.length > 5) {
+        input.setCustomValidity('El punto de venta no debe tener más de 5 dígitos.');
+        input.classList.add('is-invalid');
+        input.classList.remove('is-valid');
+        // Update invalid-feedback message
+        var feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = 'El punto de venta no debe tener más de 5 dígitos.';
+        }
+        return false;
+    }
+
+    input.setCustomValidity('');
+    input.classList.remove('is-invalid');
+    input.classList.add('is-valid');
+    return true;
+}
+
+/**
+ * Validates the Número de Comprobante field - must have maximum 8 digits
+ * @param {HTMLElement} input - The input element to validate
+ * @returns {boolean} True if valid, false otherwise
+ */
+function validateNumeroComprobanteField(input) {
+    if (!input || input.id !== 'numero-comprobante-edit') {
+        return true;
+    }
+
+    var value = input.value || '';
+    // Remove non-digit characters for validation
+    var digitsOnly = value.replace(/\D/g, '');
+    
+    if (!value || value.trim() === '' || digitsOnly.length === 0) {
+        if (input.hasAttribute('required')) {
+            input.setCustomValidity('Por favor ingrese el número de comprobante.');
+            input.classList.add('is-invalid');
+            input.classList.remove('is-valid');
+            // Update invalid-feedback message
+            var feedback = input.nextElementSibling;
+            if (feedback && feedback.classList.contains('invalid-feedback')) {
+                feedback.textContent = 'Por favor ingrese el número de comprobante.';
+            }
+            return false;
+        }
+        input.setCustomValidity('');
+        input.classList.remove('is-invalid');
+        input.classList.remove('is-valid');
+        return true;
+    }
+
+    if (digitsOnly.length > 8) {
+        input.setCustomValidity('El número de comprobante no debe tener más de 8 dígitos.');
+        input.classList.add('is-invalid');
+        input.classList.remove('is-valid');
+        // Update invalid-feedback message
+        var feedback = input.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = 'El número de comprobante no debe tener más de 8 dígitos.';
+        }
+        return false;
+    }
+
+    input.setCustomValidity('');
+    input.classList.remove('is-invalid');
+    input.classList.add('is-valid');
+    return true;
+}
+
+/**
  * Validates a single field
  * @param {HTMLElement} input - The input element to validate
  * @returns {boolean} True if valid, false otherwise
  */
 function validateField(input) {
+    // Special validation for CAE/CAI field
+    if (input.id === 'caecai-edit') {
+        return validateCaecaiField(input);
+    }
+    
+    // Special validation for Punto de Venta field
+    if (input.id === 'punto-venta-edit') {
+        return validatePuntoDeVentaField(input);
+    }
+    
+    // Special validation for Número de Comprobante field
+    if (input.id === 'numero-comprobante-edit') {
+        return validateNumeroComprobanteField(input);
+    }
+    
     if (input.hasAttribute('required')) {
         if (input.type === 'text' || input.type === 'number') {
             if (!input.value || input.value.trim() === '') {
@@ -336,6 +497,82 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
 
                 input.addEventListener('blur', function () {
                     validateCaecaiField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+
+                // Prevent non-digit characters on keypress
+                input.addEventListener('keypress', function (e) {
+                    var char = String.fromCharCode(e.which);
+                    if (!/[0-9]/.test(char)) {
+                        e.preventDefault();
+                    }
+                });
+            }
+            // Special handling for Punto de Venta field - validate maximum 5 digits
+            else if (input.id === 'punto-venta-edit') {
+                // Only allow digits
+                input.addEventListener('input', function (e) {
+                    // Remove non-digit characters
+                    var value = this.value.replace(/\D/g, '');
+                    // Limit to 5 digits
+                    if (value.length > 5) {
+                        value = value.substring(0, 5);
+                    }
+                    this.value = value;
+                    validatePuntoDeVentaField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+
+                input.addEventListener('blur', function () {
+                    validatePuntoDeVentaField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+
+                // Prevent non-digit characters on keypress
+                input.addEventListener('keypress', function (e) {
+                    var char = String.fromCharCode(e.which);
+                    if (!/[0-9]/.test(char)) {
+                        e.preventDefault();
+                    }
+                });
+            }
+            // Special handling for Número de Comprobante field - validate maximum 8 digits
+            else if (input.id === 'numero-comprobante-edit') {
+                // Only allow digits
+                input.addEventListener('input', function (e) {
+                    // Remove non-digit characters
+                    var value = this.value.replace(/\D/g, '');
+                    // Limit to 8 digits
+                    if (value.length > 8) {
+                        value = value.substring(0, 8);
+                    }
+                    this.value = value;
+                    validateNumeroComprobanteField(this);
+                    if (isPendingPreload) {
+                        updateTabsState(wizardElement, isPendingPreload);
+                    } else {
+                        var isValid = validateFirstTabFields();
+                        updateWarningAlertVisibility(isValid);
+                    }
+                });
+
+                input.addEventListener('blur', function () {
+                    validateNumeroComprobanteField(this);
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
