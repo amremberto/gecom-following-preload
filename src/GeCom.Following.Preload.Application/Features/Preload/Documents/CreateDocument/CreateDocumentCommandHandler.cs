@@ -40,14 +40,14 @@ internal sealed class CreateDocumentCommandHandler : ICommandHandler<CreateDocum
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // Buscar el estado con código "Precargado"
-        State? precargadoState = await _stateRepository.GetByCodeAsync("Precargado", cancellationToken);
-        if (precargadoState is null)
+        // Buscar el estado con código "PendPrecarga"
+        State? pendPrecargaState = await _stateRepository.GetByCodeAsync("PendPrecarga", cancellationToken);
+        if (pendPrecargaState is null)
         {
             return Result.Failure<DocumentResponse>(
                 Error.NotFound(
                     "State.NotFound",
-                    "State with code 'Precargado' was not found. Please ensure the state exists in the database."));
+                    "State with code 'PendPrecarga' was not found. Please ensure the state exists in the database."));
         }
 
         // Crear la nueva entidad Document
@@ -63,7 +63,7 @@ internal sealed class CreateDocumentCommandHandler : ICommandHandler<CreateDocum
             MontoBruto = request.MontoBruto,
             Caecai = request.Caecai,
             VencimientoCaecai = request.VencimientoCaecai,
-            EstadoId = precargadoState.EstadoId,
+            EstadoId = pendPrecargaState.EstadoId,
             NombreSolicitante = request.NombreSolicitante,
             FechaCreacion = DateTime.UtcNow
         };

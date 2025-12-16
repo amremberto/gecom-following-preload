@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Application.Abstractions.Messaging;
+﻿using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Application.Abstractions.Storage;
 using GeCom.Following.Preload.Application.Mappings;
@@ -6,7 +6,6 @@ using GeCom.Following.Preload.Application.Preload.Attachments.Interfaces;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Domain.Preloads.Attachments;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
-using GeCom.Following.Preload.Domain.Preloads.DocumentStates;
 using GeCom.Following.Preload.Domain.Preloads.States;
 using GeCom.Following.Preload.SharedKernel.Errors;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
@@ -22,7 +21,7 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
     private readonly IDocumentRepository _documentRepository;
     private readonly IStateRepository _stateRepository;
     private readonly IAttachmentRepository _attachmentRepository;
-    private readonly IDocumentStateRepository _documentStateRepository;
+    //private readonly IDocumentStateRepository _documentStateRepository
     private readonly IStorageService _storageService;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -32,21 +31,20 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
     /// <param name="documentRepository">The document repository.</param>
     /// <param name="stateRepository">The state repository.</param>
     /// <param name="attachmentRepository">The attachment repository.</param>
-    /// <param name="documentStateRepository">The document state repository.</param>
     /// <param name="storageService">The storage service.</param>
     /// <param name="unitOfWork">The unit of work.</param>
     public PreloadDocumentCommandHandler(
         IDocumentRepository documentRepository,
         IStateRepository stateRepository,
         IAttachmentRepository attachmentRepository,
-        IDocumentStateRepository documentStateRepository,
+        /*IDocumentStateRepository documentStateRepository,*/
         IStorageService storageService,
         IUnitOfWork unitOfWork)
     {
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
         _stateRepository = stateRepository ?? throw new ArgumentNullException(nameof(stateRepository));
         _attachmentRepository = attachmentRepository ?? throw new ArgumentNullException(nameof(attachmentRepository));
-        _documentStateRepository = documentStateRepository ?? throw new ArgumentNullException(nameof(documentStateRepository));
+        /*_documentStateRepository = documentStateRepository ?? throw new ArgumentNullException(nameof(documentStateRepository))*/
         _storageService = storageService ?? throw new ArgumentNullException(nameof(storageService));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
     }
@@ -133,15 +131,9 @@ internal sealed class PreloadDocumentCommandHandler : ICommandHandler<PreloadDoc
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Crear el registro de DocumentState que relaciona el documento con su estado
-        DocumentState documentState = new()
-        {
-            DocId = addedDocument.DocId,
-            EstadoId = preloadState.EstadoId,
-            FechaCreacion = DateTime.UtcNow
-        };
-
+        // Se quita por el Trigger que lo crea automáticamente
         // Agregar el DocumentState al repositorio
-        _ = await _documentStateRepository.AddAsync(documentState, cancellationToken);
+        //_ = await _documentStateRepository.AddAsync(documentState, cancellationToken)
 
         // Crear el registro de Attachment que relaciona el documento con el archivo subido
         Attachment attachment = new()

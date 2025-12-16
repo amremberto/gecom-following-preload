@@ -8,8 +8,10 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocument
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocuments;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocumentsByProvider;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
+using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
@@ -360,6 +362,67 @@ public sealed class DocumentsController : VersionedApiController
         Result<DocumentResponse> result = await Mediator.Send(query, cancellationToken);
 
         return result.Match(this);
+    }
+
+    /// <summary>
+    /// Updates an existing document.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="request">The document data to update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated document.</returns>
+    /// <response code="200">Returns the updated document.</response>
+    /// <response code="400">If the request data is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the document was not found.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpPut("{docId}")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("UpdateDocument", "Updates an existing document.")]
+    public async Task<ActionResult<DocumentResponse>> UpdateAsync(
+        int docId,
+        [FromBody] UpdateDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        // Validar que el DocId de la URL coincida con el del cuerpo del request
+        if (docId != request.DocId)
+        {
+            return BadRequest($"The DocId in the URL ({docId}) does not match the DocId in the request body ({request.DocId}).");
+        }
+
+        // Get the user email from claims
+        string? userName = User.FindFirst(ClaimTypes.Name)?.Value ??
+                           User.FindFirst("name")?.Value ?? "UnknownUser";
+        string? userEmail = User.FindFirst(ClaimTypes.Email)?.Value ??
+                            User.FindFirst("email")?.Value ?? userName;
+
+        UpdateDocumentCommand command = new(
+            request.DocId,
+            userEmail,
+            request.ProveedorCuit,
+            request.SociedadCuit,
+            request.TipoDocId,
+            request.PuntoDeVenta,
+            request.NumeroComprobante,
+            request.FechaEmisionComprobante,
+            request.Moneda,
+            request.MontoBruto,
+            request.CodigoDeBarras,
+            request.Caecai,
+            request.VencimientoCaecai,
+            request.EstadoId,
+            request.NombreSolicitante);
+
+        Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchUpdated(this);
     }
 
     /// <summary>
