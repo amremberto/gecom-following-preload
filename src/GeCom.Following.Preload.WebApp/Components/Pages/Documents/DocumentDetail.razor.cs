@@ -60,8 +60,7 @@ public partial class DocumentDetail
     /// </summary>
     private void EditDocument()
     {
-        // La edición se realizará en esta misma página en el futuro
-        // Por ahora, la página muestra todos los detalles del documento
+        NavigationManager.NavigateTo($"/documents/{DocId}/edit");
     }
 
     /// <summary>
@@ -76,8 +75,8 @@ public partial class DocumentDetail
             return "N/A";
         }
 
-        if (string.IsNullOrWhiteSpace(document.TipoDocCodigo) && 
-            string.IsNullOrWhiteSpace(document.TipoDocLetra) && 
+        if (string.IsNullOrWhiteSpace(document.TipoDocCodigo) &&
+            string.IsNullOrWhiteSpace(document.TipoDocLetra) &&
             string.IsNullOrWhiteSpace(document.TipoDocDescripcion))
         {
             return "N/A";

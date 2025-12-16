@@ -1268,7 +1268,13 @@ window.initFlatpickrWithStrictValidation = function (selector, options) {
         options.altInput = true;
         options.altFormat = "d/m/Y";
         options.dateFormat = "Y-m-d";
-        options.locale = "es";
+        
+        // Set locale to Spanish - use the locale object if available, otherwise fallback to string
+        if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.es) {
+            options.locale = flatpickr.l10ns.es;
+        } else {
+            options.locale = "es";
+        }
         
         // Restore defaultDate if it was provided
         if (defaultDate) {
