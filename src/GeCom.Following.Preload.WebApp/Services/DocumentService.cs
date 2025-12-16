@@ -1,5 +1,6 @@
-﻿using System.Globalization;
+using System.Globalization;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Options;
@@ -162,6 +163,25 @@ internal sealed class DocumentService : IDocumentService
 
         IEnumerable<DocumentResponse>? response = await _httpClientService.GetAsync<IEnumerable<DocumentResponse>>(
             requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<DocumentResponse?> UpdateAsync(
+        int docId,
+        UpdateDocumentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}", UriKind.Relative);
+
+        DocumentResponse? response = await _httpClientService.PutAsync<UpdateDocumentRequest, DocumentResponse>(
+            requestUri,
+            request,
             cancellationToken);
 
         return response;

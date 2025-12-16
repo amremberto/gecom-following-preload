@@ -1,4 +1,5 @@
-﻿using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace GeCom.Following.Preload.WebApp.Services;
@@ -98,6 +99,18 @@ public interface IDocumentService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of pending documents based on user role.</returns>
     Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates an existing document.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="request">The document data to update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated document.</returns>
+    Task<DocumentResponse?> UpdateAsync(
+        int docId,
+        UpdateDocumentRequest request,
         CancellationToken cancellationToken = default);
 }
 

@@ -4,6 +4,7 @@ using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Currencies;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.WebApp.Components.Modals;
@@ -778,6 +779,154 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Shows a confirmation dialog using SweetAlert2 (similar to "With Confirm Button" component) and returns the user's choice.
+    /// </summary>
+    /// <param name="message">The message to display in the confirmation dialog.</param>
+    /// <returns>True if user confirmed, false if cancelled.</returns>
+    [JSInvokable]
+    public async Task<bool> ShowConfirmationDialog(string message)
+    {
+        try
+        {
+            bool result = await JsRuntime.InvokeAsync<bool>("showSweetAlertConfirm",
+                "Confirmar acción",
+                message,
+                "Aceptar",
+                "Cancelar");
+            return result;
+        }
+        catch (Exception)
+        {
+            // Fallback: retornar false si SweetAlert no está disponible
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Updates the document from JavaScript when user clicks "Siguiente" with changes.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <param name="sociedadCuit">The sociedad CUIT.</param>
+    /// <param name="tipoDocId">The document type ID.</param>
+    /// <param name="puntoDeVenta">The punto de venta.</param>
+    /// <param name="numeroComprobante">The número comprobante.</param>
+    /// <param name="fechaEmisionComprobante">The fecha emisión comprobante (format: yyyy-MM-dd).</param>
+    /// <param name="moneda">The moneda.</param>
+    /// <param name="montoBruto">The monto bruto.</param>
+    /// <param name="caecai">The CAE/CAI.</param>
+    /// <param name="vencimientoCaecai">The vencimiento CAE/CAI (format: yyyy-MM-dd).</param>
+    /// <returns>An object with success status and message.</returns>
+    [JSInvokable]
+    public async Task<UpdateDocumentResult> UpdateDocumentFromWizard(
+        int docId,
+        string? sociedadCuit,
+        int? tipoDocId,
+        string? puntoDeVenta,
+        string? numeroComprobante,
+        string? fechaEmisionComprobante,
+        string? moneda,
+        decimal? montoBruto,
+        string? caecai,
+        string? vencimientoCaecai)
+    {
+        try
+        {
+            if (_selectedDocument is null)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "No hay documento seleccionado."
+                };
+            }
+
+            // Parse dates
+            DateOnly? fechaEmision = null;
+            if (!string.IsNullOrWhiteSpace(fechaEmisionComprobante) &&
+                DateOnly.TryParse(fechaEmisionComprobante, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateOnly fechaEmisionParsed))
+            {
+                fechaEmision = fechaEmisionParsed;
+            }
+
+            DateOnly? vencimiento = null;
+            if (!string.IsNullOrWhiteSpace(vencimientoCaecai) &&
+                DateOnly.TryParse(vencimientoCaecai, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateOnly vencimientoParsed))
+            {
+                vencimiento = vencimientoParsed;
+            }
+
+            // Build update request
+            UpdateDocumentRequest request = new(
+                DocId: docId,
+                ProveedorCuit: _selectedDocument.ProveedorCuit,
+                SociedadCuit: sociedadCuit,
+                TipoDocId: tipoDocId,
+                PuntoDeVenta: puntoDeVenta,
+                NumeroComprobante: numeroComprobante,
+                FechaEmisionComprobante: fechaEmision,
+                Moneda: moneda,
+                MontoBruto: montoBruto,
+                CodigoDeBarras: null,
+                Caecai: caecai,
+                VencimientoCaecai: vencimiento,
+                EstadoId: null,
+                NombreSolicitante: null);
+
+            // Call update service
+            DocumentResponse? updatedDocument = await DocumentService.UpdateAsync(docId, request, default);
+
+            if (updatedDocument is null)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "Error al actualizar el documento. No se recibió respuesta del servidor."
+                };
+            }
+
+            // Update selected document with new data
+            _selectedDocument = updatedDocument;
+
+            // Update form fields with new values
+            _selectedCurrencyCode = updatedDocument.Moneda;
+            _selectedDocumentTypeId = updatedDocument.TipoDocId;
+            _selectedFechaFactura = updatedDocument.FechaEmisionComprobante;
+            _selectedVencimientoCaecai = updatedDocument.VencimientoCaecai;
+            _selectedSocietyCuit = updatedDocument.SociedadCuit;
+            _selectedPuntoDeVenta = updatedDocument.PuntoDeVenta ?? string.Empty;
+            _selectedNumeroComprobante = updatedDocument.NumeroComprobante ?? string.Empty;
+            _selectedCaecai = updatedDocument.Caecai ?? string.Empty;
+            _selectedMontoBruto = updatedDocument.MontoBruto;
+
+            StateHasChanged();
+
+            return new UpdateDocumentResult
+            {
+                Success = true,
+                Message = "Documento actualizado exitosamente."
+            };
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al actualizar documento:", ex.Message);
+            return new UpdateDocumentResult
+            {
+                Success = false,
+                Message = $"Error al actualizar el documento: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Result object for UpdateDocumentFromWizard method.
+    /// </summary>
+    public class UpdateDocumentResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// Initializes the edit document wizard with validation.
     /// </summary>
     /// <returns></returns>
@@ -791,7 +940,8 @@ public partial class Pending : IAsyncDisposable
             _dotNetObjectReference?.Dispose();
 
             _dotNetObjectReference = DotNetObjectReference.Create(this);
-            await JsRuntime.InvokeVoidAsync("initEditDocumentWizard", isPendingPreload, _dotNetObjectReference);
+            int docId = _selectedDocument?.DocId ?? 0;
+            await JsRuntime.InvokeVoidAsync("initEditDocumentWizard", isPendingPreload, _dotNetObjectReference, docId);
         }
         catch (Exception ex)
         {

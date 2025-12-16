@@ -444,13 +444,58 @@ function validateField(input) {
 }
 
 /**
- * Sets up validation listeners for form fields
+ * Sets up validation listeners for form fields and change detection
  * @param {HTMLElement} form - The form element
  * @param {boolean} isPendingPreload - Whether the document is in "Pendiente Precarga" status
  * @param {HTMLElement} wizardElement - The wizard container element
+ * @param {Function} getInitialState - Function that returns the initial state of form fields for change detection
  */
-function setupFormValidation(form, isPendingPreload, wizardElement) {
+function setupFormValidation(form, isPendingPreload, wizardElement, getInitialState) {
     if (!form) return;
+
+    // Function to update tab restrictions based on form changes and validation
+    function updateTabRestrictionsOnChange() {
+        var initialState = getInitialState ? getInitialState() : null;
+        var isValid = validateFirstTabFields();
+        var hasChanges = initialState ? hasFormChanged(form, initialState) : false;
+        var tabLinks = wizardElement.querySelectorAll('.nav-link');
+        
+        // Block tabs if required fields are not valid (regardless of status or changes)
+        if (!isValid) {
+            tabLinks.forEach(function (link, index) {
+                if (index > 0) {
+                    // Disable direct clicking on tabs when required fields are not valid
+                    link.style.pointerEvents = 'none';
+                    link.style.opacity = '0.5';
+                    link.style.cursor = 'not-allowed';
+                }
+            });
+        }
+        // Block tabs if form has changes (only when not pending preload, as pending preload has its own validation)
+        else if (hasChanges && !isPendingPreload) {
+            tabLinks.forEach(function (link, index) {
+                if (index > 0) {
+                    // Disable direct clicking on tabs when there are changes
+                    link.style.pointerEvents = 'none';
+                    link.style.opacity = '0.5';
+                    link.style.cursor = 'not-allowed';
+                }
+            });
+        } 
+        // Re-enable tabs if fields are valid and no changes (or if pending preload and valid)
+        else {
+            tabLinks.forEach(function (link, index) {
+                if (index > 0) {
+                    // Only re-enable if not pending preload, or if pending preload and valid
+                    if (!isPendingPreload || (isPendingPreload && isValid)) {
+                        link.style.pointerEvents = '';
+                        link.style.opacity = '';
+                        link.style.cursor = '';
+                    }
+                }
+            });
+        }
+    }
 
     // Validate all required fields on initialization
     var requiredInputs = form.querySelectorAll('input[required], select[required]');
@@ -465,6 +510,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                 var selectElement = this;
                 setTimeout(function () {
                     validateField(selectElement);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -487,6 +533,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                     }
                     this.value = value;
                     validateCaecaiField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -497,6 +544,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
 
                 input.addEventListener('blur', function () {
                     validateCaecaiField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -525,6 +573,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                     }
                     this.value = value;
                     validatePuntoDeVentaField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -535,6 +584,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
 
                 input.addEventListener('blur', function () {
                     validatePuntoDeVentaField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -563,6 +613,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                     }
                     this.value = value;
                     validateNumeroComprobanteField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -573,6 +624,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
 
                 input.addEventListener('blur', function () {
                     validateNumeroComprobanteField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -602,6 +654,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                         
                         altInput.addEventListener('blur', function () {
                             validateFirstTabFields();
+                            updateTabRestrictionsOnChange();
                             if (isPendingPreload) {
                                 updateTabsState(wizardElement, isPendingPreload);
                             } else {
@@ -618,6 +671,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                                     vencInput._flatpickr.set('minDate', selectedDates[0]);
                                     // Re-validate venc-caecai field
                                     validateFirstTabFields();
+                                    updateTabRestrictionsOnChange();
                                     if (isPendingPreload) {
                                         updateTabsState(wizardElement, isPendingPreload);
                                     } else {
@@ -634,6 +688,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
             else {
                 input.addEventListener('blur', function () {
                     validateField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -645,6 +700,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                 // Validate on input change
                 input.addEventListener('input', function () {
                     validateField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -656,6 +712,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                 // Validate on change (for selects)
                 input.addEventListener('change', function () {
                     validateField(this);
+                    updateTabRestrictionsOnChange();
                     if (isPendingPreload) {
                         updateTabsState(wizardElement, isPendingPreload);
                     } else {
@@ -678,6 +735,7 @@ function setupFormValidation(form, isPendingPreload, wizardElement) {
                     // Small delay to ensure SELECT2 has updated the native select value
                     setTimeout(function () {
                         validateField(selectElement);
+                        updateTabRestrictionsOnChange();
                         if (isPendingPreload) {
                             updateTabsState(wizardElement, isPendingPreload);
                         } else {
@@ -710,18 +768,159 @@ function showValidationToast(dotNetReference, message) {
 }
 
 /**
- * Sets up navigation restrictions for "Pendiente Precarga" status
+ * Gets form data for updating document
+ * @param {HTMLElement} form - The form element
+ * @returns {Object} Object containing form field values
+ */
+function getFormData(form) {
+    if (!form) return {};
+
+    var formData = {};
+    var inputs = form.querySelectorAll('input, select, textarea');
+
+    inputs.forEach(function (input) {
+        var fieldId = input.id || input.name;
+        if (!fieldId) return;
+
+        // For SELECT2 selects, get value from SELECT2
+        if (input.tagName === 'SELECT' && typeof $ !== 'undefined' && $(input).data('select2')) {
+            formData[fieldId] = $(input).val() || '';
+        }
+        // For Flatpickr date fields, get value from altInput and convert to yyyy-MM-dd format
+        else if (input.id === 'fecha-factura-edit' || input.id === 'venc-caecai-edit') {
+            if (input._flatpickr && input._flatpickr.selectedDates && input._flatpickr.selectedDates.length > 0) {
+                var date = input._flatpickr.selectedDates[0];
+                var year = date.getFullYear();
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                var day = String(date.getDate()).padStart(2, '0');
+                formData[fieldId] = year + '-' + month + '-' + day;
+            } else {
+                formData[fieldId] = '';
+            }
+        }
+        // For regular inputs
+        else {
+            formData[fieldId] = input.value || '';
+        }
+    });
+
+    // Map field IDs to request parameter names
+    var result = {
+        docId: 0, // Will be set from document
+        sociedadCuit: formData['society-select-edit'] || '',
+        tipoDocId: formData['document-type-select-edit'] ? parseInt(formData['document-type-select-edit']) : null,
+        puntoDeVenta: formData['punto-venta-edit'] || '',
+        numeroComprobante: formData['numero-comprobante-edit'] || '',
+        fechaEmisionComprobante: formData['fecha-factura-edit'] || null,
+        moneda: formData['currency-select-edit'] || '',
+        montoBruto: formData['monto-bruto-edit'] ? parseFloat(formData['monto-bruto-edit']) : null,
+        caecai: formData['caecai-edit'] || '',
+        vencimientoCaecai: formData['venc-caecai-edit'] || null
+    };
+
+    return result;
+}
+
+/**
+ * Stores the initial state of form fields for change detection
+ * @param {HTMLElement} form - The form element
+ * @returns {Object} Object containing initial field values
+ */
+function saveInitialFormState(form) {
+    if (!form) return {};
+
+    var initialState = {};
+    var inputs = form.querySelectorAll('input, select, textarea');
+
+    inputs.forEach(function (input) {
+        var fieldId = input.id || input.name;
+        if (!fieldId) return;
+
+        // For SELECT2 selects, get value from SELECT2
+        if (input.tagName === 'SELECT' && typeof $ !== 'undefined' && $(input).data('select2')) {
+            initialState[fieldId] = $(input).val() || '';
+        }
+        // For Flatpickr date fields, get value from altInput
+        else if (input.id === 'fecha-factura-edit' || input.id === 'venc-caecai-edit') {
+            if (input._flatpickr && input._flatpickr.altInput) {
+                initialState[fieldId] = input._flatpickr.altInput.value || '';
+            } else {
+                initialState[fieldId] = input.value || '';
+            }
+        }
+        // For regular inputs
+        else {
+            initialState[fieldId] = input.value || '';
+        }
+    });
+
+    return initialState;
+}
+
+/**
+ * Detects if any form field has changed compared to initial state
+ * @param {HTMLElement} form - The form element
+ * @param {Object} initialState - The initial state of fields
+ * @returns {boolean} True if any field has changed, false otherwise
+ */
+function hasFormChanged(form, initialState) {
+    if (!form || !initialState) return false;
+
+    var inputs = form.querySelectorAll('input, select, textarea');
+
+    for (var i = 0; i < inputs.length; i++) {
+        var input = inputs[i];
+        var fieldId = input.id || input.name;
+        if (!fieldId || !initialState.hasOwnProperty(fieldId)) continue;
+
+        var currentValue = '';
+        var initialValue = initialState[fieldId] || '';
+
+        // For SELECT2 selects, get value from SELECT2
+        if (input.tagName === 'SELECT' && typeof $ !== 'undefined' && $(input).data('select2')) {
+            currentValue = $(input).val() || '';
+        }
+        // For Flatpickr date fields, get value from altInput
+        else if (input.id === 'fecha-factura-edit' || input.id === 'venc-caecai-edit') {
+            if (input._flatpickr && input._flatpickr.altInput) {
+                currentValue = input._flatpickr.altInput.value || '';
+            } else {
+                currentValue = input.value || '';
+            }
+        }
+        // For regular inputs
+        else {
+            currentValue = input.value || '';
+        }
+
+        // Compare values (normalize empty strings and null/undefined)
+        var normalizedCurrent = (currentValue || '').toString().trim();
+        var normalizedInitial = (initialValue || '').toString().trim();
+
+        if (normalizedCurrent !== normalizedInitial) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Sets up navigation restrictions for "Pendiente Precarga" status and when form has changes
  * @param {HTMLElement} wizardElement - The wizard container element
  * @param {boolean} isPendingPreload - Whether the document is in "Pendiente Precarga" status
  * @param {DotNetObjectReference} dotNetReference - Reference to the C# component for showing toast
+ * @param {Function} getInitialState - Function that returns the initial state of form fields for change detection
+ * @param {Function} updateInitialState - Function to update the initial state
  */
-function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetReference) {
-    if (!isPendingPreload) return;
-
+function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetReference, getInitialState, updateInitialState) {
     var validationMessage = 'Por favor debe completar todos los campos requeridos del documento para poder avanzar.';
+    var changeMessage = 'Debe usar el botón "Siguiente" para avanzar cuando hay cambios en los campos.';
 
     // Initially disable tabs after the first one and update warning alert visibility
-    updateTabsState(wizardElement, isPendingPreload);
+    if (isPendingPreload) {
+        updateTabsState(wizardElement, isPendingPreload);
+    }
     
     // Also check initial state for warning alert (in case not pending preload)
     if (!isPendingPreload) {
@@ -729,27 +928,79 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
         updateWarningAlertVisibility(isValid);
     }
 
-    // Prevent navigation to other tabs when clicking on disabled tabs
+    // Function to check if navigation should be blocked
+    function shouldBlockNavigation() {
+        var form = document.getElementById('documentPropertiesForm');
+        if (!form) return false;
+
+        // Block if pending preload and fields are not valid
+        if (isPendingPreload && !validateFirstTabFields()) {
+            return true;
+        }
+
+        // Block if form has changes (only for tabs after the first one)
+        var initialState = getInitialState ? getInitialState() : null;
+        if (initialState && hasFormChanged(form, initialState)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // Flag to track if navigation is coming from "Siguiente" button
+    var isNavigatingFromNextButton = false;
+
+    // Prevent navigation to other tabs when clicking on disabled tabs or when form has changes
     var tabLinks = wizardElement.querySelectorAll('.nav-link');
     tabLinks.forEach(function (link, index) {
         if (index > 0) {
             // Use capture phase to intercept before Bootstrap handles it
             link.addEventListener('click', function (e) {
-                if (isPendingPreload && !validateFirstTabFields()) {
+                var form = document.getElementById('documentPropertiesForm');
+                if (!form) return;
+
+                // Always block if required fields are not valid (regardless of status)
+                if (!validateFirstTabFields()) {
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     showValidationToast(dotNetReference, validationMessage);
                     return false;
                 }
+
+                // Block navigation if form has changes (only when clicking on tab titles, not from "Siguiente" button)
+                if (!isNavigatingFromNextButton) {
+                    var initialState = getInitialState ? getInitialState() : null;
+                    if (initialState && hasFormChanged(form, initialState)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        showValidationToast(dotNetReference, changeMessage);
+                        return false;
+                    }
+                }
             }, true);
 
             // Also intercept Bootstrap tab events
             link.addEventListener('show.bs.tab', function (e) {
-                if (isPendingPreload && !validateFirstTabFields()) {
+                var form = document.getElementById('documentPropertiesForm');
+                if (!form) return;
+
+                // Always block if required fields are not valid (regardless of status)
+                if (!validateFirstTabFields()) {
                     e.preventDefault();
                     showValidationToast(dotNetReference, validationMessage);
                     return false;
+                }
+
+                // Block navigation if form has changes (only when clicking on tab titles, not from "Siguiente" button)
+                if (!isNavigatingFromNextButton) {
+                    var initialState = getInitialState ? getInitialState() : null;
+                    if (initialState && hasFormChanged(form, initialState)) {
+                        e.preventDefault();
+                        showValidationToast(dotNetReference, changeMessage);
+                        return false;
+                    }
                 }
             });
         }
@@ -759,9 +1010,15 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
     var nextButton = wizardElement.querySelector('.next a');
     if (nextButton) {
         // Use capture phase to intercept before wizard handles it
-        nextButton.addEventListener('click', function (e) {
+        nextButton.addEventListener('click', async function (e) {
             var activeTab = wizardElement.querySelector('.nav-link.active');
-            if (activeTab && activeTab.getAttribute('href') === '#document-properties-step') {
+            var activeTabHref = activeTab ? activeTab.getAttribute('href') : null;
+            var form = document.getElementById('documentPropertiesForm');
+            if (!form) return;
+
+            // Only check for changes and validate when on the first tab (properties)
+            if (activeTabHref === '#document-properties-step') {
+                // Always validate required fields before allowing navigation
                 if (!validateFirstTabFields()) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -769,21 +1026,158 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
                     showValidationToast(dotNetReference, validationMessage);
                     return false;
                 }
+
+                // Check if form has changes
+                var initialState = getInitialState ? getInitialState() : null;
+                var hasChanges = initialState ? hasFormChanged(form, initialState) : false;
+
+                if (hasChanges) {
+                    // Prevent default navigation
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    // Show confirmation dialog using C# component
+                    var confirmed = false;
+                    if (dotNetReference && typeof dotNetReference.invokeMethodAsync === 'function') {
+                        try {
+                            confirmed = await dotNetReference.invokeMethodAsync('ShowConfirmationDialog',
+                                'Ha realizado cambios en los campos del documento. ¿Desea guardar estos cambios antes de continuar?\n\nPresione "Aceptar" para guardar y continuar, o "Cancelar" para permanecer en esta pestaña.');
+                        } catch (error) {
+                            console.error('Error al mostrar diálogo de confirmación:', error);
+                            // Fallback a confirm nativo si falla
+                            confirmed = confirm('Ha realizado cambios en los campos del documento. ¿Desea guardar estos cambios antes de continuar?\n\nPresione "Aceptar" para guardar y continuar, o "Cancelar" para permanecer en esta pestaña.');
+                        }
+                    } else {
+                        // Fallback a confirm nativo si no hay referencia DotNet
+                        confirmed = confirm('Ha realizado cambios en los campos del documento. ¿Desea guardar estos cambios antes de continuar?\n\nPresione "Aceptar" para guardar y continuar, o "Cancelar" para permanecer en esta pestaña.');
+                    }
+
+                    if (confirmed) {
+                        // User confirmed - update document
+                        try {
+                            // Get form values
+                            var formData = getFormData(form);
+                            
+                            // Get docId from wizard element data attribute or from C# method
+                            var docId = wizardElement.getAttribute('data-doc-id') ? 
+                                parseInt(wizardElement.getAttribute('data-doc-id')) : 0;
+                            
+                            if (!docId) {
+                                showValidationToast(dotNetReference, 'Error: No se pudo obtener el ID del documento.');
+                                return false;
+                            }
+                            
+                            // Call C# method to update document
+                            if (dotNetReference && typeof dotNetReference.invokeMethodAsync === 'function') {
+                                var result = await dotNetReference.invokeMethodAsync('UpdateDocumentFromWizard',
+                                    docId,
+                                    formData.sociedadCuit,
+                                    formData.tipoDocId,
+                                    formData.puntoDeVenta,
+                                    formData.numeroComprobante,
+                                    formData.fechaEmisionComprobante,
+                                    formData.moneda,
+                                    formData.montoBruto,
+                                    formData.caecai,
+                                    formData.vencimientoCaecai);
+
+                                if (result && result.success) {
+                                    // Update successful - update initial state and allow navigation
+                                    // Wait a bit for form to update from C# (StateHasChanged)
+                                    setTimeout(function() {
+                                        // Save new initial state after update
+                                        // Wait for DOM to update with new values from C#
+                                        setTimeout(function() {
+                                            var updatedState = saveInitialFormState(form);
+                                            
+                                            // Update the initial state using the update function
+                                            if (updateInitialState) {
+                                                updateInitialState(updatedState);
+                                            }
+
+                                            // Show success message
+                                            showValidationToast(dotNetReference, result.message || 'Documento actualizado exitosamente.');
+
+                                            // Set flag to allow navigation
+                                            isNavigatingFromNextButton = true;
+                                            
+                                            // Trigger wizard navigation programmatically
+                                            setTimeout(function() {
+                                                // Find next tab and activate it
+                                                var currentTabIndex = Array.from(wizardElement.querySelectorAll('.nav-link')).indexOf(activeTab);
+                                                var nextTabLink = wizardElement.querySelectorAll('.nav-link')[currentTabIndex + 1];
+                                                if (nextTabLink) {
+                                                    // Use Bootstrap tab API to switch
+                                                    var nextTab = new bootstrap.Tab(nextTabLink);
+                                                    nextTab.show();
+                                                }
+                                                
+                                                // Reset flag after navigation completes
+                                                setTimeout(function() {
+                                                    isNavigatingFromNextButton = false;
+                                                }, 200);
+                                            }, 100);
+                                        }, 500); // Wait for C# StateHasChanged to update DOM
+                                    }, 100);
+                                } else {
+                                    // Update failed - show error and prevent navigation
+                                    showValidationToast(dotNetReference, result.message || 'Error al actualizar el documento. No se pudo avanzar.');
+                                }
+                            } else {
+                                showValidationToast(dotNetReference, 'Error: No se pudo comunicar con el servidor para actualizar el documento.');
+                            }
+                        } catch (error) {
+                            console.error('Error al actualizar documento:', error);
+                            showValidationToast(dotNetReference, 'Error al actualizar el documento: ' + (error.message || 'Error desconocido'));
+                        }
+                    }
+                    // If user cancelled, do nothing (stay on current tab)
+                    return false;
+                } else {
+                    // No changes - allow normal navigation
+                    isNavigatingFromNextButton = true;
+                    
+                    // Reset flag after a short delay to allow the tab change to complete
+                    setTimeout(function() {
+                        isNavigatingFromNextButton = false;
+                    }, 100);
+                }
+            } else {
+                // Not on first tab - allow normal navigation without checking for changes
+                isNavigatingFromNextButton = true;
+                
+                // Reset flag after a short delay to allow the tab change to complete
+                setTimeout(function() {
+                    isNavigatingFromNextButton = false;
+                }, 100);
             }
         }, true);
     }
 
     // Intercept Bootstrap tab show event globally for this wizard
     wizardElement.addEventListener('show.bs.tab', function (e) {
-        if (isPendingPreload) {
-            var targetTab = e.target;
-            var targetHref = targetTab.getAttribute('href');
+        var form = document.getElementById('documentPropertiesForm');
+        if (!form) return;
 
-            // If trying to navigate away from first tab
-            if (targetHref !== '#document-properties-step') {
-                if (!validateFirstTabFields()) {
+        var targetTab = e.target;
+        var targetHref = targetTab.getAttribute('href');
+
+        // If trying to navigate away from first tab
+        if (targetHref !== '#document-properties-step') {
+            // Always block if required fields are not valid (regardless of status)
+            if (!validateFirstTabFields()) {
+                e.preventDefault();
+                showValidationToast(dotNetReference, validationMessage);
+                return false;
+            }
+
+            // Block navigation if form has changes (only when clicking on tab titles, not from "Siguiente" button)
+            if (!isNavigatingFromNextButton) {
+                var initialState = getInitialState ? getInitialState() : null;
+                if (initialState && hasFormChanged(form, initialState)) {
                     e.preventDefault();
-                    showValidationToast(dotNetReference, validationMessage);
+                    showValidationToast(dotNetReference, changeMessage);
                     return false;
                 }
             }
@@ -795,8 +1189,18 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
  * Initializes the edit document wizard with validation
  * @param {boolean} isPendingPreload - Whether the document is in "Pendiente Precarga" status
  * @param {DotNetObjectReference} dotNetReference - Reference to the C# component for showing toast
+ * @param {number} docId - The document ID
  */
-window.initEditDocumentWizard = function (isPendingPreload, dotNetReference) {
+window.initEditDocumentWizard = function (isPendingPreload, dotNetReference, docId) {
+    // Store initial state in a variable accessible to all functions
+    // Use an object to allow updating the reference
+    var initialStateContainer = { value: null };
+    
+    // Function to update the initial state (accessible from nested functions)
+    var updateInitialState = function(newState) {
+        initialStateContainer.value = newState;
+    };
+
     function initWizard() {
         var wizardElement = document.getElementById('edit-document-wizard');
         if (!wizardElement) {
@@ -811,22 +1215,58 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference) {
         }
 
         try {
+            // Store docId in wizard element for later use
+            if (docId) {
+                wizardElement.setAttribute('data-doc-id', docId.toString());
+            }
+
             // Create new wizard instance with validation
             var wizard = new Wizard('#edit-document-wizard', {
                 validate: true
             });
 
-            // Set up navigation restrictions if document is in "Pendiente Precarga" status
-            setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetReference);
-
-            // Set up form validation
+            // Get form element
             var form = document.getElementById('documentPropertiesForm');
+
+            // Set up navigation restrictions (initialState will be set later)
+            // Pass both getter and setter functions
+            setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetReference, 
+                function() {
+                    return initialStateContainer.value;
+                },
+                updateInitialState
+            );
+
+            // Set up form validation (initialState will be set later)
             if (form) {
-                setupFormValidation(form, isPendingPreload, wizardElement);
+                setupFormValidation(form, isPendingPreload, wizardElement, function() {
+                    return initialStateContainer.value;
+                });
             }
 
             // Initial validation and tabs state update after a delay to ensure SELECT2 and Flatpickr are initialized
             setTimeout(function () {
+                // Save initial state now that SELECT2 and Flatpickr are initialized
+                if (form) {
+                    initialStateContainer.value = saveInitialFormState(form);
+                    
+                    // Update tab restrictions based on initial validation state
+                    // This will block tabs if required fields are not complete
+                    var isValid = validateFirstTabFields();
+                    var tabLinks = wizardElement.querySelectorAll('.nav-link');
+                    
+                    // Block tabs if required fields are not valid (regardless of status)
+                    if (!isValid) {
+                        tabLinks.forEach(function (link, index) {
+                            if (index > 0) {
+                                link.style.pointerEvents = 'none';
+                                link.style.opacity = '0.5';
+                                link.style.cursor = 'not-allowed';
+                            }
+                        });
+                    }
+                }
+
                 if (isPendingPreload) {
                     updateTabsState(wizardElement, isPendingPreload);
                 } else {
@@ -836,7 +1276,7 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference) {
                 }
                 // Update save button visibility on initialization
                 updateSaveButtonVisibility(wizardElement);
-            }, 600);
+            }, 800);
 
             // Set up event listener to update save button visibility when tab changes
             setupSaveButtonVisibility(wizardElement);

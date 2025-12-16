@@ -426,3 +426,42 @@ window.loadSweetAlerts = function () {
     });
   });
 };
+
+/**
+ * Shows a SweetAlert confirmation dialog (similar to "With Confirm Button" component)
+ * This function can be called from C# code via IJSRuntime
+ * @param {string} title - The title of the dialog
+ * @param {string} text - The message text
+ * @param {string} confirmButtonText - Text for confirm button (default: "Aceptar")
+ * @param {string} cancelButtonText - Text for cancel button (default: "Cancelar")
+ * @returns {Promise<boolean>} Promise that resolves to true if confirmed, false if cancelled
+ */
+window.showSweetAlertConfirm = async function (title, text, confirmButtonText, cancelButtonText) {
+    if (typeof Swal === 'undefined') {
+        console.error('SweetAlert2 is not loaded');
+        return false;
+    }
+
+    try {
+        const result = await Swal.fire({
+            title: title || "¿Está seguro?",
+            text: text || "Esta acción no se puede deshacer.",
+            icon: "warning",
+            showCancelButton: true,
+            customClass: {
+                confirmButton: "btn btn-primary me-2 mt-2",
+                cancelButton: "btn btn-danger mt-2",
+            },
+            confirmButtonText: confirmButtonText || "Aceptar",
+            cancelButtonText: cancelButtonText || "Cancelar",
+            buttonsStyling: false,
+            showCloseButton: true,
+        });
+
+        // Usa la misma lógica que el componente "With Confirm Button"
+        return result.value === true;
+    } catch (error) {
+        console.error('Error showing SweetAlert confirmation:', error);
+        return false;
+    }
+};
