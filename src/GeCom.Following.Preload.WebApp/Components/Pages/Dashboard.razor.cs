@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
@@ -416,6 +416,14 @@ public partial class Dashboard : IAsyncDisposable
     private void NavigateToPendingDocuments()
     {
         NavigationManager.NavigateTo("/documents/pending");
+    }
+
+    /// <summary>
+    /// Navigates to the paid documents page.
+    /// </summary>
+    private void NavigateToPaidDocuments()
+    {
+        NavigationManager.NavigateTo("/documents/paid");
     }
 
     /// <summary>

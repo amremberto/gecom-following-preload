@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
@@ -189,16 +189,18 @@ public partial class Paid : IAsyncDisposable
 
             IEnumerable<DocumentResponse>? response;
 
-            // Use the new unified endpoint if user has one of the supported roles
+            // Use the new paid documents endpoint if user has one of the supported roles
+            // This endpoint filters documents with state code "PagadoFin"
             if (hasProviderRole || hasSocietiesRole || hasAdministratorRole || hasReadOnlyRole)
             {
-                // The backend will automatically filter based on the user's role
-                response = await DocumentService.GetByDatesAsync(_dateFrom, _dateTo, cancellationToken: default);
+                // The backend will automatically filter paid documents based on the user's role
+                response = await DocumentService.GetPaidDocumentsByDatesAsync(_dateFrom, _dateTo, cancellationToken: default);
             }
             else if (SelectedProvider is not null)
             {
                 // Fallback: If a provider is manually selected, use the old endpoint
                 // This maintains backward compatibility for other scenarios
+                // Note: This endpoint doesn't filter by paid status, so we'll filter client-side if needed
                 response = await DocumentService.GetByDatesAndProviderAsync(
                     _dateFrom,
                     _dateTo,

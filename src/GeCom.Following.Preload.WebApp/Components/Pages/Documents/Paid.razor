@@ -1,8 +1,8 @@
-@page "/documents/paid"
+﻿@page "/documents/paid"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
-<PageTitle>Documents</PageTitle>
+<PageTitle>Preload | Documents</PageTitle>
 
 <Topbar title="Documentos" />
 
@@ -79,7 +79,8 @@ else
         </div>
     </div>
     <!-- End Dates and Providers filters -->
-    <!-- Processed Documents Tab -->
+
+    <!-- Paid Documents Tab -->
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -181,7 +182,8 @@ else
             </div>
         </div>
     </div>
-    <!-- End Processed Documents Tab -->
+    <!-- End Paid Documents Tab -->
+
     <!-- Document Details - Full width modal content -->
     <div id="full-width-modal" class="modal fade" tabindex="-1" role="dialog"
          aria-labelledby="fullWidthModalLabel" aria-hidden="true">
@@ -408,9 +410,11 @@ else
         </div><!-- /.modal-dialog -->
     </div>
     <!-- End Document Details - Full width modal content -->
+
     <!-- Toast Component -->
     <Toast @ref="_toast" ToastId="processed-toast" />
     <!-- End Toast Component -->
+
     <!-- Preload Document Modal -->
     <PreloadDocumentModal @ref="_preloadModal" OnDocumentPreloaded="OnDocumentPreloaded" OnCancel="() => Task.CompletedTask" />
     <!-- End Preload Document Modal -->

@@ -34,6 +34,23 @@ public interface IDocumentService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets paid documents by emission date range from the API.
+    /// Paid documents are those with state code "PagadoFin".
+    /// The filtering is automatically handled by the backend based on user role:
+    /// - Providers: Filters by provider CUIT from claim
+    /// - Societies: Filters by all societies assigned to the user
+    /// - Administrator/ReadOnly: Returns all paid documents without filtering
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of paid documents matching the criteria based on user role.</returns>
+    Task<IEnumerable<DocumentResponse>?> GetPaidDocumentsByDatesAsync(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets documents by emission date range and provider CUIT from the API.
     /// </summary>
     /// <param name="dateFrom">Start emission date.</param>
