@@ -1,4 +1,4 @@
-﻿using GeCom.Following.Preload.Domain.Preloads.Documents;
+using GeCom.Following.Preload.Domain.Preloads.Documents;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 
 namespace GeCom.Following.Preload.Application.Abstractions.Repositories;
@@ -143,4 +143,26 @@ public interface IDocumentRepository : IRepository<Document>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of pending documents.</returns>
     Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by emission date range and state ID, optionally filtered by provider CUIT.
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="estadoId">State ID to filter by.</param>
+    /// <param name="providerCuit">Provider CUIT. If null, returns documents from all providers.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByEmissionDatesAndEstadoIdAsync(DateOnly dateFrom, DateOnly dateTo, int estadoId, string? providerCuit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by emission date range, state ID, and multiple society CUITs.
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="estadoId">State ID to filter by.</param>
+    /// <param name="societyCuits">Collection of society CUITs. If empty, returns documents from all societies.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of documents.</returns>
+    Task<IEnumerable<Document>> GetByEmissionDatesEstadoIdAndSocietyCuitsAsync(DateOnly dateFrom, DateOnly dateTo, int estadoId, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
 }

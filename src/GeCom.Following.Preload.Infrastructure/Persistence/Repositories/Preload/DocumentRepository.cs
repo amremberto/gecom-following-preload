@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
 using Microsoft.EntityFrameworkCore;
@@ -313,6 +313,84 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
 
         return await query
             .OrderBy(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Document>> GetByEmissionDatesAndEstadoIdAsync(DateOnly dateFrom, DateOnly dateTo, int estadoId, string? providerCuit, CancellationToken cancellationToken = default)
+    {
+        IQueryable<Document> query = GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.FechaEmisionComprobante.HasValue
+                && d.FechaEmisionComprobante >= dateFrom
+                && d.FechaEmisionComprobante <= dateTo
+                && d.EstadoId == estadoId);
+
+        if (!string.IsNullOrWhiteSpace(providerCuit))
+        {
+            query = query.Where(d => d.ProveedorCuit == providerCuit);
+        }
+
+        return await query
+            .OrderByDescending(d => d.FechaEmisionComprobante)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Document>> GetByEmissionDatesEstadoIdAndSocietyCuitsAsync(DateOnly dateFrom, DateOnly dateTo, int estadoId, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(societyCuits);
+
+        IQueryable<Document> query = GetQueryable()
+            .Include(d => d.Provider)
+            .Include(d => d.Society)
+            .Include(d => d.DocumentType)
+            .Include(d => d.State)
+            .Include(d => d.PurchaseOrders)
+            .Include(d => d.Notes)
+            .Where(d => d.FechaEmisionComprobante.HasValue
+                && d.FechaEmisionComprobante >= dateFrom
+                && d.FechaEmisionComprobante <= dateTo
+                && d.EstadoId == estadoId);
+
+        var societyCuitsList = societyCuits
+            .Where(cuit => !string.IsNullOrWhiteSpace(cuit))
+            .Distinct()
+            .ToList();
+
+        if (societyCuitsList.Count > 0)
+        {
+            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+            ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
+            MemberExpression property = Expression.Property(parameter, nameof(Document.SociedadCuit));
+            BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+
+            Expression? orExpression = null;
+            foreach (string cuit in societyCuitsList)
+            {
+                BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
+                orExpression = orExpression is null
+                    ? equalsExpression
+                    : Expression.OrElse(orExpression, equalsExpression);
+            }
+
+            if (orExpression is not null)
+            {
+                BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
+                var lambda = Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+                query = query.Where(lambda);
+            }
+        }
+
+        return await query
+            .OrderByDescending(d => d.FechaEmisionComprobante)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }

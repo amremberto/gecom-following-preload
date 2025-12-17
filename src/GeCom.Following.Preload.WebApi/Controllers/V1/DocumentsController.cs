@@ -5,6 +5,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocum
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentById;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPaidDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocuments;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocumentsByProvider;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
@@ -111,6 +112,76 @@ public sealed class DocumentsController : VersionedApiController
         string? providerCuit = User.FindFirst(AuthorizationConstants.SocietyCuitClaimType)?.Value;
 
         GetDocumentsByEmissionDatesQuery query = new(
+            dateFrom,
+            dateTo,
+            userRoles,
+            userEmail,
+            providerCuit);
+
+        Result<IEnumerable<DocumentResponse>> result =
+            await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
+    /// Gets paid documents by emission date range based on user role.
+    /// Paid documents are those with state code "PagadoFin".
+    /// - Providers: Returns paid documents for the provider CUIT from the user's claim.
+    /// - Societies: Returns paid documents for all societies assigned to the user.
+    /// - Administrator/ReadOnly: Returns all paid documents without filtering.
+    /// </summary>
+    /// <param name="dateFrom">Start emission date.</param>
+    /// <param name="dateTo">End emission date.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of paid documents matching the criteria based on user role.</returns>
+    /// <response code="200">Returns the list of paid documents.</response>
+    /// <response code="400">If the request parameters are invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("paid-by-dates")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(IEnumerable<DocumentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetPaidDocumentsByDates", "Gets paid documents by emission date range based on user role.")]
+    public async Task<ActionResult<IEnumerable<DocumentResponse>>> GetPaidDocumentsByDatesAsync(
+        [FromQuery] DateOnly dateFrom,
+        [FromQuery] DateOnly dateTo,
+        CancellationToken cancellationToken)
+    {
+        // Get user roles
+        var userRoles = User.Claims
+            .Where(c => c.Type == ClaimTypes.Role ||
+                        c.Type == AuthorizationConstants.RoleClaimType ||
+                        c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+            .Select(c => c.Value)
+            .Distinct()
+            .ToList();
+
+        if (userRoles.Count == 0)
+        {
+            return BadRequest("User roles not found in the authentication token.");
+        }
+
+        // Get user email (for Societies role)
+        string? userEmail = User.FindFirst("email")?.Value ??
+                           User.FindFirst(ClaimTypes.Email)?.Value;
+
+        // Validate email is present for Societies role
+        if (string.IsNullOrWhiteSpace(userEmail) &&
+            userRoles.Contains("Following.Preload.Societies", StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest("User email is required for users with Societies role, but email claim was not found in the authentication token.");
+        }
+
+        // Get provider CUIT from claim (for Providers role)
+        string? providerCuit = User.FindFirst(AuthorizationConstants.SocietyCuitClaimType)?.Value;
+
+        GetPaidDocumentsByEmissionDatesQuery query = new(
             dateFrom,
             dateTo,
             userRoles,
