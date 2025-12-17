@@ -427,6 +427,14 @@ public partial class Dashboard : IAsyncDisposable
     }
 
     /// <summary>
+    /// Navigates to the purchase orders page.
+    /// </summary>
+    private void NavigateToPurchaseOrders()
+    {
+        NavigationManager.NavigateTo("/purchase-orders");
+    }
+
+    /// <summary>
     /// Represents a claim for display purposes.
     /// </summary>
     private sealed class ClaimInfo

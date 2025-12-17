@@ -64,6 +64,9 @@ public static class ServiceCollectionExtensions
         // Register SAP provider society service
         services.AddScoped<ISapProviderSocietyService, SapProviderSocietyService>();
 
+        // Register SAP purchase order service
+        services.AddScoped<ISapPurchaseOrderService, SapPurchaseOrderService>();
+
         return services;
     }
 }

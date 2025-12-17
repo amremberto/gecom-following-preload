@@ -1,0 +1,116 @@
+@page "/purchase-orders"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders
+
+<PageTitle>Órdenes de Compra</PageTitle>
+
+<Topbar title="Órdenes de Compra" />
+
+@if (_isLoading)
+{
+    <div class="text-center py-2">
+        <button class="btn btn-primary" type="button" disabled>
+            <span class="spinner-border spinner-border-sm me-1" role="status"
+                  aria-hidden="true"></span>
+            Cargando datos....
+        </button>
+    </div>
+}
+
+<!-- Purchase Orders Tabs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                @if (_isDataTableLoading)
+                {
+                    <div class="text-center py-2">
+                        <button class="btn btn-primary" type="button" disabled>
+                            <span class="spinner-border spinner-border-sm me-1" role="status"
+                                  aria-hidden="true"></span>
+                            Cargando datos...
+                        </button>
+                    </div>
+                }
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <ul class="nav nav-tabs" id="purchaseOrdersTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="purchase-orders-tab" data-bs-toggle="tab" data-bs-target="#purchaseOrders" type="button" role="tab" aria-controls="purchaseOrders" aria-selected="true" style="color: #8B4513 !important;">
+                                <i class="ri-shopping-cart-line" style="color: #8B4513;"></i> Órdenes de Compra SAP
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="tab-content">
+                    <!-- Tab Órdenes de Compra -->
+                    <div class="tab-pane fade show active" id="purchaseOrders" role="tabpanel" aria-labelledby="purchase-orders-tab">
+                        <table id="purchase-orders-datatable" class="table table-striped w-100 nowrap">
+                    <thead>
+                        <tr>
+                            <th>ID Orden</th>
+                            <th>Nro. Documento</th>
+                            <th>Posición</th>
+                            <th>Fecha Documento</th>
+                            <th>Proveedor</th>
+                            <th>Sociedad FI</th>
+                            <th>Material</th>
+                            <th>Descripción</th>
+                            <th>Cantidad Pedida</th>
+                            <th>Cantidad Entregada</th>
+                            <th>Cantidad Facturada</th>
+                            <th>Importe Original</th>
+                            <th>Moneda</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var po in _purchaseOrders)
+                        {
+                            <tr>
+                                <td>@po.Idorden</td>
+                                <td>@po.Nrodocumento</td>
+                                <td>@po.Posicion</td>
+                                <td data-order="@(po.Fechadocumento?.ToString("yyyy-MM-dd") ?? "")">
+                                    @(po.Fechadocumento?.ToString("dd/MM/yyyy") ?? "-")
+                                </td>
+                                <td>@po.Proveedor</td>
+                                <td>@(po.Codigosociedadfi ?? "-")</td>
+                                <td>@(po.Material ?? "-")</td>
+                                <td>@(po.Textobreve ?? "-")</td>
+                                <td class="text-end">@po.Cantidadpedida.ToString("N2")</td>
+                                <td class="text-end">@po.Cantidadentregada.ToString("N2")</td>
+                                <td class="text-end">@po.Cantidadfacturada.ToString("N2")</td>
+                                <td class="text-end">@po.Importeoriginal.ToString("N2")</td>
+                                <td>@(po.Moneda ?? "-")</td>
+                                <td>
+                                    @if (po.Borrado == true)
+                                    {
+                                        <span class="badge badge-outline-danger rounded-pill">Borrado</span>
+                                    }
+                                    else if (po.Bloqueado == true)
+                                    {
+                                        <span class="badge badge-outline-warning rounded-pill">Bloqueado</span>
+                                    }
+                                    else if (po.EntregaFinal == true)
+                                    {
+                                        <span class="badge badge-outline-success rounded-pill">Entrega Final</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-outline-primary rounded-pill">Activo</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Purchase Orders Tabs -->
+
+<Toast @ref="_toast" />

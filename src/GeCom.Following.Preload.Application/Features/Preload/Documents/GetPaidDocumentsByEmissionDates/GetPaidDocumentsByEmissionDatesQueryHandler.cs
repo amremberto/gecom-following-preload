@@ -123,7 +123,7 @@ internal sealed class GetPaidDocumentsByEmissionDatesQueryHandler
             if (societyCuits.Count == 0)
             {
                 // User has no society assignments, return empty result
-                documents = Enumerable.Empty<Document>();
+                documents = [];
             }
             else
             {
@@ -138,7 +138,7 @@ internal sealed class GetPaidDocumentsByEmissionDatesQueryHandler
         else
         {
             // Unknown role: Return empty result for security
-            documents = Enumerable.Empty<Document>();
+            documents = [];
         }
 
         IEnumerable<DocumentResponse> response = documents.Select(DocumentMappings.ToResponse);

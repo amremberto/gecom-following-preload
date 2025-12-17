@@ -61,6 +61,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IDocumentStateRepository, DocumentStateRepository>();
         services.AddScoped<ISapAccountRepository, SapAccountRepository>();
         services.AddScoped<ISapProviderSocietiyRepository, SapProviderSocietiyRepository>();
+        services.AddScoped<ISapPurchaseOrderRepository, SapPurchaseOrderRepository>();
         services.AddScoped<IUserSocietyAssignmentRepository, UserSocietyAssignmentRepository>();
 
         // Register Unit of Work

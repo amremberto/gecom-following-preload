@@ -59,7 +59,7 @@
                 <div class="collapse" id="sidebarPages">
                     <ul class="sub-menu">
                         <li class="side-nav-item">
-                            <NavLink class="side-nav-link"
+                            <NavLink class="side-nav-link pending-link"
                                      href="documents/pending"
                                      Match="NavLinkMatch.All"
                                      ActiveClass="active">
@@ -68,7 +68,7 @@
                             </NavLink>
                         </li>
                         <li class="side-nav-item">
-                            <NavLink class="side-nav-link"
+                            <NavLink class="side-nav-link processed-link"
                                      href="documents/processed"
                                      Match="NavLinkMatch.All"
                                      ActiveClass="active">
@@ -77,7 +77,7 @@
                             </NavLink>
                         </li>
                         <li class="side-nav-item">
-                            <NavLink class="side-nav-link"
+                            <NavLink class="side-nav-link paid-link"
                                      href="documents/paid"
                                      Match="NavLinkMatch.All"
                                      ActiveClass="active">
@@ -93,11 +93,11 @@
 
             <!--- Purchase orders -->
             <li class="side-nav-item">
-                <NavLink class="side-nav-link"
+                <NavLink class="side-nav-link purchase-orders-link"
                          href="purchase-orders"
                          Match="NavLinkMatch.Prefix"
                          ActiveClass="active">
-                    <span class="menu-icon"><i class="ti ti-invoice"></i></span>
+                    <span class="menu-icon"><i class="ri-shopping-cart-line"></i></span>
                     <span class="menu-text">Ordenes de Compra</span>
                 </NavLink>
             </li>
@@ -108,3 +108,69 @@
     </div>
 </div>
 <!-- Sidenav Menu End -->
+
+<style>
+    /* Pendientes - Rojo (Danger) */
+    .side-nav-item.active > .pending-link,
+    .pending-link.active {
+        color: #ff5b5b !important;
+    }
+    
+    .side-nav-item.active > .pending-link .menu-icon i,
+    .pending-link.active .menu-icon i {
+        color: #ff5b5b !important;
+    }
+    
+    .pending-link:hover .menu-icon i,
+    .pending-link:hover {
+        color: #ff7a7a !important;
+    }
+
+    /* En proceso - Azul (Info) */
+    .side-nav-item.active > .processed-link,
+    .processed-link.active {
+        color: #35b8e0 !important;
+    }
+    
+    .side-nav-item.active > .processed-link .menu-icon i,
+    .processed-link.active .menu-icon i {
+        color: #35b8e0 !important;
+    }
+    
+    .processed-link:hover .menu-icon i,
+    .processed-link:hover {
+        color: #4fc4e6 !important;
+    }
+
+    /* Pagados - Verde (Success) */
+    .side-nav-item.active > .paid-link,
+    .paid-link.active {
+        color: #10c469 !important;
+    }
+    
+    .side-nav-item.active > .paid-link .menu-icon i,
+    .paid-link.active .menu-icon i {
+        color: #10c469 !important;
+    }
+    
+    .paid-link:hover .menu-icon i,
+    .paid-link:hover {
+        color: #2dd085 !important;
+    }
+
+    /* Órdenes de Compra - Marrón */
+    .side-nav-item.active > .purchase-orders-link,
+    .purchase-orders-link.active {
+        color: #8B4513 !important;
+    }
+    
+    .side-nav-item.active > .purchase-orders-link .menu-icon i,
+    .purchase-orders-link.active .menu-icon i {
+        color: #8B4513 !important;
+    }
+    
+    .purchase-orders-link:hover .menu-icon i,
+    .purchase-orders-link:hover {
+        color: #A0522D !important;
+    }
+</style>
