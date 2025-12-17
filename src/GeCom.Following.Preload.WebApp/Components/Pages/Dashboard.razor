@@ -80,20 +80,20 @@ else
             </div>
         </div>
 
-        <!-- Total Documents Card -->
+        <!-- Processed Documents Card -->
         <div class="col-md-3">
-            <div class="card bg-primary-subtle">
+            <div class="card" style="cursor: pointer; background-color: rgba(53, 184, 224, 0.1) !important;" @onclick="NavigateToProcessedDocuments">
                 <div class="card-body widget-user">
                     <div class="text-center">
                         <div class="d-flex align-items-center">
                             <div class="flex-shrink-0 me-3">
-                                <div class="avatar-lg bg-primary-subtle rounded">
-                                    <i class="ri-file-list-3-line fs-36 text-primary"></i>
+                                <div class="avatar-lg rounded" style="background-color: rgba(53, 184, 224, 0.1) !important;">
+                                    <i class="ti ti-loader fs-36" style="color: #35b8e0 !important;"></i>
                                 </div>
                             </div>
                             <div class="flex-grow-1">
-                                <h1 class="mb-1 text-primary display-4">@_totalDocuments</h1>
-                                <p class="mb-0 fw-bold fs-4">Total de Documentos</p>
+                                <h1 class="mb-1 display-4" style="color: #35b8e0 !important;">@_totalProcessedDocuments</h1>
+                                <p class="mb-0 fw-bold fs-4" style="color: #35b8e0 !important;">Documentos en Progreso</p>
                             </div>
                         </div>
                     </div>

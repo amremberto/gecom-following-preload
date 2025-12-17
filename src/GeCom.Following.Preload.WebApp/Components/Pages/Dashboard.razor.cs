@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
@@ -16,7 +16,7 @@ public partial class Dashboard : IAsyncDisposable
 {
     private bool _isLoading = true;
 
-    private int _totalDocuments;
+    private int _totalProcessedDocuments;
     private int _totalPurchaseOrders;
     private int _totalPendingDocuments;
     private int _totalPaidDocuments;
@@ -56,7 +56,7 @@ public partial class Dashboard : IAsyncDisposable
 
         if (dashboardResponse is not null)
         {
-            _totalDocuments = dashboardResponse.TotalDocuments;
+            _totalProcessedDocuments = dashboardResponse.TotalProcessedDocuments;
             _totalPurchaseOrders = dashboardResponse.TotalPurchaseOrders;
             _totalPendingDocuments = dashboardResponse.TotalPendingsDocuments;
             _totalPaidDocuments = dashboardResponse.TotalPaidDocuments;
@@ -351,7 +351,7 @@ public partial class Dashboard : IAsyncDisposable
                     // Log error (in production, use ILogger)
                     System.Diagnostics.Debug.WriteLine($"Error loading dashboard data: {ex.Message}");
                     // Set default values on error
-                    _totalDocuments = 0;
+                    _totalProcessedDocuments = 0;
                     _totalPurchaseOrders = 0;
                     _totalPendingDocuments = 0;
                     _totalPaidDocuments = 0;
@@ -424,6 +424,14 @@ public partial class Dashboard : IAsyncDisposable
     private void NavigateToPaidDocuments()
     {
         NavigationManager.NavigateTo("/documents/paid");
+    }
+
+    /// <summary>
+    /// Navigates to the processed documents page.
+    /// </summary>
+    private void NavigateToProcessedDocuments()
+    {
+        NavigationManager.NavigateTo("/documents/processed");
     }
 
     /// <summary>

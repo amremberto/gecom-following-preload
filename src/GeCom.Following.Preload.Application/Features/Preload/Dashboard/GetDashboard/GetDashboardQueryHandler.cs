@@ -1,10 +1,11 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
-using GeCom.Following.Preload.Domain.Preloads.PurchaseOrders;
 using GeCom.Following.Preload.Domain.Preloads.UserSocietyAssignments;
+using GeCom.Following.Preload.Domain.Spd_Sap.SapAccounts;
+using GeCom.Following.Preload.Domain.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.SharedKernel.Results;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -22,26 +23,30 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(2);
 
     private readonly IDocumentRepository _documentRepository;
-    private readonly IPurchaseOrderRepository _purchaseOrderRepository;
     private readonly IUserSocietyAssignmentRepository _userSocietyAssignmentRepository;
+    private readonly ISapPurchaseOrderRepository _sapPurchaseOrderRepository;
+    private readonly ISapAccountRepository _sapAccountRepository;
     private readonly IMemoryCache _memoryCache;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GetDashboardQueryHandler"/> class.
     /// </summary>
     /// <param name="documentRepository">The document repository.</param>
-    /// <param name="purchaseOrderRepository">The purchase order repository.</param>
     /// <param name="userSocietyAssignmentRepository">The user society assignment repository.</param>
+    /// <param name="sapPurchaseOrderRepository">The SAP purchase order repository.</param>
+    /// <param name="sapAccountRepository">The SAP account repository.</param>
     /// <param name="memoryCache">The memory cache.</param>
     public GetDashboardQueryHandler(
         IDocumentRepository documentRepository,
-        IPurchaseOrderRepository purchaseOrderRepository,
         IUserSocietyAssignmentRepository userSocietyAssignmentRepository,
+        ISapPurchaseOrderRepository sapPurchaseOrderRepository,
+        ISapAccountRepository sapAccountRepository,
         IMemoryCache memoryCache)
     {
         _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
-        _purchaseOrderRepository = purchaseOrderRepository ?? throw new ArgumentNullException(nameof(purchaseOrderRepository));
         _userSocietyAssignmentRepository = userSocietyAssignmentRepository ?? throw new ArgumentNullException(nameof(userSocietyAssignmentRepository));
+        _sapPurchaseOrderRepository = sapPurchaseOrderRepository ?? throw new ArgumentNullException(nameof(sapPurchaseOrderRepository));
+        _sapAccountRepository = sapAccountRepository ?? throw new ArgumentNullException(nameof(sapAccountRepository));
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
@@ -101,10 +106,9 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             IEnumerable<UserSocietyAssignment> assignments =
                 await _userSocietyAssignmentRepository.GetByEmailAsync(request.UserEmail, cancellationToken);
 
-            societyCuits = assignments
+            societyCuits = [.. assignments
                 .Select(a => a.CuitClient)
-                .Distinct()
-                .ToList();
+                .Distinct()];
 
             if (societyCuits.Count == 0)
             {
@@ -120,42 +124,15 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             return Result.Success(emptyResponse);
         }
 
-        // Build predicates based on filtering strategy
-        System.Linq.Expressions.Expression<System.Func<Document, bool>>? documentPredicate = null;
-        System.Linq.Expressions.Expression<System.Func<PurchaseOrder, bool>>? purchaseOrderPredicate = null;
-
-        if (providerCuit is not null)
-        {
-            // Filter by provider CUIT and ensure FechaEmisionComprobante is not null, FechaBaja is null, and EstadoId is not null
-            // EstadoId != null ensures we only count documents with a defined state (pending or processed)
-            string capturedProviderCuit = providerCuit;
-            documentPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.EstadoId != null && d.ProveedorCuit == capturedProviderCuit;
-            purchaseOrderPredicate = po => po.Document.FechaBaja == null && po.Document.FechaEmisionComprobante.HasValue && po.Document.EstadoId != null && po.Document.ProveedorCuit == capturedProviderCuit;
-        }
-        else if (societyCuits is not null && societyCuits.Count > 0)
-        {
-            // Filter by society CUITs
-            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
-            // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
-            documentPredicate = BuildSocietyCuitDocumentPredicate(societyCuits);
-            purchaseOrderPredicate = BuildSocietyCuitPurchaseOrderPredicate(societyCuits);
-        }
-        else
-        {
-            // Administrator or ReadOnly: Filter out deleted documents, require FechaEmisionComprobante, and EstadoId is not null
-            // EstadoId != null ensures we only count documents with a defined state (pending or processed)
-            // This ensures consistency with other roles and excludes soft-deleted documents
-            documentPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.EstadoId != null;
-            purchaseOrderPredicate = po => po.Document.FechaBaja == null && po.Document.FechaEmisionComprobante.HasValue && po.Document.EstadoId != null;
-        }
-
         // Execute COUNT queries sequentially to avoid DbContext concurrency issues
         // Note: DbContext is not thread-safe, so parallel queries on the same context would cause errors
-        int totalDocuments =
-            await _documentRepository.CountAsync(predicate: documentPredicate, cancellationToken);
 
-        int totalPurchaseOrders =
-            await _purchaseOrderRepository.CountAsync(predicate: purchaseOrderPredicate, cancellationToken);
+        // Count SAP Purchase Orders using the same logic as GetSapPurchaseOrdersQueryHandler
+        int totalPurchaseOrders = await CountSapPurchaseOrdersAsync(
+            request.UserRoles,
+            request.UserEmail,
+            request.ProviderCuit,
+            cancellationToken);
 
         // For pending documents, build predicate combining document filter with pending state
         System.Linq.Expressions.Expression<System.Func<Domain.Preloads.Documents.Document, bool>>? pendingPredicate = null;
@@ -167,7 +144,7 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             string capturedProviderCuit = providerCuit;
             pendingPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.ProveedorCuit == capturedProviderCuit && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5);
         }
-        else if (societyCuits is not null && societyCuits.Count > 0)
+        else if (societyCuits?.Count > 0)
         {
             // Filter by society CUITs AND pending state
             // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
@@ -192,7 +169,7 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             string capturedProviderCuit = providerCuit;
             paidPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.FechaPago != null && d.EstadoId == 16 && d.ProveedorCuit == capturedProviderCuit;
         }
-        else if (societyCuits is not null && societyCuits.Count > 0)
+        else if (societyCuits?.Count > 0)
         {
             // Filter by society CUITs AND paid state
             // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
@@ -207,8 +184,44 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         int totalPaidDocuments =
             await _documentRepository.CountAsync(predicate: paidPredicate, cancellationToken);
 
+        // For processed documents, build predicate combining document filter with processed state
+        // Processed documents: EstadoId != null AND EstadoId != 1, 2, 5 (not pending) AND EstadoId != 16 (not paid)
+        System.Linq.Expressions.Expression<System.Func<Domain.Preloads.Documents.Document, bool>>? processedPredicate = null;
+
+        if (providerCuit is not null)
+        {
+            string capturedProviderCuit = providerCuit;
+            processedPredicate = d => d.FechaBaja == null
+                && d.FechaEmisionComprobante.HasValue
+                && d.EstadoId != null
+                && d.EstadoId != 1
+                && d.EstadoId != 2
+                && d.EstadoId != 5
+                && d.EstadoId != 16
+                && d.ProveedorCuit == capturedProviderCuit;
+        }
+        else if (societyCuits?.Count > 0)
+        {
+            // Filter by society CUITs AND processed state
+            processedPredicate = BuildSocietyCuitProcessedDocumentPredicate(societyCuits);
+        }
+        else
+        {
+            // Only processed state filter
+            processedPredicate = d => d.FechaBaja == null
+                && d.FechaEmisionComprobante.HasValue
+                && d.EstadoId != null
+                && d.EstadoId != 1
+                && d.EstadoId != 2
+                && d.EstadoId != 5
+                && d.EstadoId != 16;
+        }
+
+        int totalProcessedDocuments =
+            await _documentRepository.CountAsync(predicate: processedPredicate, cancellationToken);
+
         DashboardResponse response = new(
-            totalDocuments,
+            totalProcessedDocuments,
             totalPurchaseOrders,
             totalPendingsDocuments,
             totalPaidDocuments);
@@ -264,91 +277,6 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
     private static bool HasRole(IReadOnlyList<string> userRoles, string role)
     {
         return userRoles.Contains(role, StringComparer.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Builds a predicate expression for filtering documents by society CUITs.
-    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
-    /// </summary>
-    /// <param name="societyCuits">List of society CUITs to filter by.</param>
-    /// <returns>Expression predicate for filtering documents.</returns>
-    private static Expression<Func<Document, bool>> BuildSocietyCuitDocumentPredicate(List<string> societyCuits)
-    {
-        ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
-        MemberExpression property = Expression.Property(parameter, nameof(Document.SociedadCuit));
-        MemberExpression fechaEmisionProperty = Expression.Property(parameter, nameof(Document.FechaEmisionComprobante));
-        MemberExpression fechaBajaProperty = Expression.Property(parameter, nameof(Document.FechaBaja));
-        MemberExpression estadoIdProperty = Expression.Property(parameter, nameof(Document.EstadoId));
-
-        BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
-        MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
-        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
-        BinaryExpression estadoIdIsNotNull = Expression.NotEqual(estadoIdProperty, Expression.Constant(null, typeof(int?)));
-
-        Expression? orExpression = null;
-        foreach (string cuit in societyCuits)
-        {
-            BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
-            orExpression = orExpression is null
-                ? equalsExpression
-                : Expression.OrElse(orExpression, equalsExpression);
-        }
-
-        if (orExpression is null)
-        {
-            // If no CUITs, return false predicate
-            return Expression.Lambda<Func<Document, bool>>(Expression.Constant(false), parameter);
-        }
-
-        // Combine: FechaBaja == null AND FechaEmisionComprobante.HasValue AND EstadoId != null AND (SociedadCuit != null AND SociedadCuit IN list)
-        BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
-        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyFilter);
-        BinaryExpression estadoIdAndFechaEmision = Expression.AndAlso(estadoIdIsNotNull, fechaEmisionAndSociety);
-        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, estadoIdAndFechaEmision);
-        return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
-    }
-
-    /// <summary>
-    /// Builds a predicate expression for filtering purchase orders by society CUITs.
-    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
-    /// </summary>
-    /// <param name="societyCuits">List of society CUITs to filter by.</param>
-    /// <returns>Expression predicate for filtering purchase orders.</returns>
-    private static Expression<Func<PurchaseOrder, bool>> BuildSocietyCuitPurchaseOrderPredicate(List<string> societyCuits)
-    {
-        ParameterExpression parameter = Expression.Parameter(typeof(PurchaseOrder), "po");
-        MemberExpression documentProperty = Expression.Property(parameter, nameof(PurchaseOrder.Document));
-        MemberExpression sociedadCuitProperty = Expression.Property(documentProperty, nameof(Document.SociedadCuit));
-        MemberExpression fechaEmisionProperty = Expression.Property(documentProperty, nameof(Document.FechaEmisionComprobante));
-        MemberExpression fechaBajaProperty = Expression.Property(documentProperty, nameof(Document.FechaBaja));
-        MemberExpression estadoIdProperty = Expression.Property(documentProperty, nameof(Document.EstadoId));
-
-        BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
-        MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
-        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
-        BinaryExpression estadoIdIsNotNull = Expression.NotEqual(estadoIdProperty, Expression.Constant(null, typeof(int?)));
-
-        Expression? orExpression = null;
-        foreach (string cuit in societyCuits)
-        {
-            BinaryExpression equalsExpression = Expression.Equal(sociedadCuitProperty, Expression.Constant(cuit, typeof(string)));
-            orExpression = orExpression is null
-                ? equalsExpression
-                : Expression.OrElse(orExpression, equalsExpression);
-        }
-
-        if (orExpression is null)
-        {
-            // If no CUITs, return false predicate
-            return Expression.Lambda<Func<PurchaseOrder, bool>>(Expression.Constant(false), parameter);
-        }
-
-        // Combine: Document.FechaBaja == null AND Document.FechaEmisionComprobante.HasValue AND Document.EstadoId != null AND (Document.SociedadCuit != null AND Document.SociedadCuit IN list)
-        BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
-        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyFilter);
-        BinaryExpression estadoIdAndFechaEmision = Expression.AndAlso(estadoIdIsNotNull, fechaEmisionAndSociety);
-        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, estadoIdAndFechaEmision);
-        return Expression.Lambda<Func<PurchaseOrder, bool>>(combinedExpression, parameter);
     }
 
     /// <summary>
@@ -446,6 +374,177 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyAndPaid);
         BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, fechaEmisionAndSociety);
         return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+    }
+
+    /// <summary>
+    /// Builds a predicate expression for filtering processed documents by society CUITs.
+    /// Processed documents: EstadoId != null AND EstadoId != 1, 2, 5 (not pending) AND EstadoId != 16 (not paid)
+    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
+    /// </summary>
+    /// <param name="societyCuits">List of society CUITs to filter by.</param>
+    /// <returns>Expression predicate for filtering processed documents.</returns>
+    private static Expression<Func<Document, bool>> BuildSocietyCuitProcessedDocumentPredicate(List<string> societyCuits)
+    {
+        ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
+        MemberExpression sociedadCuitProperty = Expression.Property(parameter, nameof(Document.SociedadCuit));
+        MemberExpression estadoIdProperty = Expression.Property(parameter, nameof(Document.EstadoId));
+        MemberExpression fechaEmisionProperty = Expression.Property(parameter, nameof(Document.FechaEmisionComprobante));
+        MemberExpression fechaBajaProperty = Expression.Property(parameter, nameof(Document.FechaBaja));
+
+        BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
+        MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
+        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
+        BinaryExpression estadoIdIsNotNull = Expression.NotEqual(estadoIdProperty, Expression.Constant(null, typeof(int?)));
+
+        BinaryExpression notEstado1 = Expression.NotEqual(estadoIdProperty, Expression.Constant((int?)1, typeof(int?)));
+        BinaryExpression notEstado2 = Expression.NotEqual(estadoIdProperty, Expression.Constant((int?)2, typeof(int?)));
+        BinaryExpression notEstado5 = Expression.NotEqual(estadoIdProperty, Expression.Constant((int?)5, typeof(int?)));
+        BinaryExpression notEstado16 = Expression.NotEqual(estadoIdProperty, Expression.Constant((int?)16, typeof(int?)));
+
+        BinaryExpression processedState = Expression.AndAlso(notEstado1, notEstado2);
+        processedState = Expression.AndAlso(processedState, notEstado5);
+        processedState = Expression.AndAlso(processedState, notEstado16);
+
+        Expression? orExpression = null;
+        foreach (string cuit in societyCuits)
+        {
+            BinaryExpression equalsExpression = Expression.Equal(sociedadCuitProperty, Expression.Constant(cuit, typeof(string)));
+            orExpression = orExpression is null
+                ? equalsExpression
+                : Expression.OrElse(orExpression, equalsExpression);
+        }
+
+        if (orExpression is null)
+        {
+            // If no CUITs, return false predicate
+            return Expression.Lambda<Func<Document, bool>>(Expression.Constant(false), parameter);
+        }
+
+        BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
+        BinaryExpression societyAndProcessed = Expression.AndAlso(societyFilter, processedState);
+        BinaryExpression estadoIdAndSociety = Expression.AndAlso(estadoIdIsNotNull, societyAndProcessed);
+        BinaryExpression fechaEmisionAndEstado = Expression.AndAlso(fechaEmisionHasValue, estadoIdAndSociety);
+        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, fechaEmisionAndEstado);
+        return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+    }
+
+    /// <summary>
+    /// Counts SAP purchase orders based on user role using the same logic as GetSapPurchaseOrdersQueryHandler.
+    /// </summary>
+    /// <param name="userRoles">User roles to determine filtering strategy.</param>
+    /// <param name="userEmail">User email (required for Societies role).</param>
+    /// <param name="providerCuit">Provider CUIT from claim (required for Providers role).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The count of SAP purchase orders.</returns>
+    private async Task<int> CountSapPurchaseOrdersAsync(
+        IReadOnlyList<string> userRoles,
+        string? userEmail,
+        string? providerCuit,
+        CancellationToken cancellationToken)
+    {
+        const string followingAdministrator = "Following.Administrator";
+        const string followingPreloadReadOnly = "Following.Preload.ReadOnly";
+        const string followingPreloadProviders = "Following.Preload.Providers";
+        const string followingPreloadSocieties = "Following.Preload.Societies";
+
+        IEnumerable<SapPurchaseOrder> purchaseOrders;
+
+        if (HasRole(userRoles, followingAdministrator) ||
+            HasRole(userRoles, followingPreloadReadOnly))
+        {
+            // Administrator or ReadOnly: Return all purchase orders
+            purchaseOrders = await _sapPurchaseOrderRepository.GetAllAsync(cancellationToken);
+        }
+        else if (HasRole(userRoles, followingPreloadProviders))
+        {
+            // Providers: Filter by provider account number obtained from CUIT
+            if (string.IsNullOrWhiteSpace(providerCuit))
+            {
+                return 0;
+            }
+
+            // Get the provider's AccountNumber from SapAccount using CUIT
+            // customertypecode = 11 for providers
+            SapAccount? providerAccount = await _sapAccountRepository.FirstOrDefaultAsync(
+                a => a.NewCuit == providerCuit && a.Customertypecode == 11,
+                cancellationToken);
+
+            if (providerAccount is null)
+            {
+                // Provider not found, return zero
+                return 0;
+            }
+
+            // Get purchase orders filtered by provider account number
+            purchaseOrders = await _sapPurchaseOrderRepository.GetByProviderAccountNumberAsync(
+                providerAccount.Accountnumber,
+                cancellationToken);
+        }
+        else if (HasRole(userRoles, followingPreloadSocieties))
+        {
+            // Societies: Filter by Sociedadfi codes from SapProviderSocietiy for societies user can upload documents to
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                return 0;
+            }
+
+            // Get all society assignments for the user
+            IEnumerable<UserSocietyAssignment> assignments =
+                await _userSocietyAssignmentRepository.GetByEmailAsync(userEmail, cancellationToken);
+
+            var societyCuits = assignments
+                .Select(a => a.CuitClient)
+                .Distinct()
+                .ToList();
+
+            if (societyCuits.Count == 0)
+            {
+                // User has no society assignments, return zero
+                return 0;
+            }
+
+            // Get AccountNumbers for societies using CUITs (customertypecode = 3 for societies)
+            var societyAccounts = new List<SapAccount>();
+            foreach (string societyCuit in societyCuits)
+            {
+                SapAccount? account = await _sapAccountRepository.FirstOrDefaultAsync(
+                    a => a.NewCuit == societyCuit && a.Customertypecode == 3,
+                    cancellationToken);
+                if (account is not null)
+                {
+                    societyAccounts.Add(account);
+                }
+            }
+
+            if (societyAccounts.Count == 0)
+            {
+                return 0;
+            }
+
+            // Get Sociedadfi codes from society AccountNumbers
+            var sociedadFiCodes = societyAccounts
+                .Where(a => !string.IsNullOrWhiteSpace(a.Accountnumber))
+                .Select(a => a.Accountnumber)
+                .Distinct()
+                .ToList();
+
+            if (sociedadFiCodes.Count == 0)
+            {
+                return 0;
+            }
+
+            // Get purchase orders filtered by Sociedadfi codes (codigosociedadfi)
+            purchaseOrders = await _sapPurchaseOrderRepository.GetBySociedadFiCodesAsync(
+                sociedadFiCodes,
+                cancellationToken);
+        }
+        else
+        {
+            // Unknown role: Return zero for security
+            return 0;
+        }
+
+        return purchaseOrders.Count();
     }
 }
 
