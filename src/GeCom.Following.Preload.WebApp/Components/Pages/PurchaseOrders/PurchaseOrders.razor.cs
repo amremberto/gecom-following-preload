@@ -19,6 +19,7 @@ public partial class PurchaseOrders : IAsyncDisposable
     private bool _isLoading = true;
     private bool _isDataTableLoading;
     private bool _hasSupportedRole;
+    private bool _isProvider;
     private IJSObjectReference? _tableDatatableModule;
     private Toast? _toast;
     private IEnumerable<SapPurchaseOrderResponse> _purchaseOrders = [];
@@ -151,6 +152,7 @@ public partial class PurchaseOrders : IAsyncDisposable
                 user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadReadOnly);
 
             _hasSupportedRole = hasProviderRole || hasSocietyRole || hasAdminRole || hasReadOnlyRole;
+            _isProvider = hasProviderRole;
         }
         catch (Exception ex)
         {

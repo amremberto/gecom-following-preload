@@ -48,59 +48,40 @@
                         <table id="purchase-orders-datatable" class="table table-striped w-100 nowrap">
                     <thead>
                         <tr>
-                            <th>ID Orden</th>
                             <th>Nro. Documento</th>
                             <th>Posición</th>
-                            <th>Fecha Documento</th>
-                            <th>Proveedor</th>
-                            <th>Sociedad FI</th>
-                            <th>Material</th>
                             <th>Descripción</th>
+                            @if (!_isProvider)
+                            {
+                                <th>Proveedor</th>
+                            }
+                            <th>Empresa</th>
                             <th>Cantidad Pedida</th>
                             <th>Cantidad Entregada</th>
                             <th>Cantidad Facturada</th>
                             <th>Importe Original</th>
                             <th>Moneda</th>
-                            <th>Estado</th>
+                            <th>Neto Anticipo</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var po in _purchaseOrders)
                         {
                             <tr>
-                                <td>@po.Idorden</td>
                                 <td>@po.Nrodocumento</td>
                                 <td>@po.Posicion</td>
-                                <td data-order="@(po.Fechadocumento?.ToString("yyyy-MM-dd") ?? "")">
-                                    @(po.Fechadocumento?.ToString("dd/MM/yyyy") ?? "-")
-                                </td>
-                                <td>@po.Proveedor</td>
-                                <td>@(po.Codigosociedadfi ?? "-")</td>
-                                <td>@(po.Material ?? "-")</td>
                                 <td>@(po.Textobreve ?? "-")</td>
+                                @if (!_isProvider)
+                                {
+                                    <td>@po.Proveedor</td>
+                                }
+                                <td>@(po.Empresa ?? "-")</td>
                                 <td class="text-end">@po.Cantidadpedida.ToString("N2")</td>
                                 <td class="text-end">@po.Cantidadentregada.ToString("N2")</td>
                                 <td class="text-end">@po.Cantidadfacturada.ToString("N2")</td>
                                 <td class="text-end">@po.Importeoriginal.ToString("N2")</td>
                                 <td>@(po.Moneda ?? "-")</td>
-                                <td>
-                                    @if (po.Borrado == true)
-                                    {
-                                        <span class="badge badge-outline-danger rounded-pill">Borrado</span>
-                                    }
-                                    else if (po.Bloqueado == true)
-                                    {
-                                        <span class="badge badge-outline-warning rounded-pill">Bloqueado</span>
-                                    }
-                                    else if (po.EntregaFinal == true)
-                                    {
-                                        <span class="badge badge-outline-success rounded-pill">Entrega Final</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge badge-outline-primary rounded-pill">Activo</span>
-                                    }
-                                </td>
+                                <td class="text-end">@(po.NetoAnticipo?.ToString("N2") ?? "-")</td>
                             </tr>
                         }
                     </tbody>
