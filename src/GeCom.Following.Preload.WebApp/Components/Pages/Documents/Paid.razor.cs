@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
@@ -136,17 +137,21 @@ public partial class Paid : IAsyncDisposable
                     _isLoading = false;
                     StateHasChanged();
                 }
+
+                // Load JavaScript modules
+                await JsRuntime.InvokeVoidAsync("loadThemeConfig");
+                await JsRuntime.InvokeVoidAsync("loadApps");
+                await InitializeDatePickers();
             }
         }
         catch (Exception ex)
         {
             // Ensure loading states are reset on error
             _isLoading = false;
+            _isDataTableLoading = false;
             await JsRuntime.InvokeVoidAsync("console.error", "Error en Documents.OnAfterRenderAsync:", ex.Message);
             StateHasChanged();
         }
-
-
     }
 
     /// <summary>
@@ -705,6 +710,17 @@ public partial class Paid : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("console.error", "Error al abrir modal de precarga:", ex.Message);
             await ShowToast("Error al intentar abrir el formulario de precarga.");
         }
+    }
+
+    /// <summary>
+    /// Initializes the date pickers using JavaScript interop.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeDatePickers()
+    {
+        await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation", "#dateFrom", new { defaultDate = _dateFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
+
+        await JsRuntime.InvokeVoidAsync("initFlatpickrWithStrictValidation", "#dateTo", new { defaultDate = _dateTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
     }
 
     /// <summary>
