@@ -7,6 +7,7 @@ public sealed record DashboardResponse(
     int TotalProcessedDocuments,
     int TotalPurchaseOrders,
     int TotalPendingsDocuments,
-    int TotalPaidDocuments
+    int TotalPaidDocuments,
+    int TotalPendingPaymentConfirmation
 );
 

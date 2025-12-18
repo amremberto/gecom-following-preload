@@ -20,6 +20,7 @@ public partial class Dashboard : IAsyncDisposable
     private int _totalPurchaseOrders;
     private int _totalPendingDocuments;
     private int _totalPaidDocuments;
+    private int _totalPendingPaymentConfirmation;
 
     private IJSObjectReference? _dashboardModule;
 
@@ -60,6 +61,7 @@ public partial class Dashboard : IAsyncDisposable
             _totalPurchaseOrders = dashboardResponse.TotalPurchaseOrders;
             _totalPendingDocuments = dashboardResponse.TotalPendingsDocuments;
             _totalPaidDocuments = dashboardResponse.TotalPaidDocuments;
+            _totalPendingPaymentConfirmation = dashboardResponse.TotalPendingPaymentConfirmation;
         }
     }
 
@@ -355,6 +357,7 @@ public partial class Dashboard : IAsyncDisposable
                     _totalPurchaseOrders = 0;
                     _totalPendingDocuments = 0;
                     _totalPaidDocuments = 0;
+                    _totalPendingPaymentConfirmation = 0;
                 }
                 finally
                 {

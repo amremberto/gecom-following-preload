@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Contracts.Preload.Dashboard;
@@ -86,7 +86,7 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             if (string.IsNullOrWhiteSpace(request.ProviderCuit))
             {
                 // If no CUIT, return zeros
-                DashboardResponse emptyResponse = new(0, 0, 0, 0);
+                DashboardResponse emptyResponse = new(0, 0, 0, 0, 0);
                 return Result.Success(emptyResponse);
             }
 
@@ -98,7 +98,7 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             if (string.IsNullOrWhiteSpace(request.UserEmail))
             {
                 // If no email, return zeros
-                DashboardResponse emptyResponse = new(0, 0, 0, 0);
+                DashboardResponse emptyResponse = new(0, 0, 0, 0, 0);
                 return Result.Success(emptyResponse);
             }
 
@@ -113,14 +113,14 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             if (societyCuits.Count == 0)
             {
                 // User has no society assignments, return zeros
-                DashboardResponse emptyResponse = new(0, 0, 0, 0);
+                DashboardResponse emptyResponse = new(0, 0, 0, 0, 0);
                 return Result.Success(emptyResponse);
             }
         }
         else
         {
             // Unknown role: Return zeros for security
-            DashboardResponse emptyResponse = new(0, 0, 0, 0);
+            DashboardResponse emptyResponse = new(0, 0, 0, 0, 0);
             return Result.Success(emptyResponse);
         }
 
@@ -184,6 +184,30 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         int totalPaidDocuments =
             await _documentRepository.CountAsync(predicate: paidPredicate, cancellationToken);
 
+        // For pending payment confirmation, build predicate combining paid document filter with IdMetodoDePago == null
+        // Documents pending payment confirmation: Same as paid documents BUT IdMetodoDePago == null
+        System.Linq.Expressions.Expression<System.Func<Domain.Preloads.Documents.Document, bool>>? pendingPaymentConfirmationPredicate = null;
+
+        if (providerCuit is not null)
+        {
+            // Filter by provider CUIT AND paid state AND IdMetodoDePago == null
+            string capturedProviderCuit = providerCuit;
+            pendingPaymentConfirmationPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.FechaPago != null && d.EstadoId == 16 && d.IdMetodoDePago == null && d.ProveedorCuit == capturedProviderCuit;
+        }
+        else if (societyCuits?.Count > 0)
+        {
+            // Filter by society CUITs AND paid state AND IdMetodoDePago == null
+            pendingPaymentConfirmationPredicate = BuildSocietyCuitPendingPaymentConfirmationPredicate(societyCuits);
+        }
+        else
+        {
+            // Only paid state filter AND IdMetodoDePago == null
+            pendingPaymentConfirmationPredicate = d => d.FechaBaja == null && d.FechaEmisionComprobante.HasValue && d.FechaPago != null && d.EstadoId == 16 && d.IdMetodoDePago == null;
+        }
+
+        int totalPendingPaymentConfirmation =
+            await _documentRepository.CountAsync(predicate: pendingPaymentConfirmationPredicate, cancellationToken);
+
         // For processed documents, build predicate combining document filter with processed state
         // Processed documents: EstadoId != null AND EstadoId != 1, 2, 5 (not pending) AND EstadoId != 16 (not paid)
         System.Linq.Expressions.Expression<System.Func<Domain.Preloads.Documents.Document, bool>>? processedPredicate = null;
@@ -224,7 +248,8 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
             totalProcessedDocuments,
             totalPurchaseOrders,
             totalPendingsDocuments,
-            totalPaidDocuments);
+            totalPaidDocuments,
+            totalPendingPaymentConfirmation);
 
         // Cache the result
         MemoryCacheEntryOptions cacheOptions = new()
@@ -372,6 +397,57 @@ internal sealed class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery
         BinaryExpression societyAndPaidState = Expression.AndAlso(societyFilter, paidState);
         BinaryExpression societyAndPaid = Expression.AndAlso(societyAndPaidState, fechaPagoIsNotNull);
         BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyAndPaid);
+        BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, fechaEmisionAndSociety);
+        return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
+    }
+
+    /// <summary>
+    /// Builds a predicate expression for filtering documents pending payment confirmation by society CUITs.
+    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
+    /// Documents pending payment confirmation: Same as paid documents BUT IdMetodoDePago == null
+    /// </summary>
+    /// <param name="societyCuits">List of society CUITs to filter by.</param>
+    /// <returns>Expression predicate for filtering documents pending payment confirmation.</returns>
+    private static Expression<Func<Document, bool>> BuildSocietyCuitPendingPaymentConfirmationPredicate(List<string> societyCuits)
+    {
+        ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
+        MemberExpression sociedadCuitProperty = Expression.Property(parameter, nameof(Document.SociedadCuit));
+        MemberExpression fechaPagoProperty = Expression.Property(parameter, nameof(Document.FechaPago));
+        MemberExpression estadoIdProperty = Expression.Property(parameter, nameof(Document.EstadoId));
+        MemberExpression fechaEmisionProperty = Expression.Property(parameter, nameof(Document.FechaEmisionComprobante));
+        MemberExpression fechaBajaProperty = Expression.Property(parameter, nameof(Document.FechaBaja));
+        MemberExpression idMetodoDePagoProperty = Expression.Property(parameter, nameof(Document.IdMetodoDePago));
+
+        BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
+        MemberExpression fechaEmisionHasValue = Expression.Property(fechaEmisionProperty, "HasValue");
+        BinaryExpression fechaBajaIsNull = Expression.Equal(fechaBajaProperty, Expression.Constant(null, typeof(DateTime?)));
+        BinaryExpression fechaPagoIsNotNull = Expression.NotEqual(fechaPagoProperty, Expression.Constant(null, typeof(DateTime?)));
+        BinaryExpression idMetodoDePagoIsNull = Expression.Equal(idMetodoDePagoProperty, Expression.Constant(null, typeof(int?)));
+        // Paid state: EstadoId == 16
+        // EstadoId is nullable, so we need to use nullable int constant
+        BinaryExpression paidState = Expression.Equal(estadoIdProperty, Expression.Constant((int?)16, typeof(int?)));
+
+        Expression? orExpression = null;
+        foreach (string cuit in societyCuits)
+        {
+            BinaryExpression equalsExpression = Expression.Equal(sociedadCuitProperty, Expression.Constant(cuit, typeof(string)));
+            orExpression = orExpression is null
+                ? equalsExpression
+                : Expression.OrElse(orExpression, equalsExpression);
+        }
+
+        if (orExpression is null)
+        {
+            // If no CUITs, return false predicate
+            return Expression.Lambda<Func<Document, bool>>(Expression.Constant(false), parameter);
+        }
+
+        // Combine: FechaBaja == null AND FechaEmisionComprobante.HasValue AND FechaPago != null AND EstadoId == 16 AND IdMetodoDePago == null AND (SociedadCuit != null) AND (SociedadCuit IN list)
+        BinaryExpression societyFilter = Expression.AndAlso(nullCheck, orExpression);
+        BinaryExpression societyAndPaidState = Expression.AndAlso(societyFilter, paidState);
+        BinaryExpression societyAndPaid = Expression.AndAlso(societyAndPaidState, fechaPagoIsNotNull);
+        BinaryExpression societyAndPendingConfirmation = Expression.AndAlso(societyAndPaid, idMetodoDePagoIsNull);
+        BinaryExpression fechaEmisionAndSociety = Expression.AndAlso(fechaEmisionHasValue, societyAndPendingConfirmation);
         BinaryExpression combinedExpression = Expression.AndAlso(fechaBajaIsNull, fechaEmisionAndSociety);
         return Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
     }
