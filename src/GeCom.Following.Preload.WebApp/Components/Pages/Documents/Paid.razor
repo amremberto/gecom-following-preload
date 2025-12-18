@@ -145,6 +145,16 @@ else
                                                     title="Ver detalles">
                                                 <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
                                             </button>
+                                            @if (doc.IdMetodoDePago is null)
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-success btn-sm p-0"
+                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        @onclick="@(() => ConfirmarPago(doc))"
+                                                        title="Confirmar el Pago">
+                                                    <i class="ri-checkbox-circle-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                            }
                                         </div>
                                     </td>
                                     <td>

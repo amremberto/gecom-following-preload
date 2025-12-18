@@ -713,6 +713,24 @@ public partial class Paid : IAsyncDisposable
     }
 
     /// <summary>
+    /// Handles the confirm payment action for a document.
+    /// </summary>
+    /// <param name="document">The document to confirm payment for.</param>
+    /// <returns></returns>
+    private async Task ConfirmarPago(DocumentResponse document)
+    {
+        try
+        {
+            await ShowToast($"Confirmando el pago del documento #{document.DocId}...", ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al confirmar el pago:", ex.Message);
+            await ShowToast("Error al confirmar el pago del documento.");
+        }
+    }
+
+    /// <summary>
     /// Initializes the date pickers using JavaScript interop.
     /// </summary>
     /// <returns></returns>
