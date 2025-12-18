@@ -1,4 +1,4 @@
-﻿@page "/documents/paid"
+@page "/documents/paid"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 
@@ -124,6 +124,7 @@ else
                                 <th>Punto de venta</th>
                                 <th>Número Comprobante</th>
                                 <th>Fecha Emisión</th>
+                                <th>Fecha Creación</th>
                                 <th>Moneda</th>
                                 <th>Monto Bruto Facturado</th>
                                 <th>Conf. de Pago</th>
@@ -161,6 +162,9 @@ else
                                     <td>@doc.NumeroComprobante</td>
                                     <td data-order="@(doc.FechaEmisionComprobante?.ToString("yyyy-MM-dd") ?? "")">
                                         @(doc.FechaEmisionComprobante?.ToString("dd/MM/yyyy"))
+                                    </td>
+                                    <td data-order="@(doc.FechaCreacion?.ToString("yyyy-MM-dd HH:mm:ss") ?? "")">
+                                        @(doc.FechaCreacion?.ToString("dd/MM/yyyy HH:mm") ?? "")
                                     </td>
                                     <td>@doc.Moneda</td>
                                     <td>@(doc.MontoBruto?.ToString("N2"))</td>
