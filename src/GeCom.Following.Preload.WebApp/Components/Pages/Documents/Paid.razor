@@ -432,4 +432,8 @@ else
     <!-- Preload Document Modal -->
     <PreloadDocumentModal @ref="_preloadModal" OnDocumentPreloaded="OnDocumentPreloaded" OnCancel="() => Task.CompletedTask" />
     <!-- End Preload Document Modal -->
+
+    <!-- Confirm Payment Modal -->
+    <ConfirmPaymentModal @ref="_confirmPaymentModal" OnPaymentConfirmed="OnPaymentConfirmed" OnCancel="() => Task.CompletedTask" />
+    <!-- End Confirm Payment Modal -->
 }

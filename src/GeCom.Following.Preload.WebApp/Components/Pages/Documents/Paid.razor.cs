@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
@@ -42,6 +42,7 @@ public partial class Paid : IAsyncDisposable
 
     private IJSObjectReference? _documentsModule;
     private PreloadDocumentModal? _preloadModal;
+    private ConfirmPaymentModal? _confirmPaymentModal;
 
     /// <summary>
     /// This method is called when the component is initialized.
@@ -721,12 +722,52 @@ public partial class Paid : IAsyncDisposable
     {
         try
         {
-            await ShowToast($"Confirmando el pago del documento #{document.DocId}...", ToastType.Info);
+            if (_confirmPaymentModal is not null)
+            {
+                await _confirmPaymentModal.ShowAsync(document);
+            }
+            else
+            {
+                await ShowToast("Error al abrir el modal de confirmación de pago.", ToastType.Error);
+            }
         }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al confirmar el pago:", ex.Message);
             await ShowToast("Error al confirmar el pago del documento.");
+        }
+    }
+
+    /// <summary>
+    /// Handles the payment confirmation event from the modal.
+    /// </summary>
+    /// <param name="paymentData">The payment confirmation data.</param>
+    /// <returns></returns>
+    private async Task OnPaymentConfirmed(PaymentConfirmationData paymentData)
+    {
+        try
+        {
+
+            // Por ahora solo mostramos un mensaje de éxito
+            await ShowToast($"Pago confirmado para el documento #{paymentData.DocumentId}. Método: {paymentData.PaymentMethod}", ToastType.Success);
+
+            // Recargar los documentos para reflejar el cambio
+            _isDataTableLoading = true;
+            StateHasChanged();
+
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
+            await GetPaidDocuments();
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al procesar la confirmación de pago:", ex.Message);
+            await ShowToast("Error al procesar la confirmación de pago.", ToastType.Error);
+        }
+        finally
+        {
+            _isDataTableLoading = false;
+            StateHasChanged();
         }
     }
 
