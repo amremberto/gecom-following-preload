@@ -202,10 +202,24 @@ window.initSocietySelect2 = function (selectedValue) {
 };
 
 /**
+ * Initializes SELECT2 for provider dropdown in edit document modal
+ * @param {string} selectedValue - Optional selected provider CUIT
+ */
+window.initProviderSelect2 = function (selectedValue) {
+    initSelect2('#provider-select-edit', {
+        placeholder: 'Seleccione un proveedor',
+        allowClear: true,
+        width: '100%',
+        dropdownParent: $('#edit-document-modal')
+    }, selectedValue);
+};
+
+/**
  * Cleans up all SELECT2 instances in the edit document modal
  */
 window.cleanupSelect2InModal = function () {
     destroySelect2('#currency-select-edit');
     destroySelect2('#document-type-select-edit');
     destroySelect2('#society-select-edit');
+    destroySelect2('#provider-select-edit');
 };

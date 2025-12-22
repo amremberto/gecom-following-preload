@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
 using Microsoft.EntityFrameworkCore;
@@ -308,7 +308,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
         else
         {
             // If no CUITs provided, return empty result
-            return Enumerable.Empty<Document>();
+            return [];
         }
 
         return await query

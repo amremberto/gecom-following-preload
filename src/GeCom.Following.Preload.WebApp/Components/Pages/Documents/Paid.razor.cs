@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;

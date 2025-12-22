@@ -6,6 +6,7 @@ using GeCom.Following.Preload.Contracts.Preload.Currencies;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
+using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Components.Shared;
@@ -28,6 +29,7 @@ public partial class Pending : IAsyncDisposable
     [Inject] private ICurrencyService CurrencyService { get; set; } = default!;
     [Inject] private IDocumentTypeService DocumentTypeService { get; set; } = default!;
     [Inject] private ISapProviderSocietyService SapProviderSocietyService { get; set; } = default!;
+    [Inject] private IProviderService ProviderService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IToastService ToastService { get; set; } = default!;
 
@@ -42,7 +44,9 @@ public partial class Pending : IAsyncDisposable
     private DotNetObjectReference<Pending>? _dotNetObjectReference;
 
     private bool _isProvider;
+    private bool _isSociety;
     private string? _providerCuit;
+    private string? _userEmail;
     private bool _hasReadOnlyRole;
     private bool _hasSupportedRole;
     private IEnumerable<DocumentResponse> _pendingDocuments = [];
@@ -55,7 +59,10 @@ public partial class Pending : IAsyncDisposable
     private DateOnly? _selectedFechaFactura;
     private DateOnly? _selectedVencimientoCaecai;
     private IEnumerable<ProviderSocietyResponse> _providerSocieties = [];
+    private IEnumerable<ProviderSocietyResponse> _availableSocieties = []; // For Society role users
+    private IEnumerable<ProviderResponse> _availableProviders = []; // For Society role users
     private string? _selectedSocietyCuit;
+    private string? _selectedProviderCuit;
 #pragma warning disable S4487 // Unread private fields - Used in Razor @bind directive
     private string _selectedPuntoDeVenta = string.Empty;
     private string _selectedNumeroComprobante = string.Empty;
@@ -322,7 +329,7 @@ public partial class Pending : IAsyncDisposable
     /// </summary>
     /// <param name="document">The document to check.</param>
     /// <returns>True if the document is in "Pendiente Precarga" status, false otherwise.</returns>
-    private static bool IsPendingPreloadStatus(DocumentResponse document)
+    private static bool IsPendingPreloadStatus(DocumentResponse? document)
     {
         if (document is null || string.IsNullOrWhiteSpace(document.EstadoDescripcion))
         {
@@ -428,16 +435,16 @@ public partial class Pending : IAsyncDisposable
         _selectedMontoBruto = null;
         StateHasChanged();
 
+        // Ensure provider and society status are checked before opening modal
+        // This ensures _isProvider, _providerCuit, _isSociety, and _userEmail are set correctly
+        await CheckIfProviderAndGetCuitAsync();
+        await CheckIfSocietyAndGetEmailAsync();
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Después de verificar roles. _isProvider: {_isProvider}, _providerCuit: {_providerCuit}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
+
         await GetDocumentWithDetails(docId);
-        await LoadCurrencies();
-        await LoadDocumentTypes();
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Después de GetDocumentWithDetails. _selectedDocument is null: {_selectedDocument is null}");
 
-        // Load provider societies if user is a provider
-        if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
-        {
-            await LoadProviderSocieties();
-        }
-
+        // Set document values FIRST before loading dropdowns
         if (_selectedDocument is not null)
         {
             // Set the selected currency code from the document
@@ -449,23 +456,94 @@ public partial class Pending : IAsyncDisposable
             _selectedVencimientoCaecai = _selectedDocument.VencimientoCaecai;
             // Set the selected society CUIT from the document
             _selectedSocietyCuit = _selectedDocument.SociedadCuit;
+            // Set the selected provider CUIT from the document (for Society role users)
+            if (_isSociety)
+            {
+                _selectedProviderCuit = _selectedDocument.ProveedorCuit;
+            }
             // Set the selected text fields from the document
             _selectedPuntoDeVenta = _selectedDocument.PuntoDeVenta ?? string.Empty;
             _selectedNumeroComprobante = _selectedDocument.NumeroComprobante ?? string.Empty;
             _selectedCaecai = _selectedDocument.Caecai ?? string.Empty;
             _selectedMontoBruto = _selectedDocument.MontoBruto;
+
+            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Valores del documento establecidos. SociedadCuit: {_selectedDocument.SociedadCuit}, ProveedorCuit: {_selectedDocument.ProveedorCuit}");
+        }
+
+        await LoadCurrencies();
+        await LoadDocumentTypes();
+
+        // Load data based on user role
+        if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+        {
+            // Provider role: Load societies that the provider can assign documents to
+            await LoadProviderSocieties();
+            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Sociedades cargadas para proveedor: {_providerSocieties.Count()}");
+            // Ensure state is updated after loading societies so the combo renders correctly
+            StateHasChanged();
+        }
+        else if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
+        {
+            // Society role: Load societies that the user has access to
+            await LoadUserSocieties();
+            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Sociedades cargadas para usuario: {_availableSocieties.Count()}");
+
+            // If document has a society, load providers for that society
+            if (_selectedDocument is not null && !string.IsNullOrWhiteSpace(_selectedDocument.SociedadCuit))
+            {
+                await LoadProvidersBySociety(_selectedDocument.SociedadCuit);
+                await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Proveedores cargados para sociedad {_selectedDocument.SociedadCuit}: {_availableProviders.Count()}");
+            }
+
+            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Valores finales. _isSociety: {_isSociety}, _userEmail: {_userEmail}, _selectedSocietyCuit: {_selectedSocietyCuit}, _selectedProviderCuit: {_selectedProviderCuit}, Societies count: {_availableSocieties.Count()}, Providers count: {_availableProviders.Count()}");
+
+            // Ensure state is updated after loading data
+            StateHasChanged();
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("console.warn", "[OpenDocumentEdit] _selectedDocument es null después de GetDocumentWithDetails");
         }
 
         _isModalLoading = false;
         StateHasChanged();
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] StateHasChanged llamado. _isProvider: {_isProvider}, _isSociety: {_isSociety}, _userEmail: {_userEmail}, _selectedSocietyCuit: {_selectedSocietyCuit}, _selectedProviderCuit: {_selectedProviderCuit}");
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Listas disponibles. _providerSocieties: {_providerSocieties.Count()}, _availableSocieties: {_availableSocieties.Count()}, _availableProviders: {_availableProviders.Count()}");
 
         if (_selectedDocument is not null)
         {
+            // Create DotNetObjectReference for callback if not exists
+            _dotNetObjectReference?.Dispose();
+            _dotNetObjectReference = DotNetObjectReference.Create(this);
+
+            // Register a global JavaScript function to store the DotNetObjectReference
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    window.setEditDocumentDotNetRef = function(dotNetRef) {
+                        window.editDocumentDotNetRef = dotNetRef;
+                    };
+                })();
+            ");
+
+            // Store the DotNetObjectReference in JavaScript
+            await JsRuntime.InvokeVoidAsync("setEditDocumentDotNetRef", _dotNetObjectReference);
+
             // Show edit modal and set up cleanup on close
             await JsRuntime.InvokeVoidAsync("eval", @"
                 (function() {
                     var modalElement = document.getElementById('edit-document-modal');
                     var modal = new bootstrap.Modal(modalElement);
+                    
+                    // Initialize SELECT2 and Flatpickr after modal is fully shown
+                    modalElement.addEventListener('shown.bs.modal', function() {
+                        // Use setTimeout to ensure DOM is completely ready, even if PDF fails to load
+                        setTimeout(function() {
+                            // Call C# method to initialize SELECT2 and Flatpickr
+                            if (window.editDocumentDotNetRef) {
+                                window.editDocumentDotNetRef.invokeMethodAsync('InitializeEditFormComponents');
+                            }
+                        }, 300);
+                    }, { once: true });
                     
                     // Clean up SELECT2, Flatpickr, and Wizard when modal is hidden
                     modalElement.addEventListener('hidden.bs.modal', function() {
@@ -481,6 +559,10 @@ public partial class Pending : IAsyncDisposable
                         var selectSociety = $('#society-select-edit');
                         if (selectSociety.data('select2')) {
                             selectSociety.select2('destroy');
+                        }
+                        var selectProvider = $('#provider-select-edit');
+                        if (selectProvider.data('select2')) {
+                            selectProvider.select2('destroy');
                         }
                         
                         // Clean up Flatpickr
@@ -513,32 +595,16 @@ public partial class Pending : IAsyncDisposable
                                 }
                             }
                         }
+                        
+                        // Clean up DotNet reference
+                        if (window.editDocumentDotNetRef) {
+                            window.editDocumentDotNetRef = null;
+                        }
                     }, { once: true });
                     
                     modal.show();
                 })();
             ");
-
-            // Initialize SELECT2 and Flatpickr after modal is shown and DOM is updated
-            await Task.Delay(300); // Delay to ensure modal and DOM are fully rendered
-
-            // Force StateHasChanged to ensure DOM is updated with current values before initializing SELECT2
-            StateHasChanged();
-            await Task.Delay(100); // Small delay to ensure DOM update is complete
-
-            await InitializeCurrencySelect2();
-            await InitializeDocumentTypeSelect2();
-
-            // Initialize society SELECT2 only if user is a provider
-            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
-            {
-                await InitializeSocietySelect2();
-            }
-
-            await InitializeDatePickers();
-
-            // Initialize wizard with validation
-            await InitializeEditDocumentWizard();
         }
         else
         {
@@ -642,7 +708,7 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Loads all provider societies from the API.
+    /// Loads all provider societies from the API (for Provider role users).
     /// </summary>
     /// <returns></returns>
     private async Task LoadProviderSocieties()
@@ -669,6 +735,81 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Loads all societies that the user has access to (for Society role users).
+    /// </summary>
+    /// <returns></returns>
+    private async Task LoadUserSocieties()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_userEmail))
+            {
+                _availableSocieties = [];
+                return;
+            }
+
+            IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByUserEmailAsync(
+                _userEmail,
+                cancellationToken: default);
+            _availableSocieties = response ?? [];
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar sociedades del usuario:", ex.Message);
+            await ShowToast("Error al cargar las sociedades disponibles.");
+            _availableSocieties = [];
+        }
+    }
+
+    /// <summary>
+    /// Loads all providers that can assign documents to a specific society (for Society role users).
+    /// </summary>
+    /// <param name="societyCuit">The society CUIT.</param>
+    /// <returns></returns>
+    private async Task LoadProvidersBySociety(string societyCuit)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(societyCuit))
+            {
+                _availableProviders = [];
+                return;
+            }
+
+            IEnumerable<ProviderSocietyResponse>? providerSocieties = await SapProviderSocietyService.GetProvidersBySocietyCuitAsync(
+                societyCuit,
+                cancellationToken: default);
+
+            if (providerSocieties is null)
+            {
+                _availableProviders = [];
+                return;
+            }
+
+            // Convert ProviderSocietyResponse to ProviderResponse by getting provider details
+            var providerCuits = providerSocieties.Select(ps => ps.Cuit).ToList();
+            var providers = new List<ProviderResponse>();
+
+            foreach (string providerCuit in providerCuits)
+            {
+                ProviderResponse? provider = await ProviderService.GetByCuitAsync(providerCuit, cancellationToken: default);
+                if (provider is not null)
+                {
+                    providers.Add(provider);
+                }
+            }
+
+            _availableProviders = providers;
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar proveedores por sociedad:", ex.Message);
+            await ShowToast("Error al cargar los proveedores disponibles.");
+            _availableProviders = [];
+        }
+    }
+
+    /// <summary>
     /// Initializes SELECT2 for the society dropdown.
     /// </summary>
     /// <returns></returns>
@@ -676,6 +817,20 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
+            // Verify element exists before initializing
+            bool elementExists = await JsRuntime.InvokeAsync<bool>("eval", @"
+                (function() {
+                    var selectElement = document.getElementById('society-select-edit');
+                    return selectElement !== null && selectElement !== undefined;
+                })();
+            ");
+
+            if (!elementExists)
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", "No se puede inicializar SELECT2 para sociedad: el elemento 'society-select-edit' no existe en el DOM");
+                return;
+            }
+
             await JsRuntime.InvokeVoidAsync("initSocietySelect2", _selectedSocietyCuit);
         }
         catch (Exception ex)
@@ -685,13 +840,64 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Initializes SELECT2 for the provider dropdown.
+    /// </summary>
+    /// <returns></returns>
+    private async Task InitializeProviderSelect2()
+    {
+        try
+        {
+            // Verify element exists before initializing
+            bool elementExists = await JsRuntime.InvokeAsync<bool>("eval", @"
+                (function() {
+                    var selectElement = document.getElementById('provider-select-edit');
+                    return selectElement !== null && selectElement !== undefined;
+                })();
+            ");
+
+            if (!elementExists)
+            {
+                await JsRuntime.InvokeVoidAsync("console.error", "No se puede inicializar SELECT2 para proveedor: el elemento 'provider-select-edit' no existe en el DOM");
+                return;
+            }
+
+            await JsRuntime.InvokeVoidAsync("initProviderSelect2", _selectedProviderCuit);
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar SELECT2 para proveedor:", ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Handles the society selection change.
     /// </summary>
     /// <param name="e">The change event arguments.</param>
     /// <returns></returns>
-    private Task OnSocietyChanged(ChangeEventArgs e)
+    private async Task OnSocietyChanged(ChangeEventArgs e)
     {
-        _selectedSocietyCuit = e.Value?.ToString();
+        string? newSocietyCuit = e.Value?.ToString();
+        _selectedSocietyCuit = newSocietyCuit;
+
+        // If user is Society role and a society is selected, load providers for that society
+        if (_isSociety && !string.IsNullOrWhiteSpace(newSocietyCuit))
+        {
+            await LoadProvidersBySociety(newSocietyCuit);
+            // Reset selected provider when society changes
+            _selectedProviderCuit = null;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Handles the provider selection change.
+    /// </summary>
+    /// <param name="e">The change event arguments.</param>
+    /// <returns></returns>
+    private Task OnProviderChanged(ChangeEventArgs e)
+    {
+        _selectedProviderCuit = e.Value?.ToString();
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -803,6 +1009,85 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Initializes SELECT2 and Flatpickr components for the edit document form.
+    /// This method is called from JavaScript after the modal is fully shown.
+    /// </summary>
+    /// <returns></returns>
+    [JSInvokable]
+    public async Task InitializeEditFormComponents()
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Iniciando. _isProvider: {_isProvider}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
+            await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Valores seleccionados. _selectedSocietyCuit: {_selectedSocietyCuit}, _selectedProviderCuit: {_selectedProviderCuit}");
+            await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Listas. _providerSocieties: {_providerSocieties.Count()}, _availableSocieties: {_availableSocieties.Count()}, _availableProviders: {_availableProviders.Count()}");
+
+            // Ensure DOM is updated with current values
+            StateHasChanged();
+            await Task.Delay(200); // Delay to ensure DOM update is complete, especially for conditionally rendered elements
+
+            // Initialize SELECT2 components
+            await InitializeCurrencySelect2();
+            await InitializeDocumentTypeSelect2();
+
+            // Initialize society SELECT2 based on user role
+            // Always initialize if user is Provider or Society, even if lists are empty (they may have document values)
+            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit) ||
+                _isSociety && !string.IsNullOrWhiteSpace(_userEmail))
+            {
+                bool elementExists = await JsRuntime.InvokeAsync<bool>("eval", @"
+                    (function() {
+                        var selectElement = document.getElementById('society-select-edit');
+                        return selectElement !== null && selectElement !== undefined;
+                    })();
+                ");
+
+                if (elementExists)
+                {
+                    await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Inicializando SELECT2 de sociedad. _selectedSocietyCuit: {_selectedSocietyCuit}");
+                    await InitializeSocietySelect2();
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("console.warn", "El elemento society-select-edit no existe en el DOM. Verificando condiciones de renderizado.");
+                }
+            }
+
+            // Initialize provider SELECT2 if user is Society role
+            // Always initialize if user is Society, even if list is empty (it may have document value)
+            if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
+            {
+                bool elementExists = await JsRuntime.InvokeAsync<bool>("eval", @"
+                    (function() {
+                        var selectElement = document.getElementById('provider-select-edit');
+                        return selectElement !== null && selectElement !== undefined;
+                    })();
+                ");
+
+                if (elementExists)
+                {
+                    await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Inicializando SELECT2 de proveedor. _selectedProviderCuit: {_selectedProviderCuit}");
+                    await InitializeProviderSelect2();
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("console.warn", "El elemento provider-select-edit no existe en el DOM.");
+                }
+            }
+
+            // Initialize date pickers
+            await InitializeDatePickers();
+
+            // Initialize wizard with validation
+            await InitializeEditDocumentWizard();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar componentes del formulario:", ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Updates the document from JavaScript when user clicks "Siguiente" with changes.
     /// </summary>
     /// <param name="docId">The document ID.</param>
@@ -855,10 +1140,28 @@ public partial class Pending : IAsyncDisposable
                 vencimiento = vencimientoParsed;
             }
 
+            // Determine provider CUIT based on user role
+            string? proveedorCuit;
+            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            {
+                // Provider role: use the logged-in provider's CUIT
+                proveedorCuit = _providerCuit;
+            }
+            else if (_isSociety && !string.IsNullOrWhiteSpace(_selectedProviderCuit))
+            {
+                // Society role: use the selected provider
+                proveedorCuit = _selectedProviderCuit;
+            }
+            else
+            {
+                // Fallback: use document's provider
+                proveedorCuit = _selectedDocument.ProveedorCuit;
+            }
+
             // Build update request
             UpdateDocumentRequest request = new(
                 DocId: docId,
-                ProveedorCuit: _selectedDocument.ProveedorCuit,
+                ProveedorCuit: proveedorCuit,
                 SociedadCuit: sociedadCuit,
                 TipoDocId: tipoDocId,
                 PuntoDeVenta: puntoDeVenta,
@@ -936,10 +1239,9 @@ public partial class Pending : IAsyncDisposable
         {
             bool isPendingPreload = _selectedDocument is not null && IsPendingPreloadStatus(_selectedDocument);
 
-            // Dispose previous reference if exists
-            _dotNetObjectReference?.Dispose();
+            // Create DotNetObjectReference if it doesn't exist (it should already exist from OpenDocumentEdit)
+            _dotNetObjectReference ??= DotNetObjectReference.Create(this);
 
-            _dotNetObjectReference = DotNetObjectReference.Create(this);
             int docId = _selectedDocument?.DocId ?? 0;
             await JsRuntime.InvokeVoidAsync("initEditDocumentWizard", isPendingPreload, _dotNetObjectReference, docId);
         }
@@ -1207,6 +1509,60 @@ public partial class Pending : IAsyncDisposable
         {
             await JsRuntime.InvokeVoidAsync("console.error", $"[HasSupportedRoleAsync] Error: {ex.Message}");
             _hasSupportedRole = false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current user is a Society and gets their email from the claim.
+    /// </summary>
+    /// <returns></returns>
+    private async Task CheckIfSocietyAndGetEmailAsync()
+    {
+        try
+        {
+            AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal? user = authState.User;
+
+            if (user is null)
+            {
+                _isSociety = false;
+                _userEmail = null;
+                return;
+            }
+
+            // Check if user has the society role
+            bool hasSocietyRole = user.IsInRole(AuthorizationConstants.Roles.FollowingPreloadSocieties) ||
+                user.HasClaim(ClaimTypes.Role, AuthorizationConstants.Roles.FollowingPreloadSocieties) ||
+                user.HasClaim(AuthorizationConstants.RoleClaimType, AuthorizationConstants.Roles.FollowingPreloadSocieties);
+
+            if (hasSocietyRole)
+            {
+                _isSociety = true;
+
+                // Get email from claim
+                Claim? emailClaim = user.FindFirst(ClaimTypes.Email) ?? user.FindFirst("email");
+                if (emailClaim is not null && !string.IsNullOrWhiteSpace(emailClaim.Value))
+                {
+                    _userEmail = emailClaim.Value;
+                    await JsRuntime.InvokeVoidAsync("console.log", $"[CheckIfSocietyAndGetEmailAsync] User is a society with email: {_userEmail}");
+                }
+                else
+                {
+                    await JsRuntime.InvokeVoidAsync("console.warn", "[CheckIfSocietyAndGetEmailAsync] User has society role but no email claim found");
+                    _userEmail = null;
+                }
+            }
+            else
+            {
+                _isSociety = false;
+                _userEmail = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"[CheckIfSocietyAndGetEmailAsync] Error: {ex.Message}");
+            _isSociety = false;
+            _userEmail = null;
         }
     }
 

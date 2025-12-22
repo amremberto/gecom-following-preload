@@ -42,4 +42,38 @@ internal sealed class SapProviderSocietyService : ISapProviderSocietyService
 
         return response;
     }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<ProviderSocietyResponse>?> GetSocietiesByUserEmailAsync(
+        string userEmail,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userEmail);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapProviderSocieties/user/{Uri.EscapeDataString(userEmail)}/societies", UriKind.Relative);
+
+        IEnumerable<ProviderSocietyResponse>? response = await _httpClientService.GetAsync<IEnumerable<ProviderSocietyResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<ProviderSocietyResponse>?> GetProvidersBySocietyCuitAsync(
+        string societyCuit,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyCuit);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapProviderSocieties/society/{Uri.EscapeDataString(societyCuit)}/providers", UriKind.Relative);
+
+        IEnumerable<ProviderSocietyResponse>? response = await _httpClientService.GetAsync<IEnumerable<ProviderSocietyResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
 }
