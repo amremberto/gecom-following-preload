@@ -260,8 +260,9 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
     }
 
     /// <inheritdoc />
-    public async Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(IEnumerable<string> societyCuits, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(string userEmail, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userEmail);
         ArgumentNullException.ThrowIfNull(societyCuits);
 
         IQueryable<Document> query = GetQueryable()
@@ -280,35 +281,53 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Distinct()
             .ToList();
 
+        // Build expression: (SociedadCuit IN societyCuitsList) OR (UserCreate == userEmail)
+        ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
+        
+        // Build society CUITs OR expression
+        Expression? societyOrExpression = null;
         if (societyCuitsList.Count > 0)
         {
-            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
-            // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
-            // Build OR expression tree manually to ensure SQL translation works correctly
-            ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
-            MemberExpression property = Expression.Property(parameter, nameof(Document.SociedadCuit));
-            BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+            MemberExpression sociedadCuitProperty = Expression.Property(parameter, nameof(Document.SociedadCuit));
+            BinaryExpression nullCheck = Expression.NotEqual(sociedadCuitProperty, Expression.Constant(null, typeof(string)));
 
-            Expression? orExpression = null;
+            Expression? cuitOrExpression = null;
             foreach (string cuit in societyCuitsList)
             {
-                BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
-                orExpression = orExpression is null
+                BinaryExpression equalsExpression = Expression.Equal(sociedadCuitProperty, Expression.Constant(cuit, typeof(string)));
+                cuitOrExpression = cuitOrExpression is null
                     ? equalsExpression
-                    : Expression.OrElse(orExpression, equalsExpression);
+                    : Expression.OrElse(cuitOrExpression, equalsExpression);
             }
 
-            if (orExpression is not null)
+            if (cuitOrExpression is not null)
             {
-                BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
-                var lambda = Expression.Lambda<Func<Document, bool>>(combinedExpression, parameter);
-                query = query.Where(lambda);
+                societyOrExpression = Expression.AndAlso(nullCheck, cuitOrExpression);
             }
+        }
+
+        // Build UserCreate == userEmail expression
+        MemberExpression userCreateProperty = Expression.Property(parameter, nameof(Document.UserCreate));
+        BinaryExpression userCreateEquals = Expression.Equal(
+            userCreateProperty,
+            Expression.Constant(userEmail, typeof(string)));
+
+        // Combine: (societyOrExpression) OR (userCreateEquals)
+        Expression? finalOrExpression = null;
+        if (societyOrExpression is not null)
+        {
+            finalOrExpression = Expression.OrElse(societyOrExpression, userCreateEquals);
         }
         else
         {
-            // If no CUITs provided, return empty result
-            return [];
+            // If no society CUITs, only filter by UserCreate
+            finalOrExpression = userCreateEquals;
+        }
+
+        if (finalOrExpression is not null)
+        {
+            var lambda = Expression.Lambda<Func<Document, bool>>(finalOrExpression, parameter);
+            query = query.Where(lambda);
         }
 
         return await query

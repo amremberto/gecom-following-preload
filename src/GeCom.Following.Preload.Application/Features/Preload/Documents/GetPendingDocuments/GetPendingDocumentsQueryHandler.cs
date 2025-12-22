@@ -1,10 +1,9 @@
-using GeCom.Following.Preload.Application.Abstractions.Messaging;
+﻿using GeCom.Following.Preload.Application.Abstractions.Messaging;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Application.Mappings;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Domain.Preloads.Documents;
 using GeCom.Following.Preload.Domain.Preloads.UserSocietyAssignments;
-using GeCom.Following.Preload.SharedKernel.Errors;
 using GeCom.Following.Preload.SharedKernel.Results;
 
 namespace GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocuments;
@@ -72,11 +71,12 @@ internal sealed class GetPendingDocumentsQueryHandler
             if (societyCuits.Count == 0)
             {
                 // User has no society assignments, return empty result
-                documents = Enumerable.Empty<Document>();
+                documents = [];
             }
             else
             {
                 documents = await _documentRepository.GetPendingBySocietyCuitsAsync(
+                    request.UserEmail,
                     societyCuits,
                     cancellationToken);
             }
@@ -84,7 +84,7 @@ internal sealed class GetPendingDocumentsQueryHandler
         else
         {
             // Unknown role: Return empty result for security
-            documents = Enumerable.Empty<Document>();
+            documents = [];
         }
 
         IEnumerable<DocumentResponse> response = documents.Select(DocumentMappings.ToResponse);

@@ -142,7 +142,7 @@ public interface IDocumentRepository : IRepository<Document>
     /// <param name="societyCuits">Collection of society CUITs.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of pending documents.</returns>
-    Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Document>> GetPendingBySocietyCuitsAsync(string userEmail, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets documents by emission date range and state ID, optionally filtered by provider CUIT.
