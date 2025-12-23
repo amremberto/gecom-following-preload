@@ -809,7 +809,7 @@
                                             </div>
                                             <div class="last" style="display: none;">
                                                 <a href="javascript:void(0);" class="btn btn-success mt-3 mt-md-0">
-                                                    <i class="ri-save-line me-1"></i>Guardar
+                                                    <i class="ri-save-line me-1"></i>Enviar a Mesa
                                                 </a>
                                             </div>
                                         </div>
@@ -861,14 +861,8 @@
                 }
             </div>
             <div class="modal-footer">
-                @if (_selectedDocument is not null && !IsPendingPreloadStatus(_selectedDocument))
-                {
-                    <button type="button" class="btn btn-primary" disabled>
-                        <i class="ri-save-line me-1"></i>Guardar Cambios
-                    </button>
-                }
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CleanupCurrencySelect2">
-                    <i class="ri-close-line me-1"></i>Cancelar
+                    <i class="ri-close-line me-1"></i>Cerrar
                 </button>
             </div>
         </div><!-- /.modal-content -->
