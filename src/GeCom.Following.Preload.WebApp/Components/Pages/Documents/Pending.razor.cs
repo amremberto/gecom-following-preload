@@ -1130,6 +1130,16 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Shows a success toast message from JavaScript. This method is called from JavaScript when an operation succeeds.
+    /// </summary>
+    /// <param name="message">The message to display.</param>
+    [JSInvokable]
+    public async Task ShowSuccessToast(string message)
+    {
+        await ShowToast(message, ToastType.Success);
+    }
+
+    /// <summary>
     /// Shows a confirmation dialog using SweetAlert2 (similar to "With Confirm Button" component) and returns the user's choice.
     /// </summary>
     /// <param name="message">The message to display in the confirmation dialog.</param>

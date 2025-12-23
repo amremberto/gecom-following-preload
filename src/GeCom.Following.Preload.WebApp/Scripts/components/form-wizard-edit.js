@@ -768,6 +768,24 @@ function showValidationToast(dotNetReference, message) {
 }
 
 /**
+ * Shows a success toast message using DotNet interop
+ * @param {DotNetObjectReference} dotNetReference - Reference to the C# component
+ * @param {string} message - The message to display
+ */
+function showSuccessToast(dotNetReference, message) {
+    if (dotNetReference && typeof dotNetReference.invokeMethodAsync === 'function') {
+        dotNetReference.invokeMethodAsync('ShowSuccessToast', message).catch(function (error) {
+            console.error('Error al mostrar toast:', error);
+            // Fallback a alert si falla el toast
+            alert(message);
+        });
+    } else {
+        // Fallback a alert si no hay referencia DotNet
+        alert(message);
+    }
+}
+
+/**
  * Gets form data for updating document
  * @param {HTMLElement} form - The form element
  * @returns {Object} Object containing form field values
@@ -1097,7 +1115,7 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
                                             }
 
                                             // Show success message
-                                            showValidationToast(dotNetReference, result.message || 'Documento actualizado exitosamente.');
+                                            showSuccessToast(dotNetReference, result.message || 'Documento actualizado exitosamente.');
 
                                             // Set flag to allow navigation
                                             isNavigatingFromNextButton = true;
