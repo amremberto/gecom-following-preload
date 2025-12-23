@@ -37,6 +37,7 @@ public partial class Pending : IAsyncDisposable
     private bool _isLoading = true;
     private bool _isDataTableLoading;
     private bool _isModalLoading;
+    private bool _documentWasUpdated; // Flag to track if document was updated and needs refresh
 
     private IJSObjectReference? _tableDatatableModule;
     private IJSObjectReference? _formWizardModule;
@@ -271,6 +272,13 @@ public partial class Pending : IAsyncDisposable
 
             _pendingDocuments = response ?? [];
         }
+        catch (TaskCanceledException)
+        {
+            // Task was canceled, likely because component was disposed or user navigated away
+            // Silently handle this case - no need to show error to user
+            await JsRuntime.InvokeVoidAsync("console.log", "Búsqueda de documentos pendientes cancelada (componente desmontado o navegación).");
+            _pendingDocuments = [];
+        }
         catch (ApiRequestException httpEx)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos pendientes:", httpEx.Message);
@@ -407,6 +415,13 @@ public partial class Pending : IAsyncDisposable
 
             _selectedDocument = response;
         }
+        catch (TaskCanceledException)
+        {
+            // Task was canceled, likely because component was disposed or user navigated away
+            // Silently handle this case - no need to show error to user
+            await JsRuntime.InvokeVoidAsync("console.log", "Búsqueda de documento cancelada (componente desmontado o navegación).");
+            _selectedDocument = null;
+        }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al buscar documentos:", ex.Message);
@@ -438,6 +453,7 @@ public partial class Pending : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(document);
 
         _isModalLoading = true;
+        _documentWasUpdated = false; // Reset flag when opening modal
         _selectedDocument = null;
         _selectedPdfFileName = string.Empty;
         _selectedCurrencyCode = null;
@@ -539,8 +555,8 @@ public partial class Pending : IAsyncDisposable
                     var modalElement = document.getElementById('edit-document-modal');
                     var modal = new bootstrap.Modal(modalElement);
                     
-                    // Initialize SELECT2 and Flatpickr after modal is fully shown
-                    modalElement.addEventListener('shown.bs.modal', function() {
+                    // Remove existing listeners to avoid duplicates
+                    var newShownHandler = function() {
                         // Use setTimeout to ensure DOM is completely ready, even if PDF fails to load
                         setTimeout(function() {
                             // Call C# method to initialize SELECT2 and Flatpickr
@@ -548,10 +564,9 @@ public partial class Pending : IAsyncDisposable
                                 window.editDocumentDotNetRef.invokeMethodAsync('InitializeEditFormComponents');
                             }
                         }, 300);
-                    }, { once: true });
+                    };
                     
-                    // Clean up SELECT2, Flatpickr, and Wizard when modal is hidden
-                    modalElement.addEventListener('hidden.bs.modal', function() {
+                    var newHiddenHandler = function() {
                         // Clean up SELECT2
                         var select = $('#currency-select-edit');
                         if (select.data('select2')) {
@@ -601,11 +616,27 @@ public partial class Pending : IAsyncDisposable
                             }
                         }
                         
+                        // Refresh dataTable if document was updated (before cleaning up DotNet reference)
+                        var dotNetRef = window.editDocumentDotNetRef;
+                        if (dotNetRef) {
+                            dotNetRef.invokeMethodAsync('RefreshDataTableIfUpdated').catch(function(error) {
+                                console.error('Error al refrescar dataTable:', error);
+                            });
+                        }
+                        
                         // Clean up DotNet reference
                         if (window.editDocumentDotNetRef) {
                             window.editDocumentDotNetRef = null;
                         }
-                    }, { once: true });
+                    };
+                    
+                    // Remove existing listeners to avoid duplicates
+                    modalElement.removeEventListener('shown.bs.modal', newShownHandler);
+                    modalElement.removeEventListener('hidden.bs.modal', newHiddenHandler);
+                    
+                    // Add event listeners
+                    modalElement.addEventListener('shown.bs.modal', newShownHandler, { once: true });
+                    modalElement.addEventListener('hidden.bs.modal', newHiddenHandler, { once: true });
                     
                     modal.show();
                 })();
@@ -764,6 +795,13 @@ public partial class Pending : IAsyncDisposable
                 cancellationToken: default);
 
             _availableProviders = providers ?? [];
+        }
+        catch (TaskCanceledException)
+        {
+            // Task was canceled, likely because component was disposed or user navigated away
+            // Silently handle this case - no need to show error to user
+            await JsRuntime.InvokeVoidAsync("console.log", "Carga de proveedores cancelada (componente desmontado o navegación).");
+            _availableProviders = [];
         }
         catch (Exception ex)
         {
@@ -1266,11 +1304,11 @@ public partial class Pending : IAsyncDisposable
             _selectedCaecai = updatedDocument.Caecai ?? string.Empty;
             _selectedMontoBruto = updatedDocument.MontoBruto;
 
-            // Update the document in the _pendingDocuments collection to reflect changes in the dataTable
-            await UpdateDocumentInPendingList(updatedDocument);
-
             // Update SELECT2 components with new values
             await InitializeProviderSelect2();
+
+            // Mark that document was updated - will refresh dataTable when modal closes
+            _documentWasUpdated = true;
 
             StateHasChanged();
 
@@ -1278,6 +1316,17 @@ public partial class Pending : IAsyncDisposable
             {
                 Success = true,
                 Message = "Documento actualizado exitosamente."
+            };
+        }
+        catch (TaskCanceledException)
+        {
+            // Task was canceled, likely because component was disposed or user navigated away
+            // Return error result but don't show toast as user may have navigated away
+            await JsRuntime.InvokeVoidAsync("console.log", "Actualización de documento cancelada (componente desmontado o navegación).");
+            return new UpdateDocumentResult
+            {
+                Success = false,
+                Message = "La actualización del documento fue cancelada."
             };
         }
         catch (Exception ex)
@@ -1292,40 +1341,60 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Updates the document in the _pendingDocuments collection and refreshes the dataTable.
+    /// Refreshes the pending documents dataTable by reloading all documents from the server.
+    /// This ensures the dataTable shows the latest data, especially after updates.
+    /// Called when modal closes if document was updated.
     /// </summary>
-    /// <param name="updatedDocument">The updated document.</param>
     /// <returns></returns>
-    private async Task UpdateDocumentInPendingList(DocumentResponse updatedDocument)
+    [JSInvokable]
+    public async Task RefreshDataTableIfUpdated()
+    {
+        if (_documentWasUpdated)
+        {
+            _documentWasUpdated = false; // Reset flag
+            await RefreshPendingDocumentsDataTable();
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the pending documents dataTable by reloading all documents from the server.
+    /// This ensures the dataTable shows the latest data, especially after updates.
+    /// </summary>
+    /// <returns></returns>
+    private async Task RefreshPendingDocumentsDataTable()
     {
         try
         {
-            // Find the document in the pending documents list and replace it
-            var pendingList = _pendingDocuments.ToList();
-            int index = pendingList.FindIndex(d => d.DocId == updatedDocument.DocId);
+            _isDataTableLoading = true;
+            StateHasChanged();
 
-            if (index >= 0)
-            {
-                // Replace the old document with the updated one
-                pendingList[index] = updatedDocument;
-                _pendingDocuments = pendingList;
+            // Destroy current dataTable
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
 
-                // Refresh the dataTable to show the updated data
-                await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
-                StateHasChanged();
-                await Task.Delay(100); // Small delay to ensure DOM is updated
-                await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+            // Reload all documents from server
+            await GetPendingDocuments();
 
-                await JsRuntime.InvokeVoidAsync("console.log", $"Documento #{updatedDocument.DocId} actualizado en el dataTable.");
-            }
-            else
-            {
-                await JsRuntime.InvokeVoidAsync("console.warn", $"No se encontró el documento #{updatedDocument.DocId} en la lista de documentos pendientes.");
-            }
+            // Reload dataTable with fresh data
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+
+            _isDataTableLoading = false;
+            StateHasChanged();
+
+            await JsRuntime.InvokeVoidAsync("console.log", "DataTable de documentos pendientes actualizado desde el servidor.");
+        }
+        catch (TaskCanceledException)
+        {
+            // Task was canceled, likely because component was disposed or user navigated away
+            // Silently handle this case - no need to show error to user
+            _isDataTableLoading = false;
+            StateHasChanged();
+            await JsRuntime.InvokeVoidAsync("console.log", "Actualización del dataTable cancelada (componente desmontado o navegación).");
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", $"Error al actualizar el documento en la lista: {ex.Message}");
+            _isDataTableLoading = false;
+            StateHasChanged();
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al refrescar el dataTable: {ex.Message}");
         }
     }
 
