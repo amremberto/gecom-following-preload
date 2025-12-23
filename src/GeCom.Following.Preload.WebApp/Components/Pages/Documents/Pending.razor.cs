@@ -1611,7 +1611,10 @@ public partial class Pending : IAsyncDisposable
             // Limpiar el archivo seleccionado
             _selectedPdfFileForUpdate = null;
 
-            await ShowToast("PDF actualizado exitosamente.");
+            // Mark that document was updated - will refresh dataTable when modal closes
+            _documentWasUpdated = true;
+
+            await ShowToast("PDF actualizado exitosamente.", ToastType.Success);
             StateHasChanged();
         }
         catch (Exception ex)
