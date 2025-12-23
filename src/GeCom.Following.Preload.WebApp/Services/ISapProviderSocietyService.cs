@@ -1,3 +1,4 @@
+using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 
 namespace GeCom.Following.Preload.WebApp.Services;
@@ -35,5 +36,14 @@ public interface ISapProviderSocietyService
     /// <returns>A collection of providers that can assign documents to the society.</returns>
     Task<IEnumerable<ProviderSocietyResponse>?> GetProvidersBySocietyCuitAsync(
         string societyCuit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets societies for the current user based on their role.
+    /// The API automatically determines which societies to return based on the authenticated user's role.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of societies available for the current user based on their role.</returns>
+    Task<IEnumerable<SocietySelectItemResponse>?> GetSocietiesForCurrentUserAsync(
         CancellationToken cancellationToken = default);
 }

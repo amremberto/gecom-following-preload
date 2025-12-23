@@ -7,6 +7,7 @@ using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
+using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Components.Shared;
@@ -58,7 +59,7 @@ public partial class Pending : IAsyncDisposable
     private int? _selectedDocumentTypeId;
     private DateOnly? _selectedFechaFactura;
     private DateOnly? _selectedVencimientoCaecai;
-    private IEnumerable<ProviderSocietyResponse> _societies = []; // Unified list of societies (always loaded)
+    private IEnumerable<SocietySelectItemResponse> _societies = []; // Unified list of societies (always loaded)
     private IEnumerable<ProviderResponse> _availableProviders = []; // For Society role users
     private string? _selectedSocietyCuit;
     private string? _selectedProviderCuit;
@@ -704,43 +705,24 @@ public partial class Pending : IAsyncDisposable
 
     /// <summary>
     /// Loads all societies based on user role. Always called (like LoadCurrencies and LoadDocumentTypes).
+    /// Uses a unified endpoint that automatically determines which societies to return based on the authenticated user's role.
     /// </summary>
     /// <returns></returns>
     private async Task LoadSocieties()
     {
         try
         {
-            await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Iniciando. _isProvider: {_isProvider}, _providerCuit: {_providerCuit}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
+            await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Iniciando carga de sociedades usando endpoint unificado.");
 
-            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            // Use unified endpoint that determines societies based on user role automatically
+            IEnumerable<SocietySelectItemResponse>? response = await SapProviderSocietyService.GetSocietiesForCurrentUserAsync(
+                cancellationToken: default);
+            _societies = response ?? [];
+
+            await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Sociedades cargadas: {_societies.Count()}");
+            if (_societies.Any())
             {
-                // Provider role: Load societies that the provider can assign documents to
-                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Cargando sociedades para proveedor CUIT: {_providerCuit}");
-                IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByProviderCuitAsync(
-                    _providerCuit,
-                    cancellationToken: default);
-                _societies = response ?? [];
-                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Sociedades cargadas para proveedor: {_societies.Count()}");
-            }
-            else if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
-            {
-                // Society role: Load societies that the user has access to
-                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Cargando sociedades para usuario email: {_userEmail}");
-                IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByUserEmailAsync(
-                    _userEmail,
-                    cancellationToken: default);
-                _societies = response ?? [];
-                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Sociedades cargadas para usuario: {_societies.Count()}");
-                if (_societies.Any())
-                {
-                    await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Primeras sociedades: {string.Join(", ", _societies.Take(3).Select(s => s.Cuit))}");
-                }
-            }
-            else
-            {
-                // No role or missing data: empty list
-                _societies = [];
-                await JsRuntime.InvokeVoidAsync("console.warn", $"[LoadSocieties] No se cargaron sociedades. _isProvider: {_isProvider}, _providerCuit: '{_providerCuit}', _isSociety: {_isSociety}, _userEmail: '{_userEmail}'");
+                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Primeras sociedades: {string.Join(", ", _societies.Take(3).Select(s => s.Cuit))}");
             }
         }
         catch (Exception ex)

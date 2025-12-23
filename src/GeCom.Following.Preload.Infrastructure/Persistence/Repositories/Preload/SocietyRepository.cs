@@ -1,4 +1,5 @@
-﻿using GeCom.Following.Preload.Application.Abstractions.Repositories;
+﻿using System.Linq.Expressions;
+using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.Societies;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,8 +45,35 @@ internal sealed class SocietyRepository : GenericRepository<Society, PreloadDbCo
             return [];
         }
 
+        // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+        // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
+        // See documentation in docs/SQL-SERVER-OPENJSON-ISSUE.md
+        // This generates SQL like: WHERE Cuit = 'VAL1' OR Cuit = 'VAL2' OR Cuit = 'VAL3'
+        // Instead of: WHERE Cuit IN (SELECT value FROM OPENJSON('["VAL1","VAL2","VAL3"]') WITH ([value] varchar(12) '$'))
+        ParameterExpression parameter = Expression.Parameter(typeof(Society), "s");
+        MemberExpression property = Expression.Property(parameter, nameof(Society.Cuit));
+        BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+
+        Expression? orExpression = null;
+        foreach (string cuit in validCuits)
+        {
+            BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
+            orExpression = orExpression is null
+                ? equalsExpression
+                : Expression.OrElse(orExpression, equalsExpression);
+        }
+
+        if (orExpression is null)
+        {
+            return [];
+        }
+
+        // Combine null check with OR expression
+        Expression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
+        var lambda = Expression.Lambda<Func<Society, bool>>(combinedExpression, parameter);
+
         List<Society> societies = await GetQueryable()
-            .Where(s => validCuits.Contains(s.Cuit))
+            .Where(lambda)
             .ToListAsync(cancellationToken);
 
         return societies;

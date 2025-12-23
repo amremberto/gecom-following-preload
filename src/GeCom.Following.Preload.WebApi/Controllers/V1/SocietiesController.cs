@@ -1,12 +1,14 @@
-﻿using Asp.Versioning;
+﻿using System.Security.Claims;
+using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.CreateSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.DeleteSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocieties;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocietiesPaged;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietiesByUserEmail;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietiesForCurrentUser;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCodigo;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCuit;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyById;
-using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietiesByUserEmail;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.UpdateSociety;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Preload.Societies.Create;
@@ -276,6 +278,63 @@ public sealed class SocietiesController : VersionedApiController
     }
 
     /// <summary>
+    /// Gets societies for the current user based on their role.
+    /// The API automatically determines which societies to return based on the authenticated user's role:
+    /// - Provider: Returns societies that the provider can assign documents to
+    /// - Society: Returns societies that the user has access to
+    /// - Administrator/ReadOnly: Returns empty result (societies are not needed for these roles in edit context)
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of societies available for the current user based on their role.</returns>
+    /// <response code="200">Returns the list of societies.</response>
+    /// <response code="400">If the user roles or required claims are invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("for-current-user")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(IEnumerable<SocietySelectItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<IEnumerable<SocietySelectItemResponse>>> GetForCurrentUser(CancellationToken cancellationToken)
+    {
+        // Get user roles
+        var userRoles = User.Claims
+            .Where(c => c.Type == ClaimTypes.Role ||
+                        c.Type == AuthorizationConstants.RoleClaimType ||
+                        c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+            .Select(c => c.Value)
+            .Distinct()
+            .ToList();
+
+        if (userRoles.Count == 0)
+        {
+            return Problem(
+                detail: "User roles not found in the authentication token.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Validation.Error");
+        }
+
+        // Get user email (for Society role)
+        string? userEmail = User.FindFirst("email")?.Value ??
+                           User.FindFirst(ClaimTypes.Email)?.Value;
+
+        // Get provider CUIT from claim (for Provider role)
+        string? providerCuit = User.FindFirst(AuthorizationConstants.SocietyCuitClaimType)?.Value;
+
+        GetSocietiesForCurrentUserQuery query = new(
+            userRoles,
+            userEmail,
+            providerCuit);
+
+        Result<IEnumerable<SocietySelectItemResponse>> result = await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
     /// Gets societies by user email for select dropdowns.
     /// </summary>
     /// <param name="userEmail">User email.</param>
@@ -287,16 +346,16 @@ public sealed class SocietiesController : VersionedApiController
     /// <response code="403">If the user does not have the required permissions.</response>
     /// <response code="500">If an error occurred while processing the request.</response>
     [HttpGet("by-user-email/{userEmail}")]
-    [ProducesResponseType(typeof(IEnumerable<SocietySelectItem>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<SocietySelectItemResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<IEnumerable<SocietySelectItem>>> GetByUserEmail(string userEmail, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<SocietySelectItemResponse>>> GetByUserEmail(string userEmail, CancellationToken cancellationToken)
     {
         GetSocietiesByUserEmailQuery query = new(userEmail);
 
-        Result<IEnumerable<SocietySelectItem>> result = await Mediator.Send(query, cancellationToken);
+        Result<IEnumerable<SocietySelectItemResponse>> result = await Mediator.Send(query, cancellationToken);
 
         return result.Match(this);
     }

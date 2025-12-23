@@ -9,7 +9,7 @@ namespace GeCom.Following.Preload.Application.Features.Preload.Societies.GetSoci
 /// <summary>
 /// Handler for the GetSocietiesByUserEmailQuery.
 /// </summary>
-internal sealed class GetSocietiesByUserEmailQueryHandler : IQueryHandler<GetSocietiesByUserEmailQuery, IEnumerable<SocietySelectItem>>
+internal sealed class GetSocietiesByUserEmailQueryHandler : IQueryHandler<GetSocietiesByUserEmailQuery, IEnumerable<SocietySelectItemResponse>>
 {
     private readonly IUserSocietyAssignmentRepository _userSocietyAssignmentRepository;
     private readonly ISocietyRepository _societyRepository;
@@ -28,7 +28,7 @@ internal sealed class GetSocietiesByUserEmailQueryHandler : IQueryHandler<GetSoc
     }
 
     /// <inheritdoc />
-    public async Task<Result<IEnumerable<SocietySelectItem>>> Handle(GetSocietiesByUserEmailQuery request, CancellationToken cancellationToken)
+    public async Task<Result<IEnumerable<SocietySelectItemResponse>>> Handle(GetSocietiesByUserEmailQuery request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.UserEmail);
@@ -45,7 +45,7 @@ internal sealed class GetSocietiesByUserEmailQueryHandler : IQueryHandler<GetSoc
         if (societyCuits.Count == 0)
         {
             // User has no society assignments, return empty result
-            return Result.Success(Enumerable.Empty<SocietySelectItem>());
+            return Result.Success(Enumerable.Empty<SocietySelectItemResponse>());
         }
 
         // Get societies by CUITs
@@ -53,8 +53,8 @@ internal sealed class GetSocietiesByUserEmailQueryHandler : IQueryHandler<GetSoc
             await _societyRepository.GetByCuitsAsync(societyCuits, cancellationToken);
 
         // Map to select item DTO (only CUIT and Descripción)
-        IEnumerable<SocietySelectItem> response = societies
-            .Select(s => new SocietySelectItem(s.Cuit, s.Descripcion))
+        IEnumerable<SocietySelectItemResponse> response = societies
+            .Select(s => new SocietySelectItemResponse(s.Cuit, s.Descripcion))
             .OrderBy(s => s.Descripcion)
             .ToList();
 

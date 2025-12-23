@@ -465,7 +465,7 @@
                                                                     @foreach (var society in _societies)
                                                                     {
                                                                         <option value="@society.Cuit" selected="@(society.Cuit == _selectedSocietyCuit)">
-                                                                            @society.Cuit - @(society.Name ?? "Sin nombre")
+                                                                            @society.Cuit - @(society.Descripcion ?? "Sin nombre")
                                                                         </option>
                                                                     }
                                                                     @* Add document's society if not in the list *@
