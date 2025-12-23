@@ -1,3 +1,4 @@
+using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
@@ -72,6 +73,23 @@ internal sealed class SapProviderSocietyService : ISapProviderSocietyService
         Uri requestUri = new($"/api/{apiVersion}/SapProviderSocieties/society/{Uri.EscapeDataString(societyCuit)}/providers", UriKind.Relative);
 
         IEnumerable<ProviderSocietyResponse>? response = await _httpClientService.GetAsync<IEnumerable<ProviderSocietyResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<ProviderSelectItemResponse>?> GetProvidersBySocietyCuitForSelectAsync(
+        string societyCuit,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyCuit);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapProviderSocieties/society/{Uri.EscapeDataString(societyCuit)}/providers", UriKind.Relative);
+
+        IEnumerable<ProviderSelectItemResponse>? response = await _httpClientService.GetAsync<IEnumerable<ProviderSelectItemResponse>>(
             requestUri,
             cancellationToken);
 

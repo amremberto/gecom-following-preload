@@ -60,7 +60,7 @@ public partial class Pending : IAsyncDisposable
     private DateOnly? _selectedFechaFactura;
     private DateOnly? _selectedVencimientoCaecai;
     private IEnumerable<SocietySelectItemResponse> _societies = []; // Unified list of societies (always loaded)
-    private IEnumerable<ProviderResponse> _availableProviders = []; // For Society role users
+    private IEnumerable<ProviderSelectItemResponse> _availableProviders = []; // For Society role users
     private string? _selectedSocietyCuit;
     private string? _selectedProviderCuit;
 #pragma warning disable S4487 // Unread private fields - Used in Razor @bind directive
@@ -490,14 +490,23 @@ public partial class Pending : IAsyncDisposable
         await LoadDocumentTypes();
         await LoadSocieties(); // Always load societies (like currencies and document types)
 
-        // If Society role and document has a society, load providers for that society
+        // If Society role, handle provider loading based on document's society
         if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
         {
+            // Initialize providers list as empty first
+            _availableProviders = [];
+
+            // If document has a society, load providers for that society
             string? societyCuitToLoad = _selectedDocument?.SociedadCuit ?? _selectedSocietyCuit;
             if (!string.IsNullOrWhiteSpace(societyCuitToLoad))
             {
                 await LoadProvidersBySociety(societyCuitToLoad);
                 await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Proveedores cargados para sociedad {societyCuitToLoad}: {_availableProviders.Count()}");
+            }
+            else
+            {
+                // Document has no society, keep providers list empty
+                await JsRuntime.InvokeVoidAsync("console.log", "[OpenDocumentEdit] Documento sin sociedad, lista de proveedores vacía");
             }
         }
 
@@ -749,30 +758,12 @@ public partial class Pending : IAsyncDisposable
                 return;
             }
 
-            IEnumerable<ProviderSocietyResponse>? providerSocieties = await SapProviderSocietyService.GetProvidersBySocietyCuitAsync(
+            // Get providers for select dropdown directly from the API
+            IEnumerable<ProviderSelectItemResponse>? providers = await SapProviderSocietyService.GetProvidersBySocietyCuitForSelectAsync(
                 societyCuit,
                 cancellationToken: default);
 
-            if (providerSocieties is null)
-            {
-                _availableProviders = [];
-                return;
-            }
-
-            // Convert ProviderSocietyResponse to ProviderResponse by getting provider details
-            var providerCuits = providerSocieties.Select(ps => ps.Cuit).ToList();
-            var providers = new List<ProviderResponse>();
-
-            foreach (string providerCuit in providerCuits)
-            {
-                ProviderResponse? provider = await ProviderService.GetByCuitAsync(providerCuit, cancellationToken: default);
-                if (provider is not null)
-                {
-                    providers.Add(provider);
-                }
-            }
-
-            _availableProviders = providers;
+            _availableProviders = providers ?? [];
         }
         catch (Exception ex)
         {
@@ -805,6 +796,32 @@ public partial class Pending : IAsyncDisposable
             }
 
             await JsRuntime.InvokeVoidAsync("initSocietySelect2", _selectedSocietyCuit);
+
+            // Add event listener for SELECT2 change event to call C# method
+            // Use a small delay to ensure SELECT2 is fully initialized
+            if (_dotNetObjectReference is not null)
+            {
+                await Task.Delay(100); // Small delay to ensure SELECT2 is initialized
+                await JsRuntime.InvokeVoidAsync("eval", @"
+                    (function() {
+                        var $select = $('#society-select-edit');
+                        if ($select.length > 0 && $select.data('select2')) {
+                            // Remove existing listeners to avoid duplicates
+                            $select.off('change.select2.society');
+                            
+                            // Add listener for SELECT2 change event
+                            $select.on('change.select2.society', function() {
+                                var selectedValue = $(this).val();
+                                if (window.editDocumentDotNetRef) {
+                                    window.editDocumentDotNetRef.invokeMethodAsync('OnSocietyChangedFromSelect2', selectedValue || '');
+                                }
+                            });
+                        } else {
+                            console.warn('SELECT2 not initialized for society-select-edit');
+                        }
+                    })();
+                ");
+            }
         }
         catch (Exception ex)
         {
@@ -843,28 +860,72 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Handles the society selection change from SELECT2 (called from JavaScript).
+    /// </summary>
+    /// <param name="societyCuit">The selected society CUIT.</param>
+    /// <returns></returns>
+    [JSInvokable]
+    public async Task OnSocietyChangedFromSelect2(string societyCuit)
+    {
+        string? newSocietyCuit = string.IsNullOrWhiteSpace(societyCuit) ? null : societyCuit;
+        await HandleSocietyChange(newSocietyCuit);
+    }
+
+    /// <summary>
     /// Handles the society selection change.
+    /// When a society is selected, loads providers for that society.
+    /// When society is cleared, clears the providers list.
     /// </summary>
     /// <param name="e">The change event arguments.</param>
     /// <returns></returns>
     private async Task OnSocietyChanged(ChangeEventArgs e)
     {
         string? newSocietyCuit = e.Value?.ToString();
+        await HandleSocietyChange(newSocietyCuit);
+    }
+
+    /// <summary>
+    /// Common method to handle society change logic.
+    /// </summary>
+    /// <param name="newSocietyCuit">The new society CUIT.</param>
+    /// <returns></returns>
+    private async Task HandleSocietyChange(string? newSocietyCuit)
+    {
         _selectedSocietyCuit = newSocietyCuit;
 
-        // If user is Society role and a society is selected, load providers for that society
-        if (_isSociety && !string.IsNullOrWhiteSpace(newSocietyCuit))
+        // If user is Society role
+        if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
         {
-            await LoadProvidersBySociety(newSocietyCuit);
-            // Reset selected provider when society changes
-            _selectedProviderCuit = null;
+            if (!string.IsNullOrWhiteSpace(newSocietyCuit))
+            {
+                // Society selected: Load providers for that society
+                await LoadProvidersBySociety(newSocietyCuit);
+                await JsRuntime.InvokeVoidAsync("console.log", $"[OnSocietyChanged] Proveedores cargados para sociedad {newSocietyCuit}: {_availableProviders.Count()}");
 
-            // Update state and wait for DOM to update
-            StateHasChanged();
-            await Task.Delay(200); // Allow DOM to update with new provider options
+                // Reset selected provider when society changes (user must select a new provider)
+                _selectedProviderCuit = null;
 
-            // Reinitialize provider SELECT2 with new options
-            await InitializeProviderSelect2();
+                // Update state and wait for DOM to update
+                StateHasChanged();
+                await Task.Delay(200); // Allow DOM to update with new provider options
+
+                // Reinitialize provider SELECT2 with new options
+                await InitializeProviderSelect2();
+            }
+            else
+            {
+                // Society cleared: Clear providers list
+                _availableProviders = [];
+                _selectedProviderCuit = null;
+                await JsRuntime.InvokeVoidAsync("console.log", "[OnSocietyChanged] Sociedad deseleccionada, lista de proveedores vaciada");
+
+                // Update state and wait for DOM to update
+                StateHasChanged();
+                await Task.Delay(200);
+
+                // Reinitialize provider SELECT2 with empty options
+                await InitializeProviderSelect2();
+            }
         }
         else
         {

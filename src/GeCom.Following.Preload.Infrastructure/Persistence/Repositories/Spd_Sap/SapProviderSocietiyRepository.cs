@@ -32,6 +32,20 @@ internal sealed class SapProviderSocietiyRepository : GenericRepository<SapProvi
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> GetProviderAccountNumbersBySocietyFiAsync(string societyFi, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyFi);
+
+        List<string> providerAccountNumbers = await GetQueryable()
+            .Where(ps => ps.Sociedadfi == societyFi && ps.Proveedor != null)
+            .Select(ps => ps.Proveedor!)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return providerAccountNumbers;
+    }
+
+    /// <inheritdoc />
     public override async Task<(IReadOnlyList<SapProviderSocietiy> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(page);

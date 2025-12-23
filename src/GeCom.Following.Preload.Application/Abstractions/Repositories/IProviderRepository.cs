@@ -24,5 +24,14 @@ public interface IProviderRepository : IRepository<Provider>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of providers that match the search text.</returns>
     Task<IEnumerable<Provider>> SearchAsync(string searchText, int maxResults = 20, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets providers by a list of CUITs.
+    /// Uses explicit OR conditions to avoid OPENJSON issues with SQL Server.
+    /// </summary>
+    /// <param name="cuits">List of CUITs to filter by.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of providers matching the CUITs.</returns>
+    Task<IReadOnlyList<Provider>> GetByCuitsAsync(IReadOnlyList<string> cuits, CancellationToken cancellationToken = default);
 }
 

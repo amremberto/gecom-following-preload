@@ -1,3 +1,4 @@
+using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 
@@ -35,6 +36,16 @@ public interface ISapProviderSocietyService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of providers that can assign documents to the society.</returns>
     Task<IEnumerable<ProviderSocietyResponse>?> GetProvidersBySocietyCuitAsync(
+        string societyCuit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all providers (for select dropdowns) that can assign documents to a specific society.
+    /// </summary>
+    /// <param name="societyCuit">The society CUIT.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of providers for select dropdowns that can assign documents to the society.</returns>
+    Task<IEnumerable<ProviderSelectItemResponse>?> GetProvidersBySocietyCuitForSelectAsync(
         string societyCuit,
         CancellationToken cancellationToken = default);
 
