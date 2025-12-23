@@ -101,6 +101,26 @@ internal sealed class StorageService : IStorageService
             return fileContent;
         }, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task DeleteFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        return _impersonationService.RunAsAsync(cancellationToken =>
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("File not found for deletion: {FilePath}", filePath);
+                return Task.CompletedTask;
+            }
+
+            File.Delete(filePath);
+            _logger.LogInformation("File deleted successfully: {FilePath}", filePath);
+
+            return Task.CompletedTask;
+        }, cancellationToken);
+    }
 }
 
 /// <summary>

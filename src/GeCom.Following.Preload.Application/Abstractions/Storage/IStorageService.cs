@@ -22,5 +22,13 @@ public interface IStorageService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The file content as byte array.</returns>
     Task<byte[]> ReadFileAsync(string filePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a file from storage by its path using Windows impersonation.
+    /// </summary>
+    /// <param name="filePath">The full path to the file to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task DeleteFileAsync(string filePath, CancellationToken cancellationToken = default);
 }
 

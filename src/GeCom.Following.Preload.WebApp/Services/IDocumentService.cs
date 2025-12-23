@@ -129,5 +129,17 @@ public interface IDocumentService
         int docId,
         UpdateDocumentRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the PDF file associated with an existing document.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="file">The new PDF file to upload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated document with the new PDF attachment.</returns>
+    Task<DocumentResponse?> UpdateDocumentPdfAsync(
+        int docId,
+        IBrowserFile file,
+        CancellationToken cancellationToken = default);
 }
 

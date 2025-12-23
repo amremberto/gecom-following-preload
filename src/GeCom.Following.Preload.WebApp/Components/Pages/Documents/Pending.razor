@@ -819,12 +819,46 @@
                         <!-- Mitad derecha: Visualización de PDF -->
                         <div class="col-md-6 ps-4">
                             <div class="card shadow-sm border border-info-subtle">
-                                <div class="card-header bg-info-subtle">
+                                <div class="card-header bg-info-subtle d-flex justify-content-between align-items-center">
                                     <h5 class="card-title mb-0">
                                         <i class="ri-file-pdf-line me-2"></i> PDF del Documento
                                     </h5>
+                                    <div>
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="TriggerPdfFileInputClickAsync" disabled="@_isUpdatingPdf">
+                                            @if (_isUpdatingPdf)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                                <span>Actualizando...</span>
+                                            }
+                                            else
+                                            {
+                                                <i class="ri-file-edit-line me-1"></i>
+                                                <span>Modificar Archivo</span>
+                                            }
+                                        </button>
+                                        <InputFile OnChange="HandlePdfFileSelectedForUpdate" class="d-none" id="pdfFileUpdateInput" accept=".pdf,application/pdf" />
+                                    </div>
                                 </div>
                                 <div class="card-body">
+                                    @if (!string.IsNullOrWhiteSpace(_pdfUpdateErrorMessage))
+                                    {
+                                        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                                            <i class="ri-error-warning-line me-2"></i>@_pdfUpdateErrorMessage
+                                            <button type="button" class="btn-close" @onclick="() => _pdfUpdateErrorMessage = string.Empty" aria-label="Close"></button>
+                                        </div>
+                                    }
+                                    @if (_selectedPdfFileForUpdate is not null)
+                                    {
+                                        <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                                            <i class="ri-file-pdf-line me-2"></i>
+                                            <div class="flex-grow-1">
+                                                <strong>Archivo seleccionado:</strong> @_selectedPdfFileForUpdate.Name
+                                            </div>
+                                            <button type="button" class="btn btn-success btn-sm ms-2" @onclick="HandlePdfUpdateAsync" disabled="@_isUpdatingPdf">
+                                                <i class="ri-upload-cloud-line me-1"></i>Subir
+                                            </button>
+                                        </div>
+                                    }
                                     @if (HasAttachment())
                                     {
                                         <PdfViewer AdjuntoId="@GetFirstAttachmentId()" OnError="HandlePdfError" />

@@ -54,4 +54,12 @@ internal sealed class AttachmentRepository : GenericRepository<Attachment, Prelo
             .OrderByDescending(a => a.FechaCreacion)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<Attachment?> GetActiveAttachmentByDocumentIdAsync(int docId, CancellationToken cancellationToken = default)
+    {
+        return await GetTrackedQueryable()
+            .Where(a => a.DocId == docId && a.FechaBorrado == null)
+            .OrderByDescending(a => a.FechaCreacion)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

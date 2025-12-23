@@ -75,6 +75,22 @@ public interface IHttpClientService
         where TResponse : class;
 
     /// <summary>
+    /// Sends a PUT request with a file (multipart/form-data) and deserializes the response.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response.</typeparam>
+    /// <param name="requestUri">The request URI.</param>
+    /// <param name="file">The file to upload.</param>
+    /// <param name="fileParameterName">The name of the file parameter (default: "file").</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The deserialized response.</returns>
+    Task<TResponse?> PutFileAsync<TResponse>(
+        Uri requestUri,
+        IBrowserFile file,
+        string fileParameterName = "file",
+        CancellationToken cancellationToken = default)
+        where TResponse : class;
+
+    /// <summary>
     /// Downloads a file as a byte array.
     /// </summary>
     /// <param name="requestUri">The request URI.</param>

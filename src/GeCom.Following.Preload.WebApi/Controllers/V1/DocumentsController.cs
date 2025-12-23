@@ -10,6 +10,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingD
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocumentsByProvider;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocument;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocumentPdf;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
@@ -573,6 +574,66 @@ public sealed class DocumentsController : VersionedApiController
         }
 
         return CustomResults.ProblemActionResult(this, result);
+    }
+
+    /// <summary>
+    /// Updates the PDF file associated with an existing document.
+    /// Replaces the current PDF file with a new one uploaded by the user.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="file">The new PDF file to upload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated document with the new PDF attachment.</returns>
+    /// <response code="200">Returns the updated document.</response>
+    /// <response code="400">If the file is invalid or missing.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the document or attachment was not found.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpPut("{docId}/pdf")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("UpdateDocumentPdf", "Updates the PDF file associated with an existing document.")]
+    public async Task<ActionResult<DocumentResponse>> UpdatePdfAsync(
+        int docId,
+        [FromForm] IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest("A PDF file is required.");
+        }
+
+        // Get the user email from claims
+        string? userName = User.FindFirst(ClaimTypes.Name)?.Value ??
+                           User.FindFirst("name")?.Value ?? "UnknownUser";
+        string? userEmail = User.FindFirst(ClaimTypes.Email)?.Value ??
+                            User.FindFirst("email")?.Value ?? userName;
+
+        // Read file content
+        byte[] fileContent;
+        await using (MemoryStream memoryStream = new())
+        {
+            await file.CopyToAsync(memoryStream, cancellationToken);
+            fileContent = memoryStream.ToArray();
+        }
+
+        UpdateDocumentPdfCommand command = new(
+            docId,
+            fileContent,
+            file.FileName,
+            file.ContentType,
+            userEmail);
+
+        Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchUpdated(this);
     }
 
 }

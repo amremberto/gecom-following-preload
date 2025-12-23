@@ -110,6 +110,31 @@ internal sealed class HttpClientService : IHttpClientService
     }
 
     /// <inheritdoc />
+    public async Task<TResponse?> PutFileAsync<TResponse>(
+        Uri requestUri,
+        IBrowserFile file,
+        string fileParameterName = "file",
+        CancellationToken cancellationToken = default)
+        where TResponse : class
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileParameterName);
+
+        using MultipartFormDataContent content = new();
+
+        // Read file content into a stream
+        await using Stream fileStream = file.OpenReadStream(maxAllowedSize: 6 * 1024 * 1024, cancellationToken); // 6 MB max
+        using StreamContent fileContent = new(fileStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+
+        content.Add(fileContent, fileParameterName, file.Name);
+
+        HttpResponseMessage response = await _httpClient.PutAsync(requestUri, content, cancellationToken);
+
+        return await HandleResponseAsync<TResponse>(response, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<byte[]?> DownloadFileAsync(Uri requestUri, CancellationToken cancellationToken = default)
     {
         try

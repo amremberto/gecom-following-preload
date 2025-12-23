@@ -206,5 +206,25 @@ internal sealed class DocumentService : IDocumentService
 
         return response;
     }
+
+    /// <inheritdoc />
+    public async Task<DocumentResponse?> UpdateDocumentPdfAsync(
+        int docId,
+        IBrowserFile file,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}/pdf", UriKind.Relative);
+
+        DocumentResponse? response = await _httpClientService.PutFileAsync<DocumentResponse>(
+            requestUri,
+            file,
+            "file",
+            cancellationToken);
+
+        return response;
+    }
 }
 

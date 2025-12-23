@@ -54,6 +54,9 @@ public partial class Pending : IAsyncDisposable
     private IEnumerable<DocumentResponse> _pendingDocuments = [];
     private DocumentResponse? _selectedDocument;
     private string _selectedPdfFileName = string.Empty;
+    private IBrowserFile? _selectedPdfFileForUpdate;
+    private bool _isUpdatingPdf;
+    private string _pdfUpdateErrorMessage = string.Empty;
     private IEnumerable<CurrencyResponse> _currencies = [];
     private string? _selectedCurrencyCode;
     private IEnumerable<DocumentTypeResponse> _documentTypes = [];
@@ -1531,6 +1534,104 @@ public partial class Pending : IAsyncDisposable
     private async Task HandlePdfError()
     {
         await ShowToast("Error al cargar el PDF. Por favor, intente nuevamente.");
+    }
+
+    /// <summary>
+    /// Handles the PDF file selection for update.
+    /// </summary>
+    /// <param name="e">The input file change event arguments.</param>
+    private void HandlePdfFileSelectedForUpdate(InputFileChangeEventArgs e)
+    {
+        _pdfUpdateErrorMessage = string.Empty;
+        IBrowserFile file = e.File;
+
+        // Validate file type
+        if (!string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase) &&
+            !file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            _pdfUpdateErrorMessage = "Solo se permiten archivos PDF.";
+            _selectedPdfFileForUpdate = null;
+            StateHasChanged();
+            return;
+        }
+
+        // Validate file size (6 MB max)
+        const long maxFileSize = 6 * 1024 * 1024; // 6 MB
+        if (file.Size > maxFileSize)
+        {
+            _pdfUpdateErrorMessage = $"El archivo excede el tamaño máximo de 6 MB. Tamaño actual: {file.Size / 1024.0 / 1024.0:F2} MB.";
+            _selectedPdfFileForUpdate = null;
+            StateHasChanged();
+            return;
+        }
+
+        _selectedPdfFileForUpdate = file;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Handles the PDF file update.
+    /// </summary>
+    private async Task HandlePdfUpdateAsync()
+    {
+        if (_selectedPdfFileForUpdate is null)
+        {
+            _pdfUpdateErrorMessage = "Por favor seleccione un archivo PDF.";
+            StateHasChanged();
+            return;
+        }
+
+        if (_selectedDocument is null)
+        {
+            _pdfUpdateErrorMessage = "No hay documento seleccionado.";
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            _isUpdatingPdf = true;
+            _pdfUpdateErrorMessage = string.Empty;
+            StateHasChanged();
+
+            DocumentResponse? updatedDocument = await DocumentService.UpdateDocumentPdfAsync(
+                _selectedDocument.DocId,
+                _selectedPdfFileForUpdate);
+
+            if (updatedDocument is null)
+            {
+                _pdfUpdateErrorMessage = "No se pudo actualizar el PDF. Por favor intente nuevamente.";
+                StateHasChanged();
+                return;
+            }
+
+            // Actualizar el documento seleccionado con los nuevos datos
+            _selectedDocument = updatedDocument;
+
+            // Limpiar el archivo seleccionado
+            _selectedPdfFileForUpdate = null;
+
+            await ShowToast("PDF actualizado exitosamente.");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _pdfUpdateErrorMessage = $"Error al actualizar el PDF: {ex.Message}";
+            StateHasChanged();
+        }
+        finally
+        {
+            _isUpdatingPdf = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Triggers the file input click for PDF update.
+    /// </summary>
+    private async Task TriggerPdfFileInputClickAsync()
+    {
+        await JsRuntime.InvokeVoidAsync("eval", "document.getElementById('pdfFileUpdateInput')?.click()");
     }
 
     /// <summary>

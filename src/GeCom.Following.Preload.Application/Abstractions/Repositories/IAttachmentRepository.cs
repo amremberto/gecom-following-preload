@@ -32,4 +32,12 @@ public interface IAttachmentRepository : IRepository<Attachment>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of attachments.</returns>
     Task<IEnumerable<Attachment>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the active attachment (FechaBorrado == null) for a document with tracking enabled.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The active attachment if found, otherwise null.</returns>
+    Task<Attachment?> GetActiveAttachmentByDocumentIdAsync(int docId, CancellationToken cancellationToken = default);
 }
