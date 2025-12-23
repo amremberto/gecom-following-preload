@@ -456,26 +456,6 @@ public partial class Pending : IAsyncDisposable
         _selectedDocument = document;
         await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Usando documento del dataTable. DocId: {document.DocId}");
 
-        // Check if we need to load attachments (PDF) and other related data
-        // Only query the database if attachments are missing or incomplete
-        // Note: GetPendingDocuments endpoints typically don't include Attachments for performance
-        bool hasActiveAttachments = document.Attachments is not null && 
-                                    document.Attachments.Any(a => a.FechaBorrado is null);
-        bool needsFullDetails = !hasActiveAttachments ||
-                               document.PurchaseOrders is null ||
-                               document.Notes is null;
-
-        if (needsFullDetails)
-        {
-            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Cargando detalles completos del documento (attachments/relaciones). HasAttachments: {hasActiveAttachments}");
-            // Load full document details including attachments, purchase orders, and notes
-            await GetDocumentWithDetails(document.DocId);
-        }
-        else
-        {
-            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Documento del dataTable tiene toda la información necesaria. Attachments: {document.Attachments?.Count ?? 0}");
-        }
-
         // Set document values FIRST before loading dropdowns
         if (_selectedDocument is not null)
         {
@@ -692,6 +672,18 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Handles the document type selection change.
+    /// </summary>
+    /// <param name="e">The change event arguments.</param>
+    /// <returns></returns>
+    private Task OnDocumentTypeChanged(ChangeEventArgs e)
+    {
+        _selectedDocumentTypeId = int.TryParse(e.Value?.ToString(), out int tipoDocId) ? tipoDocId : null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Initializes SELECT2 for the document type dropdown.
     /// </summary>
     /// <returns></returns>
@@ -705,18 +697,6 @@ public partial class Pending : IAsyncDisposable
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al inicializar SELECT2 para tipo de documento:", ex.Message);
         }
-    }
-
-    /// <summary>
-    /// Handles the document type selection change.
-    /// </summary>
-    /// <param name="e">The change event arguments.</param>
-    /// <returns></returns>
-    private Task OnDocumentTypeChanged(ChangeEventArgs e)
-    {
-        _selectedDocumentTypeId = int.TryParse(e.Value?.ToString(), out int tipoDocId) ? tipoDocId : null;
-        StateHasChanged();
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -768,7 +748,6 @@ public partial class Pending : IAsyncDisposable
             _societies = [];
         }
     }
-
 
     /// <summary>
     /// Loads all providers that can assign documents to a specific society (for Society role users).

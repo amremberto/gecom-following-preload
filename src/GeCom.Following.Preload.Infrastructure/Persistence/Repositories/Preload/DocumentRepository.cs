@@ -251,6 +251,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
+            .Include(d => d.Attachments.Where(a => a.FechaBorrado == null))
             .Where(d => d.FechaBaja == null
                 && d.FechaEmisionComprobante.HasValue
                 && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5))
@@ -272,6 +273,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
+            .Include(d => d.Attachments.Where(a => a.FechaBorrado == null))
             .Where(d => d.FechaBaja == null
                 && d.FechaEmisionComprobante.HasValue
                 && (d.EstadoId == 1 || d.EstadoId == 2 || d.EstadoId == 5));
@@ -283,7 +285,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
 
         // Build expression: (SociedadCuit IN societyCuitsList) OR (UserCreate == userEmail)
         ParameterExpression parameter = Expression.Parameter(typeof(Document), "d");
-        
+
         // Build society CUITs OR expression
         Expression? societyOrExpression = null;
         if (societyCuitsList.Count > 0)
