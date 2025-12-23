@@ -8,7 +8,6 @@ using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
-using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Components.Shared;
@@ -18,6 +17,7 @@ using GeCom.Following.Preload.WebApp.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Primitives;
 using Microsoft.JSInterop;
 
@@ -71,6 +71,17 @@ public partial class Pending : IAsyncDisposable
     private string? _selectedProviderCuit;
     private IEnumerable<SapPurchaseOrderResponse> _sapPurchaseOrders = []; // SAP purchase orders for the selected document
     private bool _isLoadingSapPurchaseOrders;
+
+    // Link Purchase Order Modal
+    private bool _showLinkPurchaseOrderModal;
+    private IJSObjectReference? _linkPurchaseOrderModalKeyHandler;
+    private SapPurchaseOrderResponse? _selectedPurchaseOrderForLink;
+    private decimal? _linkCantidadAFacturar;
+    private string _linkCodigoRecepcion = string.Empty;
+    private DateOnly? _linkFechaCodigoRecepcion;
+    private bool _linkFacturaAnticipo;
+    private decimal? _linkImporteNetoAnticipo;
+
 #pragma warning disable S4487 // Unread private fields - Used in Razor @bind directive
     private string _selectedPuntoDeVenta = string.Empty;
     private string _selectedNumeroComprobante = string.Empty;
@@ -1498,7 +1509,7 @@ public partial class Pending : IAsyncDisposable
                 // Use InvokeAsync to ensure the DOM is fully updated
                 await InvokeAsync(StateHasChanged);
                 await Task.Delay(200);
-                
+
                 // Destroy existing DataTable if it exists
                 try
                 {
@@ -1523,48 +1534,156 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Handles the action to add a purchase order to the document.
+    /// Opens the modal to link a purchase order to the document.
     /// </summary>
-    /// <param name="purchaseOrder">The purchase order to add.</param>
+    /// <param name="purchaseOrder">The purchase order to link.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private async Task AddPurchaseOrder(SapPurchaseOrderResponse purchaseOrder)
+    private async Task OpenLinkPurchaseOrderModal(SapPurchaseOrderResponse purchaseOrder)
     {
-        try
+        _selectedPurchaseOrderForLink = purchaseOrder;
+        _linkCantidadAFacturar = null;
+        _linkCodigoRecepcion = string.Empty;
+        _linkFechaCodigoRecepcion = null;
+        _linkFacturaAnticipo = false;
+        _linkImporteNetoAnticipo = null;
+        _showLinkPurchaseOrderModal = true;
+        StateHasChanged();
+
+        // Add document-level listener to capture Escape before it reaches the main modal
+        await Task.Delay(50); // Small delay to ensure DOM is updated
+        _linkPurchaseOrderModalKeyHandler = await JsRuntime.InvokeAsync<IJSObjectReference>("eval", @"
+            (function() {
+                var handler = function(e) {
+                    if ((e.key === 'Escape' || e.keyCode === 27)) {
+                        var linkModal = document.querySelector('.modal[data-bs-keyboard=""false""]');
+                        if (linkModal && window.getComputedStyle(linkModal).display === 'block') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                            // Close the modal by triggering a click on the backdrop
+                            var backdrop = document.querySelector('.modal-backdrop[style*=""z-index: 10049""]');
+                            if (backdrop) {
+                                backdrop.click();
+                            }
+                            return false;
+                        }
+                    }
+                };
+                // Add listener in capture phase to intercept before Bootstrap
+                document.addEventListener('keydown', handler, true);
+                return {
+                    remove: function() {
+                        document.removeEventListener('keydown', handler, true);
+                    }
+                };
+            })();
+        ");
+    }
+
+    /// <summary>
+    /// Handles keyboard events for the link purchase order modal.
+    /// Closes the modal when Escape key is pressed and prevents event propagation to parent modals.
+    /// </summary>
+    /// <param name="e">The keyboard event arguments.</param>
+    private async Task HandleLinkPurchaseOrderModalKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && _showLinkPurchaseOrderModal)
         {
-            // Implementation pending: Add the purchase order to the document via API call
-            await JsRuntime.InvokeVoidAsync("console.log", $"Agregar orden de compra: {purchaseOrder.Nrodocumento} - Posición: {purchaseOrder.Posicion}");
-            await ShowToast($"Orden de compra {purchaseOrder.Nrodocumento} agregada correctamente.", ToastType.Success);
+            // Close the modal first
+            await CloseLinkPurchaseOrderModal();
             
-            // Refresh the purchase orders list
-            await LoadSapPurchaseOrders();
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", $"Error al agregar orden de compra: {ex.Message}");
-            await ShowToast("Error al agregar la orden de compra.", ToastType.Error);
+            // Prevent the event from propagating to parent modals
+            // This is handled by @onkeydown:stopPropagation="true" in the Razor markup
         }
     }
 
     /// <summary>
-    /// Handles the action to remove a purchase order from the document.
+    /// Closes the link purchase order modal and resets the form.
     /// </summary>
-    /// <param name="purchaseOrder">The purchase order to remove.</param>
+    private async Task CloseLinkPurchaseOrderModal()
+    {
+        // Remove the document-level keydown listener
+        if (_linkPurchaseOrderModalKeyHandler is not null)
+        {
+            try
+            {
+                await _linkPurchaseOrderModalKeyHandler.InvokeVoidAsync("remove");
+                await _linkPurchaseOrderModalKeyHandler.DisposeAsync();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+            _linkPurchaseOrderModalKeyHandler = null;
+        }
+
+        _showLinkPurchaseOrderModal = false;
+        _selectedPurchaseOrderForLink = null;
+        _linkCantidadAFacturar = null;
+        _linkCodigoRecepcion = string.Empty;
+        _linkFechaCodigoRecepcion = null;
+        _linkFacturaAnticipo = false;
+        _linkImporteNetoAnticipo = null;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Handles the action to link a purchase order to the document.
+    /// </summary>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private async Task RemovePurchaseOrder(SapPurchaseOrderResponse purchaseOrder)
+    private async Task LinkPurchaseOrder()
+    {
+        if (_selectedPurchaseOrderForLink is null || _selectedDocument is null)
+        {
+            await ShowToast("Error: No se ha seleccionado una orden de compra o documento.", ToastType.Error);
+            return;
+        }
+
+        if (!_linkCantidadAFacturar.HasValue || _linkCantidadAFacturar.Value <= 0)
+        {
+            await ShowToast("Debe ingresar una cantidad a facturar mayor a cero.", ToastType.Warning);
+            return;
+        }
+
+        try
+        {
+            // Implementation pending: Link the purchase order to the document via API call
+            await JsRuntime.InvokeVoidAsync("console.log", $"Vincular orden de compra: {_selectedPurchaseOrderForLink.Nrodocumento} - Posición: {_selectedPurchaseOrderForLink.Posicion}");
+            await JsRuntime.InvokeVoidAsync("console.log", $"Cantidad a Facturar: {_linkCantidadAFacturar}, Código Recepción: {_linkCodigoRecepcion}, Fecha: {_linkFechaCodigoRecepcion}, Factura Anticipo: {_linkFacturaAnticipo}, Importe Neto Anticipo: {_linkImporteNetoAnticipo}");
+
+            await ShowToast($"Orden de compra {_selectedPurchaseOrderForLink.Nrodocumento} vinculada correctamente.", ToastType.Success);
+
+            // Close modal and refresh the purchase orders list
+            await CloseLinkPurchaseOrderModal();
+            await LoadSapPurchaseOrders();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al vincular orden de compra: {ex.Message}");
+            await ShowToast("Error al vincular la orden de compra.", ToastType.Error);
+        }
+    }
+
+    /// <summary>
+    /// Handles the action to unlink a purchase order from the document.
+    /// </summary>
+    /// <param name="purchaseOrder">The purchase order to unlink.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task UnlinkPurchaseOrder(SapPurchaseOrderResponse purchaseOrder)
     {
         try
         {
-            // Implementation pending: Remove the purchase order from the document via API call
-            await JsRuntime.InvokeVoidAsync("console.log", $"Eliminar orden de compra: {purchaseOrder.Nrodocumento} - Posición: {purchaseOrder.Posicion}");
-            await ShowToast($"Orden de compra {purchaseOrder.Nrodocumento} eliminada correctamente.", ToastType.Success);
-            
+            // Implementation pending: Unlink the purchase order from the document via API call
+            await JsRuntime.InvokeVoidAsync("console.log", $"Desvincular orden de compra: {purchaseOrder.Nrodocumento} - Posición: {purchaseOrder.Posicion}");
+            await ShowToast($"Orden de compra {purchaseOrder.Nrodocumento} desvinculada correctamente.", ToastType.Success);
+
             // Refresh the purchase orders list
             await LoadSapPurchaseOrders();
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", $"Error al eliminar orden de compra: {ex.Message}");
-            await ShowToast("Error al eliminar la orden de compra.", ToastType.Error);
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al desvincular orden de compra: {ex.Message}");
+            await ShowToast("Error al desvincular la orden de compra.", ToastType.Error);
         }
     }
 
@@ -1579,7 +1698,7 @@ public partial class Pending : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("cleanupSelect2InModal");
             await JsRuntime.InvokeVoidAsync("cleanupFlatpickrInModal");
             await JsRuntime.InvokeVoidAsync("resetEditDocumentWizard");
-            
+
             // Destroy DataTable if it exists
             try
             {
@@ -1589,7 +1708,7 @@ public partial class Pending : IAsyncDisposable
             {
                 // Ignore if DataTable doesn't exist
             }
-            
+
             // Reset SAP purchase orders
             _sapPurchaseOrders = [];
             _isLoadingSapPurchaseOrders = false;
@@ -2092,6 +2211,20 @@ public partial class Pending : IAsyncDisposable
             {
                 // El circuito ya está desconectado, no podemos hacer llamadas de JavaScript interop
                 // Esto es normal cuando el componente se está eliminando
+            }
+        }
+
+        // Dispose link purchase order modal key handler
+        if (_linkPurchaseOrderModalKeyHandler is not null)
+        {
+            try
+            {
+                await _linkPurchaseOrderModalKeyHandler.InvokeVoidAsync("remove");
+                await _linkPurchaseOrderModalKeyHandler.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // El circuito ya está desconectado, no podemos hacer llamadas de JavaScript interop
             }
         }
 
