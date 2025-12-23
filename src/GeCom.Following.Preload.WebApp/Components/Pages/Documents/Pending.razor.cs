@@ -851,7 +851,34 @@ public partial class Pending : IAsyncDisposable
                 return;
             }
 
-            await JsRuntime.InvokeVoidAsync("initProviderSelect2", _selectedProviderCuit);
+            // Pass null or empty string explicitly if _selectedProviderCuit is null
+            string? providerCuitToSet = _selectedProviderCuit ?? string.Empty;
+            await JsRuntime.InvokeVoidAsync("initProviderSelect2", providerCuitToSet);
+
+            // Add event listener for SELECT2 change event to call C# method (same as society)
+            if (_dotNetObjectReference is not null)
+            {
+                await Task.Delay(100); // Small delay to ensure SELECT2 is initialized
+                await JsRuntime.InvokeVoidAsync("eval", @"
+                    (function() {
+                        var $select = $('#provider-select-edit');
+                        if ($select.length > 0 && $select.data('select2')) {
+                            // Remove existing listeners to avoid duplicates
+                            $select.off('change.select2.provider');
+                            
+                            // Add listener for SELECT2 change event
+                            $select.on('change.select2.provider', function() {
+                                var selectedValue = $(this).val();
+                                if (window.editDocumentDotNetRef) {
+                                    window.editDocumentDotNetRef.invokeMethodAsync('OnProviderChangedFromSelect2', selectedValue || '');
+                                }
+                            });
+                        } else {
+                            console.warn('SELECT2 not initialized for provider-select-edit');
+                        }
+                    })();
+                ");
+            }
         }
         catch (Exception ex)
         {
@@ -909,7 +936,15 @@ public partial class Pending : IAsyncDisposable
                 StateHasChanged();
                 await Task.Delay(200); // Allow DOM to update with new provider options
 
-                // Reinitialize provider SELECT2 with new options
+                // Clear the data-selected-value attribute and reinitialize provider SELECT2 with null value
+                await JsRuntime.InvokeVoidAsync("eval", @"
+                    (function() {
+                        var selectElement = document.getElementById('provider-select-edit');
+                        if (selectElement) {
+                            selectElement.removeAttribute('data-selected-value');
+                        }
+                    })();
+                ");
                 await InitializeProviderSelect2();
             }
             else
@@ -923,7 +958,15 @@ public partial class Pending : IAsyncDisposable
                 StateHasChanged();
                 await Task.Delay(200);
 
-                // Reinitialize provider SELECT2 with empty options
+                // Clear the data-selected-value attribute and reinitialize provider SELECT2 with null value
+                await JsRuntime.InvokeVoidAsync("eval", @"
+                    (function() {
+                        var selectElement = document.getElementById('provider-select-edit');
+                        if (selectElement) {
+                            selectElement.removeAttribute('data-selected-value');
+                        }
+                    })();
+                ");
                 await InitializeProviderSelect2();
             }
         }
@@ -931,6 +974,24 @@ public partial class Pending : IAsyncDisposable
         {
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// Handles the provider selection change.
+    /// </summary>
+    /// <param name="e">The change event arguments.</param>
+    /// <returns></returns>
+    /// <summary>
+    /// Handles the provider selection change from SELECT2 (called from JavaScript).
+    /// </summary>
+    /// <param name="providerCuit">The selected provider CUIT.</param>
+    /// <returns></returns>
+    [JSInvokable]
+    public Task OnProviderChangedFromSelect2(string providerCuit)
+    {
+        _selectedProviderCuit = string.IsNullOrWhiteSpace(providerCuit) ? null : providerCuit;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1093,6 +1154,7 @@ public partial class Pending : IAsyncDisposable
     /// </summary>
     /// <param name="docId">The document ID.</param>
     /// <param name="sociedadCuit">The sociedad CUIT.</param>
+    /// <param name="proveedorCuit">The proveedor CUIT.</param>
     /// <param name="tipoDocId">The document type ID.</param>
     /// <param name="puntoDeVenta">The punto de venta.</param>
     /// <param name="numeroComprobante">The número comprobante.</param>
@@ -1141,28 +1203,29 @@ public partial class Pending : IAsyncDisposable
                 vencimiento = vencimientoParsed;
             }
 
-            // Determine provider CUIT based on user role
-            string? proveedorCuit;
+            // Determine provider CUIT based on user role (same pattern as sociedadCuit)
+            // Use _selectedProviderCuit which is updated when SELECT2 changes
+            string? proveedorCuitFinal;
             if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
             {
                 // Provider role: use the logged-in provider's CUIT
-                proveedorCuit = _providerCuit;
+                proveedorCuitFinal = _providerCuit;
             }
             else if (_isSociety && !string.IsNullOrWhiteSpace(_selectedProviderCuit))
             {
-                // Society role: use the selected provider
-                proveedorCuit = _selectedProviderCuit;
+                // Society role: use the selected provider from component state (updated by SELECT2 listener)
+                proveedorCuitFinal = _selectedProviderCuit;
             }
             else
             {
                 // Fallback: use document's provider
-                proveedorCuit = _selectedDocument.ProveedorCuit;
+                proveedorCuitFinal = _selectedDocument.ProveedorCuit;
             }
 
             // Build update request
             UpdateDocumentRequest request = new(
                 DocId: docId,
-                ProveedorCuit: proveedorCuit,
+                ProveedorCuit: proveedorCuitFinal,
                 SociedadCuit: sociedadCuit,
                 TipoDocId: tipoDocId,
                 PuntoDeVenta: puntoDeVenta,
@@ -1197,6 +1260,7 @@ public partial class Pending : IAsyncDisposable
             _selectedFechaFactura = updatedDocument.FechaEmisionComprobante;
             _selectedVencimientoCaecai = updatedDocument.VencimientoCaecai;
             _selectedSocietyCuit = updatedDocument.SociedadCuit;
+            _selectedProviderCuit = updatedDocument.ProveedorCuit; // Update provider CUIT from updated document
             _selectedPuntoDeVenta = updatedDocument.PuntoDeVenta ?? string.Empty;
             _selectedNumeroComprobante = updatedDocument.NumeroComprobante ?? string.Empty;
             _selectedCaecai = updatedDocument.Caecai ?? string.Empty;
@@ -1204,6 +1268,9 @@ public partial class Pending : IAsyncDisposable
 
             // Update the document in the _pendingDocuments collection to reflect changes in the dataTable
             await UpdateDocumentInPendingList(updatedDocument);
+
+            // Update SELECT2 components with new values
+            await InitializeProviderSelect2();
 
             StateHasChanged();
 

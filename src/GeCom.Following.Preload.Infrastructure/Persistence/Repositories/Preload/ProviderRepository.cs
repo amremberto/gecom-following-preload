@@ -65,36 +65,56 @@ internal sealed class ProviderRepository : GenericRepository<Provider, PreloadDb
             return [];
         }
 
-        // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
-        // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
-        // See documentation in docs/SQL-SERVER-OPENJSON-ISSUE.md
-        ParameterExpression parameter = Expression.Parameter(typeof(Provider), "p");
-        MemberExpression property = Expression.Property(parameter, nameof(Provider.Cuit));
-        BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+        // Filter out empty CUITs
+        var validCuits = cuits
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct()
+            .ToList();
 
-        Expression? orExpression = null;
-        foreach (string cuit in cuits)
+        if (validCuits.Count == 0)
         {
-            if (string.IsNullOrWhiteSpace(cuit))
+            return [];
+        }
+
+        // Process in batches to avoid StackOverflowException when there are too many CUITs
+        // Large OR expressions can cause stack overflow, so we process in chunks
+        const int batchSize = 100;
+        var allProviders = new List<Provider>();
+
+        for (int i = 0; i < validCuits.Count; i += batchSize)
+        {
+            var batch = validCuits.Skip(i).Take(batchSize).ToList();
+
+            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+            // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
+            // See documentation in docs/SQL-SERVER-OPENJSON-ISSUE.md
+            ParameterExpression parameter = Expression.Parameter(typeof(Provider), "p");
+            MemberExpression property = Expression.Property(parameter, nameof(Provider.Cuit));
+            BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+
+            Expression? orExpression = null;
+            foreach (string cuit in batch)
             {
-                continue;
+                BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
+                orExpression = orExpression is null
+                    ? equalsExpression
+                    : Expression.OrElse(orExpression, equalsExpression);
             }
 
-            BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(cuit, typeof(string)));
-            orExpression = orExpression is null
-                ? equalsExpression
-                : Expression.OrElse(orExpression, equalsExpression);
+            if (orExpression is not null)
+            {
+                BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
+                var lambda = Expression.Lambda<Func<Provider, bool>>(combinedExpression, parameter);
+                IQueryable<Provider> query = GetQueryable().Where(lambda);
+                List<Provider> batchProviders = await query.ToListAsync(cancellationToken);
+                allProviders.AddRange(batchProviders);
+            }
         }
 
-        if (orExpression is not null)
-        {
-            BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
-            var lambda = Expression.Lambda<Func<Provider, bool>>(combinedExpression, parameter);
-            IQueryable<Provider> query = GetQueryable().Where(lambda);
-            List<Provider> providers = await query.ToListAsync(cancellationToken);
-            return providers;
-        }
-
-        return [];
+        // Remove duplicates (in case same provider appears in multiple batches)
+        return allProviders
+            .GroupBy(p => p.Cuit)
+            .Select(g => g.First())
+            .ToList();
     }
 }

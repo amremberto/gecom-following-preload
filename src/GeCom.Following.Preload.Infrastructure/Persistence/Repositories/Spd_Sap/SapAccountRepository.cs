@@ -75,47 +75,64 @@ internal sealed class SapAccountRepository : GenericRepository<SapAccount, SpdSa
             return [];
         }
 
-        // Build query base with customer type and CUIT filters
-        IQueryable<SapAccount> query = GetQueryable()
-            .Where(a => a.Customertypecode == customerTypeCode
-                && a.NewCuit != null
-                && !string.IsNullOrWhiteSpace(a.NewCuit));
+        // Filter out empty account numbers
+        var validAccountNumbers = accountNumbers
+            .Where(an => !string.IsNullOrWhiteSpace(an))
+            .Distinct()
+            .ToList();
 
-        // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
-        // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
-        // See documentation in docs/SQL-SERVER-OPENJSON-ISSUE.md
-        ParameterExpression parameter = Expression.Parameter(typeof(SapAccount), "a");
-        MemberExpression property = Expression.Property(parameter, nameof(SapAccount.Accountnumber));
-        BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
-
-        Expression? orExpression = null;
-        foreach (string accountNumber in accountNumbers)
+        if (validAccountNumbers.Count == 0)
         {
-            if (string.IsNullOrWhiteSpace(accountNumber))
-            {
-                continue;
-            }
-
-            BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(accountNumber, typeof(string)));
-            orExpression = orExpression is null
-                ? equalsExpression
-                : Expression.OrElse(orExpression, equalsExpression);
-        }
-
-        if (orExpression is not null)
-        {
-            BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
-            var lambda = Expression.Lambda<Func<SapAccount, bool>>(combinedExpression, parameter);
-            query = query.Where(lambda);
-        }
-        else
-        {
-            // If no valid account numbers, return empty result
             return [];
         }
 
-        List<SapAccount> accounts = await query.ToListAsync(cancellationToken);
-        return accounts;
+        // Process in batches to avoid StackOverflowException when there are too many account numbers
+        // Large OR expressions can cause stack overflow, so we process in chunks
+        const int batchSize = 100;
+        var allAccounts = new List<SapAccount>();
+
+        for (int i = 0; i < validAccountNumbers.Count; i += batchSize)
+        {
+            var batch = validAccountNumbers.Skip(i).Take(batchSize).ToList();
+
+            // Build query base with customer type and CUIT filters
+            IQueryable<SapAccount> query = GetQueryable()
+                .Where(a => a.Customertypecode == customerTypeCode
+                    && a.NewCuit != null
+                    && !string.IsNullOrWhiteSpace(a.NewCuit));
+
+            // Build explicit OR conditions to avoid OPENJSON issues with SQL Server
+            // EF Core uses OPENJSON for Contains() which fails on some SQL Server versions
+            // See documentation in docs/SQL-SERVER-OPENJSON-ISSUE.md
+            ParameterExpression parameter = Expression.Parameter(typeof(SapAccount), "a");
+            MemberExpression property = Expression.Property(parameter, nameof(SapAccount.Accountnumber));
+            BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
+
+            Expression? orExpression = null;
+            foreach (string accountNumber in batch)
+            {
+                BinaryExpression equalsExpression = Expression.Equal(property, Expression.Constant(accountNumber, typeof(string)));
+                orExpression = orExpression is null
+                    ? equalsExpression
+                    : Expression.OrElse(orExpression, equalsExpression);
+            }
+
+            if (orExpression is not null)
+            {
+                BinaryExpression combinedExpression = Expression.AndAlso(nullCheck, orExpression);
+                var lambda = Expression.Lambda<Func<SapAccount, bool>>(combinedExpression, parameter);
+                query = query.Where(lambda);
+
+                List<SapAccount> batchAccounts = await query.ToListAsync(cancellationToken);
+                allAccounts.AddRange(batchAccounts);
+            }
+        }
+
+        // Remove duplicates (in case same account appears in multiple batches)
+        return allAccounts
+            .GroupBy(a => a.Accountnumber)
+            .Select(g => g.First())
+            .ToList();
     }
 }
 
