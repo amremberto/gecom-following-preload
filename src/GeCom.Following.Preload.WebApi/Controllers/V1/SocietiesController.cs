@@ -1,4 +1,4 @@
-using Asp.Versioning;
+﻿using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.CreateSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.DeleteSociety;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocieties;
@@ -6,6 +6,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Societies.GetAllSocie
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCodigo;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyByCuit;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietyById;
+using GeCom.Following.Preload.Application.Features.Preload.Societies.GetSocietiesByUserEmail;
 using GeCom.Following.Preload.Application.Features.Preload.Societies.UpdateSociety;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Preload.Societies.Create;
@@ -246,7 +247,7 @@ public sealed class SocietiesController : VersionedApiController
     }
 
     /// <summary>
-    /// Deletes a society by its ID.
+    /// Delete a society by its ID.
     /// </summary>
     /// <param name="id">Society ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -273,5 +274,30 @@ public sealed class SocietiesController : VersionedApiController
 
         return result.MatchDeleted(this);
     }
-}
 
+    /// <summary>
+    /// Gets societies by user email for select dropdowns.
+    /// </summary>
+    /// <param name="userEmail">User email.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of societies (CUIT and description only) available for the user.</returns>
+    /// <response code="200">Returns the list of societies.</response>
+    /// <response code="400">If the userEmail parameter is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("by-user-email/{userEmail}")]
+    [ProducesResponseType(typeof(IEnumerable<SocietySelectItem>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<IEnumerable<SocietySelectItem>>> GetByUserEmail(string userEmail, CancellationToken cancellationToken)
+    {
+        GetSocietiesByUserEmailQuery query = new(userEmail);
+
+        Result<IEnumerable<SocietySelectItem>> result = await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+}

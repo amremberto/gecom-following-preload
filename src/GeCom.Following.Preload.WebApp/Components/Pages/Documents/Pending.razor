@@ -455,65 +455,30 @@
                                                         <div class="row g-3">
                                                             <div class="col-md-6">
                                                                 <label class="fw-bold text-primary" for="society-select-edit">Cliente / Razón Social</label>
-                                                                @if ((_isProvider && !string.IsNullOrWhiteSpace(_providerCuit)) || (_isSociety && !string.IsNullOrWhiteSpace(_userEmail)))
-                                                                {
-                                                                    <select id="society-select-edit" 
-                                                                            name="society-select-edit"
-                                                                            class="form-control" 
-                                                                            data-selected-value="@_selectedSocietyCuit"
-                                                                            @onchange="OnSocietyChanged"
-                                                                            required>
-                                                                        <option value="">Seleccione un cliente</option>
-                                                                        @if (_isProvider)
-                                                                        {
-                                                                            @foreach (var society in _providerSocieties)
-                                                                            {
-                                                                                <option value="@society.Cuit" selected="@(society.Cuit == _selectedSocietyCuit)">
-                                                                                    @society.Cuit - @(society.Name ?? "Sin nombre")
-                                                                                </option>
-                                                                            }
-                                                                            @* Add document's society if not in the list *@
-                                                                            @if (_selectedDocument is not null && !string.IsNullOrWhiteSpace(_selectedDocument.SociedadCuit) && !_providerSocieties.Any(s => s.Cuit == _selectedDocument.SociedadCuit))
-                                                                            {
-                                                                                <option value="@_selectedDocument.SociedadCuit" selected="true">
-                                                                                    @_selectedDocument.SociedadCuit - @(_selectedDocument.SociedadDescripcion ?? "Sin nombre")
-                                                                                </option>
-                                                                            }
-                                                                        }
-                                                                        else if (_isSociety)
-                                                                        {
-                                                                            @foreach (var society in _availableSocieties)
-                                                                            {
-                                                                                <option value="@society.Cuit" selected="@(society.Cuit == _selectedSocietyCuit)">
-                                                                                    @society.Cuit - @(society.Name ?? "Sin nombre")
-                                                                                </option>
-                                                                            }
-                                                                            @* Add document's society if not in the list *@
-                                                                            @if (_selectedDocument is not null && !string.IsNullOrWhiteSpace(_selectedDocument.SociedadCuit) && !_availableSocieties.Any(s => s.Cuit == _selectedDocument.SociedadCuit))
-                                                                            {
-                                                                                <option value="@_selectedDocument.SociedadCuit" selected="true">
-                                                                                    @_selectedDocument.SociedadCuit - @(_selectedDocument.SociedadDescripcion ?? "Sin nombre")
-                                                                                </option>
-                                                                            }
-                                                                        }
-                                                                    </select>
-                                                                    <div class="invalid-feedback">
-                                                                        Por favor seleccione un cliente.
-                                                                    </div>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <div class="form-control-plaintext bg-light rounded w-auto px-2">
-                                                                        @if (_selectedDocument is not null)
-                                                                        {
-                                                                            @($"{_selectedDocument.SociedadCuit} - {_selectedDocument.SociedadDescripcion}")
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <span class="text-muted">No disponible</span>
-                                                                        }
-                                                                    </div>
-                                                                }
+                                                                <select id="society-select-edit" 
+                                                                        name="society-select-edit"
+                                                                        class="form-control" 
+                                                                        data-selected-value="@_selectedSocietyCuit"
+                                                                        @onchange="OnSocietyChanged"
+                                                                        required>
+                                                                    <option value="">Seleccione un cliente</option>
+                                                                    @foreach (var society in _societies)
+                                                                    {
+                                                                        <option value="@society.Cuit" selected="@(society.Cuit == _selectedSocietyCuit)">
+                                                                            @society.Cuit - @(society.Name ?? "Sin nombre")
+                                                                        </option>
+                                                                    }
+                                                                    @* Add document's society if not in the list *@
+                                                                    @if (_selectedDocument is not null && !string.IsNullOrWhiteSpace(_selectedDocument.SociedadCuit) && !_societies.Any(s => s.Cuit == _selectedDocument.SociedadCuit))
+                                                                    {
+                                                                        <option value="@_selectedDocument.SociedadCuit" selected="true">
+                                                                            @_selectedDocument.SociedadCuit - @(_selectedDocument.SociedadDescripcion ?? "Sin nombre")
+                                                                        </option>
+                                                                    }
+                                                                </select>
+                                                                <div class="invalid-feedback">
+                                                                    Por favor seleccione un cliente.
+                                                                </div>
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label class="fw-bold text-primary" for="provider-select-edit">Proveedor</label>

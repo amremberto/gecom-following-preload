@@ -58,8 +58,7 @@ public partial class Pending : IAsyncDisposable
     private int? _selectedDocumentTypeId;
     private DateOnly? _selectedFechaFactura;
     private DateOnly? _selectedVencimientoCaecai;
-    private IEnumerable<ProviderSocietyResponse> _providerSocieties = [];
-    private IEnumerable<ProviderSocietyResponse> _availableSocieties = []; // For Society role users
+    private IEnumerable<ProviderSocietyResponse> _societies = []; // Unified list of societies (always loaded)
     private IEnumerable<ProviderResponse> _availableProviders = []; // For Society role users
     private string? _selectedSocietyCuit;
     private string? _selectedProviderCuit;
@@ -472,43 +471,23 @@ public partial class Pending : IAsyncDisposable
 
         await LoadCurrencies();
         await LoadDocumentTypes();
+        await LoadSocieties(); // Always load societies (like currencies and document types)
 
-        // Load data based on user role
-        if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+        // If Society role and document has a society, load providers for that society
+        if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
         {
-            // Provider role: Load societies that the provider can assign documents to
-            await LoadProviderSocieties();
-            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Sociedades cargadas para proveedor: {_providerSocieties.Count()}");
-            // Ensure state is updated after loading societies so the combo renders correctly
-            StateHasChanged();
-        }
-        else if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
-        {
-            // Society role: Load societies that the user has access to
-            await LoadUserSocieties();
-            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Sociedades cargadas para usuario: {_availableSocieties.Count()}");
-
-            // If document has a society, load providers for that society
-            if (_selectedDocument is not null && !string.IsNullOrWhiteSpace(_selectedDocument.SociedadCuit))
+            string? societyCuitToLoad = _selectedDocument?.SociedadCuit ?? _selectedSocietyCuit;
+            if (!string.IsNullOrWhiteSpace(societyCuitToLoad))
             {
-                await LoadProvidersBySociety(_selectedDocument.SociedadCuit);
-                await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Proveedores cargados para sociedad {_selectedDocument.SociedadCuit}: {_availableProviders.Count()}");
+                await LoadProvidersBySociety(societyCuitToLoad);
+                await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Proveedores cargados para sociedad {societyCuitToLoad}: {_availableProviders.Count()}");
             }
-
-            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Valores finales. _isSociety: {_isSociety}, _userEmail: {_userEmail}, _selectedSocietyCuit: {_selectedSocietyCuit}, _selectedProviderCuit: {_selectedProviderCuit}, Societies count: {_availableSocieties.Count()}, Providers count: {_availableProviders.Count()}");
-
-            // Ensure state is updated after loading data
-            StateHasChanged();
-        }
-        else
-        {
-            await JsRuntime.InvokeVoidAsync("console.warn", "[OpenDocumentEdit] _selectedDocument es null después de GetDocumentWithDetails");
         }
 
         _isModalLoading = false;
         StateHasChanged();
         await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] StateHasChanged llamado. _isProvider: {_isProvider}, _isSociety: {_isSociety}, _userEmail: {_userEmail}, _selectedSocietyCuit: {_selectedSocietyCuit}, _selectedProviderCuit: {_selectedProviderCuit}");
-        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Listas disponibles. _providerSocieties: {_providerSocieties.Count()}, _availableSocieties: {_availableSocieties.Count()}, _availableProviders: {_availableProviders.Count()}");
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Listas disponibles. _societies: {_societies.Count()}, _availableProviders: {_availableProviders.Count()}");
 
         if (_selectedDocument is not null)
         {
@@ -708,58 +687,55 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Loads all provider societies from the API (for Provider role users).
+    /// Loads all societies based on user role. Always called (like LoadCurrencies and LoadDocumentTypes).
     /// </summary>
     /// <returns></returns>
-    private async Task LoadProviderSocieties()
+    private async Task LoadSocieties()
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(_providerCuit))
-            {
-                _providerSocieties = [];
-                return;
-            }
+            await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Iniciando. _isProvider: {_isProvider}, _providerCuit: {_providerCuit}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
 
-            IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByProviderCuitAsync(
-                _providerCuit,
-                cancellationToken: default);
-            _providerSocieties = response ?? [];
+            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit))
+            {
+                // Provider role: Load societies that the provider can assign documents to
+                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Cargando sociedades para proveedor CUIT: {_providerCuit}");
+                IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByProviderCuitAsync(
+                    _providerCuit,
+                    cancellationToken: default);
+                _societies = response ?? [];
+                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Sociedades cargadas para proveedor: {_societies.Count()}");
+            }
+            else if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
+            {
+                // Society role: Load societies that the user has access to
+                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Cargando sociedades para usuario email: {_userEmail}");
+                IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByUserEmailAsync(
+                    _userEmail,
+                    cancellationToken: default);
+                _societies = response ?? [];
+                await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Sociedades cargadas para usuario: {_societies.Count()}");
+                if (_societies.Any())
+                {
+                    await JsRuntime.InvokeVoidAsync("console.log", $"[LoadSocieties] Primeras sociedades: {string.Join(", ", _societies.Take(3).Select(s => s.Cuit))}");
+                }
+            }
+            else
+            {
+                // No role or missing data: empty list
+                _societies = [];
+                await JsRuntime.InvokeVoidAsync("console.warn", $"[LoadSocieties] No se cargaron sociedades. _isProvider: {_isProvider}, _providerCuit: '{_providerCuit}', _isSociety: {_isSociety}, _userEmail: '{_userEmail}'");
+            }
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar sociedades del proveedor:", ex.Message);
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al cargar sociedades: {ex.Message}");
+            await JsRuntime.InvokeVoidAsync("console.error", $"Stack trace: {ex.StackTrace}");
             await ShowToast("Error al cargar las sociedades disponibles.");
-            _providerSocieties = [];
+            _societies = [];
         }
     }
 
-    /// <summary>
-    /// Loads all societies that the user has access to (for Society role users).
-    /// </summary>
-    /// <returns></returns>
-    private async Task LoadUserSocieties()
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(_userEmail))
-            {
-                _availableSocieties = [];
-                return;
-            }
-
-            IEnumerable<ProviderSocietyResponse>? response = await SapProviderSocietyService.GetSocietiesByUserEmailAsync(
-                _userEmail,
-                cancellationToken: default);
-            _availableSocieties = response ?? [];
-        }
-        catch (Exception ex)
-        {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al cargar sociedades del usuario:", ex.Message);
-            await ShowToast("Error al cargar las sociedades disponibles.");
-            _availableSocieties = [];
-        }
-    }
 
     /// <summary>
     /// Loads all providers that can assign documents to a specific society (for Society role users).
@@ -885,9 +861,18 @@ public partial class Pending : IAsyncDisposable
             await LoadProvidersBySociety(newSocietyCuit);
             // Reset selected provider when society changes
             _selectedProviderCuit = null;
-        }
 
-        StateHasChanged();
+            // Update state and wait for DOM to update
+            StateHasChanged();
+            await Task.Delay(200); // Allow DOM to update with new provider options
+
+            // Reinitialize provider SELECT2 with new options
+            await InitializeProviderSelect2();
+        }
+        else
+        {
+            StateHasChanged();
+        }
     }
 
     /// <summary>
@@ -1018,61 +1003,19 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
-            await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Iniciando. _isProvider: {_isProvider}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
-            await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Valores seleccionados. _selectedSocietyCuit: {_selectedSocietyCuit}, _selectedProviderCuit: {_selectedProviderCuit}");
-            await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Listas. _providerSocieties: {_providerSocieties.Count()}, _availableSocieties: {_availableSocieties.Count()}, _availableProviders: {_availableProviders.Count()}");
-
             // Ensure DOM is updated with current values
             StateHasChanged();
-            await Task.Delay(200); // Delay to ensure DOM update is complete, especially for conditionally rendered elements
+            await Task.Delay(300); // Delay to ensure DOM update is complete (same as before)
 
-            // Initialize SELECT2 components
+            // Initialize SELECT2 components (always initialize, like currencies and document types)
             await InitializeCurrencySelect2();
             await InitializeDocumentTypeSelect2();
-
-            // Initialize society SELECT2 based on user role
-            // Always initialize if user is Provider or Society, even if lists are empty (they may have document values)
-            if (_isProvider && !string.IsNullOrWhiteSpace(_providerCuit) ||
-                _isSociety && !string.IsNullOrWhiteSpace(_userEmail))
-            {
-                bool elementExists = await JsRuntime.InvokeAsync<bool>("eval", @"
-                    (function() {
-                        var selectElement = document.getElementById('society-select-edit');
-                        return selectElement !== null && selectElement !== undefined;
-                    })();
-                ");
-
-                if (elementExists)
-                {
-                    await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Inicializando SELECT2 de sociedad. _selectedSocietyCuit: {_selectedSocietyCuit}");
-                    await InitializeSocietySelect2();
-                }
-                else
-                {
-                    await JsRuntime.InvokeVoidAsync("console.warn", "El elemento society-select-edit no existe en el DOM. Verificando condiciones de renderizado.");
-                }
-            }
+            await InitializeSocietySelect2(); // Always initialize (like currencies and document types)
 
             // Initialize provider SELECT2 if user is Society role
-            // Always initialize if user is Society, even if list is empty (it may have document value)
             if (_isSociety && !string.IsNullOrWhiteSpace(_userEmail))
             {
-                bool elementExists = await JsRuntime.InvokeAsync<bool>("eval", @"
-                    (function() {
-                        var selectElement = document.getElementById('provider-select-edit');
-                        return selectElement !== null && selectElement !== undefined;
-                    })();
-                ");
-
-                if (elementExists)
-                {
-                    await JsRuntime.InvokeVoidAsync("console.log", $"[InitializeEditFormComponents] Inicializando SELECT2 de proveedor. _selectedProviderCuit: {_selectedProviderCuit}");
-                    await InitializeProviderSelect2();
-                }
-                else
-                {
-                    await JsRuntime.InvokeVoidAsync("console.warn", "El elemento provider-select-edit no existe en el DOM.");
-                }
+                await InitializeProviderSelect2();
             }
 
             // Initialize date pickers

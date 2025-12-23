@@ -23,4 +23,12 @@ public interface ISocietyRepository : IRepository<Society>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The society or null.</returns>
     Task<Society?> GetByCuitAsync(string cuit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets societies by a list of CUITs.
+    /// </summary>
+    /// <param name="cuits">List of CUITs to filter by.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of societies matching the CUITs.</returns>
+    Task<IEnumerable<Society>> GetByCuitsAsync(IReadOnlyList<string> cuits, CancellationToken cancellationToken = default);
 }
