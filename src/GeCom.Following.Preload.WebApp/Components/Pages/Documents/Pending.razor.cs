@@ -221,8 +221,17 @@ public partial class Pending : IAsyncDisposable
                     await Task.Delay(300);
                 }
 
-                // Open the edit modal for the document
-                await OpenDocumentEdit(docId);
+                // Find the document in the pending documents list
+                DocumentResponse? documentToEdit = _pendingDocuments.FirstOrDefault(d => d.DocId == docId);
+                if (documentToEdit is not null)
+                {
+                    // Open the edit modal for the document using the document from the dataTable
+                    await OpenDocumentEdit(documentToEdit);
+                }
+                else
+                {
+                    await ShowToast("No se pudo encontrar el documento para editar.", ToastType.Warning);
+                }
             }
         }
         catch (Exception ex)
@@ -410,16 +419,18 @@ public partial class Pending : IAsyncDisposable
     /// <returns></returns>
     private async Task EditDocument(DocumentResponse document)
     {
-        await OpenDocumentEdit(document.DocId);
+        await OpenDocumentEdit(document);
     }
 
     /// <summary>
     /// Opens the document edit modal.
     /// </summary>
-    /// <param name="docId">The document ID.</param>
+    /// <param name="document">The document to edit. If provided, it will be used directly without querying the database.</param>
     /// <returns></returns>
-    private async Task OpenDocumentEdit(int docId)
+    private async Task OpenDocumentEdit(DocumentResponse document)
     {
+        ArgumentNullException.ThrowIfNull(document);
+
         _isModalLoading = true;
         _selectedDocument = null;
         _selectedPdfFileName = string.Empty;
@@ -440,8 +451,30 @@ public partial class Pending : IAsyncDisposable
         await CheckIfSocietyAndGetEmailAsync();
         await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Después de verificar roles. _isProvider: {_isProvider}, _providerCuit: {_providerCuit}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
 
-        await GetDocumentWithDetails(docId);
-        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Después de GetDocumentWithDetails. _selectedDocument is null: {_selectedDocument is null}");
+        // Use the document passed directly from the dataTable for basic data
+        // However, if attachments are needed (for PDF display), we need to load them
+        _selectedDocument = document;
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Usando documento del dataTable. DocId: {document.DocId}");
+
+        // Check if we need to load attachments (PDF) and other related data
+        // Only query the database if attachments are missing or incomplete
+        // Note: GetPendingDocuments endpoints typically don't include Attachments for performance
+        bool hasActiveAttachments = document.Attachments is not null && 
+                                    document.Attachments.Any(a => a.FechaBorrado is null);
+        bool needsFullDetails = !hasActiveAttachments ||
+                               document.PurchaseOrders is null ||
+                               document.Notes is null;
+
+        if (needsFullDetails)
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Cargando detalles completos del documento (attachments/relaciones). HasAttachments: {hasActiveAttachments}");
+            // Load full document details including attachments, purchase orders, and notes
+            await GetDocumentWithDetails(document.DocId);
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Documento del dataTable tiene toda la información necesaria. Attachments: {document.Attachments?.Count ?? 0}");
+        }
 
         // Set document values FIRST before loading dropdowns
         if (_selectedDocument is not null)
@@ -1144,6 +1177,9 @@ public partial class Pending : IAsyncDisposable
             _selectedCaecai = updatedDocument.Caecai ?? string.Empty;
             _selectedMontoBruto = updatedDocument.MontoBruto;
 
+            // Update the document in the _pendingDocuments collection to reflect changes in the dataTable
+            await UpdateDocumentInPendingList(updatedDocument);
+
             StateHasChanged();
 
             return new UpdateDocumentResult
@@ -1160,6 +1196,44 @@ public partial class Pending : IAsyncDisposable
                 Success = false,
                 Message = $"Error al actualizar el documento: {ex.Message}"
             };
+        }
+    }
+
+    /// <summary>
+    /// Updates the document in the _pendingDocuments collection and refreshes the dataTable.
+    /// </summary>
+    /// <param name="updatedDocument">The updated document.</param>
+    /// <returns></returns>
+    private async Task UpdateDocumentInPendingList(DocumentResponse updatedDocument)
+    {
+        try
+        {
+            // Find the document in the pending documents list and replace it
+            var pendingList = _pendingDocuments.ToList();
+            int index = pendingList.FindIndex(d => d.DocId == updatedDocument.DocId);
+
+            if (index >= 0)
+            {
+                // Replace the old document with the updated one
+                pendingList[index] = updatedDocument;
+                _pendingDocuments = pendingList;
+
+                // Refresh the dataTable to show the updated data
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                StateHasChanged();
+                await Task.Delay(100); // Small delay to ensure DOM is updated
+                await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+
+                await JsRuntime.InvokeVoidAsync("console.log", $"Documento #{updatedDocument.DocId} actualizado en el dataTable.");
+            }
+            else
+            {
+                await JsRuntime.InvokeVoidAsync("console.warn", $"No se encontró el documento #{updatedDocument.DocId} en la lista de documentos pendientes.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al actualizar el documento en la lista: {ex.Message}");
         }
     }
 
@@ -1380,7 +1454,17 @@ public partial class Pending : IAsyncDisposable
             StateHasChanged();
 
             // Abrir el modal de edición del documento
-            await OpenDocumentEdit(document.DocId);
+            // Find the document in the pending documents list (it should be there after reload)
+            DocumentResponse? documentToEdit = _pendingDocuments.FirstOrDefault(d => d.DocId == document.DocId);
+            if (documentToEdit is not null)
+            {
+                await OpenDocumentEdit(documentToEdit);
+            }
+            else
+            {
+                // Fallback: use the document passed as parameter if not found in the list
+                await OpenDocumentEdit(document);
+            }
         }
         catch (Exception ex)
         {
