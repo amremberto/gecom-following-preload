@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Domain.Preloads.DocumentTypes;
+﻿using GeCom.Following.Preload.Domain.Preloads.DocumentTypes;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 
 namespace GeCom.Following.Preload.Application.Abstractions.Repositories;
@@ -23,4 +23,12 @@ public interface IDocumentTypeRepository : IRepository<DocumentType>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The document type or null.</returns>
     Task<DocumentType?> GetByTipoDocIdAsync(int tipoDocId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Determines if the document type is a credit or debit note.
+    /// </summary>
+    /// <param name="tipoDocId"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<bool> IsCreditOrDebitNoteAsync(int? tipoDocId, CancellationToken cancellationToken = default);
 }

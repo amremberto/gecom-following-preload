@@ -1,3 +1,4 @@
+﻿using GeCom.Following.Preload.Application.DTOs;
 using GeCom.Following.Preload.Domain.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 
@@ -23,4 +24,35 @@ public interface ISapPurchaseOrderRepository : IRepository<SapPurchaseOrder>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of SAP purchase orders for the specified societies.</returns>
     Task<IEnumerable<SapPurchaseOrder>> GetBySociedadFiCodesAsync(IReadOnlyList<string> sociedadFiCodes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets raw data for SAP purchase orders when dealing with credit or debit notes.
+    /// Returns the complete DTO with all fields needed to apply business logic in the handler.
+    /// </summary>
+    /// <param name="providerCuit">The provider CUIT to filter by.</param>
+    /// <param name="societyCode">The society code to filter by.</param>
+    /// <param name="docId">The document ID to filter by.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of DTOs with raw purchase order data.</returns>
+    Task<IEnumerable<SapPurchaseOrderCreditDebitNoteDto>> GetCreditDebitNoteDataAsync(
+        string providerCuit,
+        string societyCode,
+        int docId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets raw data for SAP purchase orders for standard documents (not credit/debit notes).
+    /// Returns the complete DTO with all fields needed to apply business logic in the handler.
+    /// Includes specific filters: invoiced quantity less than delivered, and 3-year date filter.
+    /// </summary>
+    /// <param name="providerCuit">The provider CUIT to filter by.</param>
+    /// <param name="societyCode">The society code to filter by.</param>
+    /// <param name="docId">The document ID to filter by.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of DTOs with raw purchase order data.</returns>
+    Task<IEnumerable<SapPurchaseOrderCreditDebitNoteDto>> GetStandardPurchaseOrderDataAsync(
+        string providerCuit,
+        string societyCode,
+        int docId,
+        CancellationToken cancellationToken = default);
 }

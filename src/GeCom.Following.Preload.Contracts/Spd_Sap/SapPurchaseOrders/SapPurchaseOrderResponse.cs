@@ -33,5 +33,9 @@ public sealed record SapPurchaseOrderResponse(
     string? Localidad,
     int Liberada,
     string? Dist,
-    decimal? NetoAnticipo
+    decimal? NetoAnticipo,
+    // Campos adicionales calculados o provenientes de Precarga.OrdenesCompra
+    decimal? CantidadFaltaFacturar = null,
+    decimal? CantidadAFacturar = null,
+    string? CodigoRecepcion = null
 );

@@ -37,7 +37,11 @@ internal static class SapPurchaseOrderMappings
             purchaseOrder.Localidad,
             purchaseOrder.Liberada,
             purchaseOrder.Dist,
-            purchaseOrder.NetoAnticipo
+            purchaseOrder.NetoAnticipo,
+            // Campos adicionales no disponibles desde la entidad base
+            CantidadFaltaFacturar: null,
+            CantidadAFacturar: null,
+            CodigoRecepcion: null
         );
 
         return result;

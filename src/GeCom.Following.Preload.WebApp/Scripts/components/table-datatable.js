@@ -13,8 +13,20 @@ window.loadDataTable = function (tableId) {
     }
 
     try {
+        const tableElement = $('#' + tableId);
+        if (tableElement.length === 0) {
+            console.warn('Table element not found:', tableId);
+            return;
+        }
+
+        // Check if DataTable is already initialized
+        if ($.fn.DataTable.isDataTable('#' + tableId)) {
+            console.warn('DataTable already initialized for:', tableId);
+            return;
+        }
+
         // Scroll Vertical Datatable
-        $('#' + tableId).DataTable({
+        tableElement.DataTable({
             scrollX: true,
             fixedColumns: { leftColumns: 1 }, // <-- Fija la primera columna
             stateSave: true,
@@ -54,11 +66,21 @@ window.destroyDataTable = function (tableId) {
     }
 
     try {
-        const table = $('#' + tableId).DataTable();
-        if (table) {
-            table.destroy();
+        const tableElement = $('#' + tableId);
+        if (tableElement.length === 0) {
+            // Table doesn't exist, nothing to destroy
+            return;
+        }
+
+        // Check if DataTable is already initialized
+        if ($.fn.DataTable.isDataTable('#' + tableId)) {
+            const table = tableElement.DataTable();
+            if (table) {
+                table.destroy();
+            }
         }
     } catch (error) {
-        console.error('Error al destruir DataTable:', error);
+        // Silently ignore errors when destroying non-existent DataTable
+        console.debug('DataTable no existe o ya fue destruido:', tableId);
     }
 };

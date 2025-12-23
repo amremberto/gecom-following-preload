@@ -39,4 +39,24 @@ internal sealed class SapPurchaseOrderService : ISapPurchaseOrderService
 
         return response;
     }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<SapPurchaseOrderResponse>?> GetByProviderSocietyAndDocIdAsync(
+        string providerCuit,
+        string societyCuit,
+        int docId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyCuit);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapPurchaseOrders/by-provider-society-doc?providerCuit={Uri.EscapeDataString(providerCuit)}&societyCuit={Uri.EscapeDataString(societyCuit)}&docId={docId}", UriKind.Relative);
+
+        IEnumerable<SapPurchaseOrderResponse>? response = await _httpClientService.GetAsync<IEnumerable<SapPurchaseOrderResponse>>(
+            requestUri,
+            cancellationToken);
+
+        return response;
+    }
 }

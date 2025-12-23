@@ -695,30 +695,68 @@
                                                                 <strong>Información:</strong> Solo podrá editar órdenes de compra cuando el documento no esté en estado "Pendiente Precarga".
                                                             </div>
                                                         }
-                                                        else if (_selectedDocument is not null && _selectedDocument.PurchaseOrders.Any())
+                                                        else if (_isLoadingSapPurchaseOrders)
+                                                        {
+                                                            <div class="text-center py-4">
+                                                                <div class="spinner-border text-primary" role="status">
+                                                                    <span class="visually-hidden">Cargando órdenes de compra...</span>
+                                                                </div>
+                                                                <p class="mt-2 text-muted">Cargando órdenes de compra SAP...</p>
+                                                            </div>
+                                                        }
+                                                        else if (_sapPurchaseOrders.Any())
                                                         {
                                                             <div>
                                                                 <table id="edit-document-oc-datatable" class="table table-striped w-100 nowrap">
                                                                     <thead>
                                                                         <tr>
-                                                                            <th>Número OC</th>
+                                                                            <th style="width: 80px;">Acciones</th>
+                                                                            <th>Nro. OC</th>
                                                                             <th>Posición</th>
-                                                                            <th>Código Recepción</th>
-                                                                            <th>Cantidad a Facturar</th>
-                                                                            <th>Código Sociedad FI</th>
-                                                                            <th>Proveedor SAP</th>
+                                                                            <th>Desc. Producto</th>
+                                                                            <th>Cant. Falta Fact.</th>
+                                                                            <th>Importe Unitario</th>
+                                                                            <th>Cant. a Facturar</th>
+                                                                            <th>Cod. Recepcion</th>
+                                                                            <th>Neto Anticipo</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        @foreach (var po in _selectedDocument.PurchaseOrders)
+                                                                        @foreach (var po in _sapPurchaseOrders)
                                                                         {
                                                                             <tr>
-                                                                                <td>@po.NroOc</td>
-                                                                                <td>@po.PosicionOc</td>
-                                                                                <td>@po.CodigoRecepcion</td>
-                                                                                <td>@po.CantidadAfacturar.ToString("N2")</td>
-                                                                                <td>@po.CodigoSociedadFi</td>
-                                                                                <td>@po.ProveedorSap</td>
+                                                                                <td class="text-center align-middle">
+                                                                                    <div class="d-flex gap-1 justify-content-center">
+                                                                                        @if (po.CantidadAFacturar is null)
+                                                                                        {
+                                                                                            <button type="button"
+                                                                                                    class="btn btn-success btn-sm p-0"
+                                                                                                    style="width: 28px; height: 28px; line-height: 1;"
+                                                                                                    @onclick="() => AddPurchaseOrder(po)"
+                                                                                                    title="Agregar orden de compra">
+                                                                                                <i class="ri-add-line" style="font-size: 1.1rem; vertical-align: middle;"></i>
+                                                                                            </button>
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            <button type="button"
+                                                                                                    class="btn btn-danger btn-sm p-0"
+                                                                                                    style="width: 28px; height: 28px; line-height: 1;"
+                                                                                                    @onclick="() => RemovePurchaseOrder(po)"
+                                                                                                    title="Eliminar orden de compra">
+                                                                                                <i class="ri-delete-bin-line" style="font-size: 1.1rem; vertical-align: middle;"></i>
+                                                                                            </button>
+                                                                                        }
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td>@po.Nrodocumento</td>
+                                                                                <td>@po.Posicion</td>
+                                                                                <td>@(po.Textobreve ?? "-")</td>
+                                                                                <td>@(po.CantidadFaltaFacturar?.ToString("N2") ?? "-")</td>
+                                                                                <td>@po.Importeoriginal.ToString("N2")</td>
+                                                                                <td>@(po.CantidadAFacturar?.ToString("N2") ?? "-")</td>
+                                                                                <td>@(po.CodigoRecepcion ?? "-")</td>
+                                                                                <td>@(po.NetoAnticipo?.ToString("N2") ?? "-")</td>
                                                                             </tr>
                                                                         }
                                                                     </tbody>
@@ -728,7 +766,7 @@
                                                         else
                                                         {
                                                             <div class="alert alert-info mb-0">
-                                                                <i class="ri-information-line me-2"></i>No hay órdenes de compra asociadas a este documento.
+                                                                <i class="ri-information-line me-2"></i>No se encontraron órdenes de compra SAP para este documento.
                                                             </div>
                                                         }
                                                     </div>

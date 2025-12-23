@@ -1297,7 +1297,7 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference, doc
             }, 800);
 
             // Set up event listener to update save button visibility when tab changes
-            setupSaveButtonVisibility(wizardElement);
+            setupSaveButtonVisibility(wizardElement, dotNetReference);
 
             console.log('Edit document wizard initialized successfully');
             return true;
@@ -1355,13 +1355,22 @@ function updateSaveButtonVisibility(wizardElement) {
 /**
  * Sets up event listeners to update save button visibility when tabs change
  * @param {HTMLElement} wizardElement - The wizard container element
+ * @param {DotNetObjectReference} dotNetReference - Reference to the C# component
  */
-function setupSaveButtonVisibility(wizardElement) {
+function setupSaveButtonVisibility(wizardElement, dotNetReference) {
     if (!wizardElement) return;
 
     // Listen for Bootstrap tab show events
     wizardElement.addEventListener('shown.bs.tab', function (e) {
         updateSaveButtonVisibility(wizardElement);
+        
+        // Load SAP purchase orders when the purchase orders step is shown
+        var targetHref = e.target.getAttribute('href');
+        if (targetHref === '#purchase-orders-step' && dotNetReference) {
+            dotNetReference.invokeMethodAsync('LoadSapPurchaseOrders').catch(function(error) {
+                console.error('Error loading SAP purchase orders:', error);
+            });
+        }
     });
 
     // Also listen for tab click events as fallback

@@ -1,5 +1,7 @@
+﻿using System.Globalization;
 using System.Linq.Expressions;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
+using GeCom.Following.Preload.Application.DTOs;
 using GeCom.Following.Preload.Domain.Spd_Sap.SapPurchaseOrders;
 using Microsoft.EntityFrameworkCore;
 
@@ -88,5 +90,125 @@ internal sealed class SapPurchaseOrderRepository : GenericRepository<SapPurchase
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);
+    }
+
+    /// <summary>
+    /// Obtiene los datos crudos de órdenes de compra para notas de crédito/débito.
+    /// Este método devuelve el DTO completo con todos los campos necesarios para aplicar la lógica de negocio en el handler.
+    /// </summary>
+    /// <param name="providerCuit">El CUIT del proveedor.</param>
+    /// <param name="societyCode">El código de la sociedad.</param>
+    /// <param name="docId">El ID del documento.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>Una colección de DTOs con los datos crudos de las órdenes de compra.</returns>
+    public async Task<IEnumerable<SapPurchaseOrderCreditDebitNoteDto>> GetCreditDebitNoteDataAsync(
+        string providerCuit,
+        string societyCode,
+        int docId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyCode);
+
+        FormattableString sql = $@"
+            SELECT
+                o.idorden AS OrdenCompraId,
+                o.nrodocumento AS NumeroDocumento,
+                o.posicion AS Posicion,
+                o.textobreve AS DescripcionProducto,
+                o.unidad_cp AS UnidadMedida,
+                o.fechadocumento AS FechaEmisionOC,
+                o.cantidadpedida AS CantidadPedida,
+                o.cantidadentregada AS CantidadRecepcionada,
+                o.cantidadfacturada AS CantidadFacturada,
+                po.CantidadAFacturar AS CantidadAFacturar,
+                po.CodigoRecepcion AS CodigoRecepcion,
+                CAST(o.importeoriginal / NULLIF(o.cantidadpedida, 0) AS decimal(18, 3)) AS ImporteOriginal,
+                o.codigosociedadfi AS CodigoSociedadFI,
+                o.proveedor AS ProveedorSAP,
+                o.usuario AS Contacto,
+                o.NetoAnticipo AS NetoAnticipo
+            FROM ordenes o
+            LEFT JOIN cuenta c 
+                ON o.proveedor = c.accountnumber
+            LEFT JOIN Precarga.dbo.OrdenesCompra po
+                ON po.codigoSociedadFI = o.codigosociedadfi
+                   AND po.proveedorSAP = o.proveedor
+                   AND po.NroOC = o.nrodocumento
+                   AND po.posicionOC = o.posicion
+                   AND po.FechaBaja IS NULL
+                   AND po.DocId = {docId}
+            WHERE o.codigosociedadfi = {societyCode}
+                  AND c.new_cuit = {providerCuit}
+                  AND o.fechadocumento >= CONVERT(date, DATEADD(month, -6, GETDATE()))";
+
+        List<SapPurchaseOrderCreditDebitNoteDto> results = await _context
+            .Database
+            .SqlQuery<SapPurchaseOrderCreditDebitNoteDto>(sql)
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    /// <summary>
+    /// Obtiene los datos crudos de órdenes de compra para documentos estándar (no notas de crédito/débito).
+    /// Este método devuelve el DTO completo con todos los campos necesarios para aplicar la lógica de negocio en el handler.
+    /// Incluye filtros específicos: cantidad facturada menor que entregada, y filtro de fecha de 3 años.
+    /// </summary>
+    /// <param name="providerCuit">El CUIT del proveedor.</param>
+    /// <param name="societyCode">El código de la sociedad.</param>
+    /// <param name="docId">El ID del documento.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>Una colección de DTOs con los datos crudos de las órdenes de compra.</returns>
+    public async Task<IEnumerable<SapPurchaseOrderCreditDebitNoteDto>> GetStandardPurchaseOrderDataAsync(
+        string providerCuit,
+        string societyCode,
+        int docId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerCuit);
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyCode);
+
+        FormattableString sql = $@"
+            SELECT
+                o.idorden AS OrdenCompraId,
+                o.nrodocumento AS NumeroDocumento,
+                o.posicion AS Posicion,
+                o.textobreve AS DescripcionProducto,
+                o.unidad_cp AS UnidadMedida,
+                o.fechadocumento AS FechaEmisionOC,
+                o.cantidadpedida AS CantidadPedida,
+                o.cantidadentregada AS CantidadRecepcionada,
+                o.cantidadfacturada AS CantidadFacturada,
+                po.CantidadAFacturar AS CantidadAFacturar,
+                po.CodigoRecepcion AS CodigoRecepcion,
+                CAST(o.importeoriginal / NULLIF(o.cantidadpedida, 0) AS decimal(18, 3)) AS ImporteOriginal,
+                o.codigosociedadfi AS CodigoSociedadFI,
+                o.proveedor AS ProveedorSAP,
+                o.usuario AS Contacto,
+                o.NetoAnticipo AS NetoAnticipo
+            FROM ordenes o
+            LEFT JOIN cuenta c 
+                ON o.proveedor = c.accountnumber
+            LEFT JOIN Precarga.dbo.OrdenesCompra po
+                ON po.codigoSociedadFI = o.codigosociedadfi
+                   AND po.proveedorSAP = o.proveedor
+                   AND po.NroOC = o.nrodocumento
+                   AND po.posicionOC = o.posicion
+                   AND po.FechaBaja IS NULL
+                   AND po.DocId = {docId}
+            WHERE o.codigosociedadfi = {societyCode}
+                  AND c.new_cuit = {providerCuit}
+                  AND (o.cantidadfacturada < o.cantidadentregada 
+                       OR (o.cantidadfacturada = o.cantidadentregada 
+                           AND o.cantidadentregada < o.cantidadpedida))
+                  AND o.fechadocumento >= CONVERT(date, DATEADD(year, -3, GETDATE()))";
+
+        List<SapPurchaseOrderCreditDebitNoteDto> results = await _context
+            .Database
+            .SqlQuery<SapPurchaseOrderCreditDebitNoteDto>(sql)
+            .ToListAsync(cancellationToken);
+
+        return results;
     }
 }

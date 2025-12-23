@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Application.Abstractions.Repositories;
+﻿using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Domain.Preloads.DocumentTypes;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,5 +30,14 @@ internal sealed class DocumentTypeRepository : GenericRepository<DocumentType, P
     {
         return await GetQueryable()
             .FirstOrDefaultAsync(dt => dt.TipoDocId == tipoDocId, cancellationToken);
+    }
+
+    public Task<bool> IsCreditOrDebitNoteAsync(int? tipoDocId, CancellationToken cancellationToken = default)
+    {
+        // Assuming that credit or debit notes have the field IsCreditOrDebitNote set to true
+        return GetQueryable()
+            .Where(dt => dt.TipoDocId == tipoDocId)
+            .Select(dt => dt.IsNotaDebitoCredito)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 }

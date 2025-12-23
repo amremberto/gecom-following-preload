@@ -9,6 +9,7 @@ using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapProviderSocieties;
+using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Components.Shared;
 using GeCom.Following.Preload.WebApp.Enums;
@@ -31,6 +32,7 @@ public partial class Pending : IAsyncDisposable
     [Inject] private IDocumentTypeService DocumentTypeService { get; set; } = default!;
     [Inject] private ISapProviderSocietyService SapProviderSocietyService { get; set; } = default!;
     [Inject] private IProviderService ProviderService { get; set; } = default!;
+    [Inject] private ISapPurchaseOrderService SapPurchaseOrderService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IToastService ToastService { get; set; } = default!;
 
@@ -67,6 +69,8 @@ public partial class Pending : IAsyncDisposable
     private IEnumerable<ProviderSelectItemResponse> _availableProviders = []; // For Society role users
     private string? _selectedSocietyCuit;
     private string? _selectedProviderCuit;
+    private IEnumerable<SapPurchaseOrderResponse> _sapPurchaseOrders = []; // SAP purchase orders for the selected document
+    private bool _isLoadingSapPurchaseOrders;
 #pragma warning disable S4487 // Unread private fields - Used in Razor @bind directive
     private string _selectedPuntoDeVenta = string.Empty;
     private string _selectedNumeroComprobante = string.Empty;
@@ -468,6 +472,8 @@ public partial class Pending : IAsyncDisposable
         _selectedNumeroComprobante = string.Empty;
         _selectedCaecai = string.Empty;
         _selectedMontoBruto = null;
+        _sapPurchaseOrders = []; // Reset SAP purchase orders
+        _isLoadingSapPurchaseOrders = false;
         StateHasChanged();
 
         // Note: Role verification (_isProvider, _providerCuit, _isSociety, _userEmail) 
@@ -1443,7 +1449,127 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Cleans up SELECT2, Flatpickr, and Wizard when the modal is closed.
+    /// Loads SAP purchase orders when the purchase orders step is shown in the wizard.
+    /// This method is called from JavaScript when the user navigates to the purchase orders step.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [JSInvokable]
+    public async Task LoadSapPurchaseOrders()
+    {
+        try
+        {
+            if (_selectedDocument is null)
+            {
+                await JsRuntime.InvokeVoidAsync("console.warn", "No hay documento seleccionado para cargar órdenes de compra.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_selectedDocument.ProveedorCuit))
+            {
+                await JsRuntime.InvokeVoidAsync("console.warn", "El documento no tiene proveedor CUIT asignado.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_selectedDocument.SociedadCuit))
+            {
+                await JsRuntime.InvokeVoidAsync("console.warn", "El documento no tiene sociedad CUIT asignada.");
+                return;
+            }
+
+            _isLoadingSapPurchaseOrders = true;
+            StateHasChanged();
+
+            IEnumerable<SapPurchaseOrderResponse>? purchaseOrders = await SapPurchaseOrderService
+                .GetByProviderSocietyAndDocIdAsync(
+                    _selectedDocument.ProveedorCuit,
+                    _selectedDocument.SociedadCuit,
+                    _selectedDocument.DocId);
+
+            _sapPurchaseOrders = purchaseOrders ?? [];
+            _isLoadingSapPurchaseOrders = false;
+            StateHasChanged();
+
+            await JsRuntime.InvokeVoidAsync("console.log", $"Órdenes de compra SAP cargadas: {_sapPurchaseOrders.Count()}");
+
+            // Initialize DataTable after data is loaded and DOM is updated
+            if (_sapPurchaseOrders.Any())
+            {
+                // Wait for the DOM to update after StateHasChanged
+                // Use InvokeAsync to ensure the DOM is fully updated
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(200);
+                
+                // Destroy existing DataTable if it exists
+                try
+                {
+                    await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-oc-datatable");
+                }
+                catch
+                {
+                    // Ignore if DataTable doesn't exist yet
+                }
+
+                // Initialize DataTable with the new data
+                await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-oc-datatable");
+            }
+        }
+        catch (Exception ex)
+        {
+            _isLoadingSapPurchaseOrders = false;
+            StateHasChanged();
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al cargar órdenes de compra SAP: {ex.Message}");
+            await ShowToast("Error al cargar las órdenes de compra SAP.", ToastType.Error);
+        }
+    }
+
+    /// <summary>
+    /// Handles the action to add a purchase order to the document.
+    /// </summary>
+    /// <param name="purchaseOrder">The purchase order to add.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task AddPurchaseOrder(SapPurchaseOrderResponse purchaseOrder)
+    {
+        try
+        {
+            // Implementation pending: Add the purchase order to the document via API call
+            await JsRuntime.InvokeVoidAsync("console.log", $"Agregar orden de compra: {purchaseOrder.Nrodocumento} - Posición: {purchaseOrder.Posicion}");
+            await ShowToast($"Orden de compra {purchaseOrder.Nrodocumento} agregada correctamente.", ToastType.Success);
+            
+            // Refresh the purchase orders list
+            await LoadSapPurchaseOrders();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al agregar orden de compra: {ex.Message}");
+            await ShowToast("Error al agregar la orden de compra.", ToastType.Error);
+        }
+    }
+
+    /// <summary>
+    /// Handles the action to remove a purchase order from the document.
+    /// </summary>
+    /// <param name="purchaseOrder">The purchase order to remove.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task RemovePurchaseOrder(SapPurchaseOrderResponse purchaseOrder)
+    {
+        try
+        {
+            // Implementation pending: Remove the purchase order from the document via API call
+            await JsRuntime.InvokeVoidAsync("console.log", $"Eliminar orden de compra: {purchaseOrder.Nrodocumento} - Posición: {purchaseOrder.Posicion}");
+            await ShowToast($"Orden de compra {purchaseOrder.Nrodocumento} eliminada correctamente.", ToastType.Success);
+            
+            // Refresh the purchase orders list
+            await LoadSapPurchaseOrders();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", $"Error al eliminar orden de compra: {ex.Message}");
+            await ShowToast("Error al eliminar la orden de compra.", ToastType.Error);
+        }
+    }
+
+    /// <summary>
+    /// Cleans up SELECT2, Flatpickr, Wizard, and SAP purchase orders when the modal is closed.
     /// </summary>
     /// <returns></returns>
     private async Task CleanupCurrencySelect2()
@@ -1453,6 +1579,20 @@ public partial class Pending : IAsyncDisposable
             await JsRuntime.InvokeVoidAsync("cleanupSelect2InModal");
             await JsRuntime.InvokeVoidAsync("cleanupFlatpickrInModal");
             await JsRuntime.InvokeVoidAsync("resetEditDocumentWizard");
+            
+            // Destroy DataTable if it exists
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-oc-datatable");
+            }
+            catch
+            {
+                // Ignore if DataTable doesn't exist
+            }
+            
+            // Reset SAP purchase orders
+            _sapPurchaseOrders = [];
+            _isLoadingSapPurchaseOrders = false;
         }
         catch (Exception ex)
         {

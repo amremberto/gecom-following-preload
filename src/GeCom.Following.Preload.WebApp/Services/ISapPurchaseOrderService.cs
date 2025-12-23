@@ -18,4 +18,18 @@ public interface ISapPurchaseOrderService
     /// <returns>A collection of SAP purchase orders based on user role.</returns>
     Task<IEnumerable<SapPurchaseOrderResponse>?> GetAllAsync(
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets SAP purchase orders by provider CUIT, society CUIT, and document ID.
+    /// </summary>
+    /// <param name="providerCuit">The provider CUIT to filter by.</param>
+    /// <param name="societyCuit">The society CUIT to filter by.</param>
+    /// <param name="docId">The document ID to filter by.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A collection of SAP purchase orders matching the specified criteria.</returns>
+    Task<IEnumerable<SapPurchaseOrderResponse>?> GetByProviderSocietyAndDocIdAsync(
+        string providerCuit,
+        string societyCuit,
+        int docId,
+        CancellationToken cancellationToken = default);
 }

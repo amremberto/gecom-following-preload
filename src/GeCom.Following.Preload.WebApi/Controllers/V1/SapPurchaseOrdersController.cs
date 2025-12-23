@@ -1,6 +1,7 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetSapPurchaseOrders;
+using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetSapPurchaseOrdersByProviderSocietyAndDocId;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
@@ -73,6 +74,44 @@ public sealed class SapPurchaseOrdersController : VersionedApiController
             userRoles,
             userEmail,
             providerCuit);
+
+        Result<IEnumerable<SapPurchaseOrderResponse>> result =
+            await Mediator.Send(query, cancellationToken);
+
+        return result.Match(this);
+    }
+
+    /// <summary>
+    /// Gets SAP purchase orders by provider code, society code, and document number.
+    /// </summary>
+    /// <param name="providerCuit">The provider code to filter by.</param>
+    /// <param name="societyCuit">The society code to filter by.</param>
+    /// <param name="docId">The document number to filter by.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A list of SAP purchase orders matching the specified criteria.</returns>
+    /// <response code="200">Returns the list of SAP purchase orders.</response>
+    /// <response code="400">If the request parameters are invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("by-provider-society-doc")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(IEnumerable<SapPurchaseOrderResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetSapPurchaseOrdersByProviderSocietyAndDocId", "Gets SAP purchase orders by provider code, society code, and document number.")]
+    public async Task<ActionResult<IEnumerable<SapPurchaseOrderResponse>>> GetByProviderSocietyAndDocIdAsync(
+        [FromQuery] string providerCuit,
+        [FromQuery] string societyCuit,
+        [FromQuery] int docId,
+        CancellationToken cancellationToken)
+    {
+        GetSapPurchaseOrdersByProviderSocietyAndDocIdQuery query = new(
+            providerCuit,
+            societyCuit,
+            docId);
 
         Result<IEnumerable<SapPurchaseOrderResponse>> result =
             await Mediator.Send(query, cancellationToken);
