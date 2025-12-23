@@ -232,6 +232,7 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .Include(d => d.State)
             .Include(d => d.PurchaseOrders)
             .Include(d => d.Notes)
+            .Include(d => d.Attachments.Where(a => a.FechaBorrado == null))
             .Where(d => d.FechaBaja == null
                 && d.FechaEmisionComprobante.HasValue
                 && d.ProveedorCuit == providerCuit

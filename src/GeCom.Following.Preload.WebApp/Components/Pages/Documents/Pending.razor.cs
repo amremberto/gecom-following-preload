@@ -121,6 +121,11 @@ public partial class Pending : IAsyncDisposable
                 // which is not available during pre-rendering
                 await CheckIfProviderAndGetCuitAsync();
 
+                // Check if user is a society and get their email
+                // This must be done here, not in OnInitializedAsync, because it uses JavaScript interop
+                // which is not available during pre-rendering
+                await CheckIfSocietyAndGetEmailAsync();
+
                 // Check if user has a supported role (must be done here, not in OnInitializedAsync
                 // because JavaScript interop is not available during pre-rendering)
                 await HasSupportedRoleAsync();
@@ -445,11 +450,9 @@ public partial class Pending : IAsyncDisposable
         _selectedMontoBruto = null;
         StateHasChanged();
 
-        // Ensure provider and society status are checked before opening modal
-        // This ensures _isProvider, _providerCuit, _isSociety, and _userEmail are set correctly
-        await CheckIfProviderAndGetCuitAsync();
-        await CheckIfSocietyAndGetEmailAsync();
-        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Después de verificar roles. _isProvider: {_isProvider}, _providerCuit: {_providerCuit}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
+        // Note: Role verification (_isProvider, _providerCuit, _isSociety, _userEmail) 
+        // is already done in OnAfterRenderAsync when the page loads, so we don't need to verify again here.
+        await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Usando roles ya verificados. _isProvider: {_isProvider}, _providerCuit: {_providerCuit}, _isSociety: {_isSociety}, _userEmail: {_userEmail}");
 
         // Use the document passed directly from the dataTable for basic data
         // However, if attachments are needed (for PDF display), we need to load them
