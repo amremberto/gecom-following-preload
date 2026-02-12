@@ -11,7 +11,7 @@ Este documento contiene un resumen completo de todos los casos de uso implementa
   - [GetPendingDocuments](#getpendingdocuments)
   - [GetPendingDocumentsByProvider](#getpendingdocumentsbyprovider)
 - [Commands (Comandos)](#commands-comandos)
-  - _(Pendiente de implementar)_
+  - [DeleteDocument](#deletedocument)
 
 ---
 
@@ -539,7 +539,72 @@ Los resultados se ordenan por `FechaEmisionComprobante` de forma descendente (m�
 
 ## Commands (Comandos)
 
-_(Pendiente de implementar)_
+### DeleteDocument
+
+**Descripción:** Elimina lógicamente un documento estableciendo la propiedad `FechaBaja` con la fecha y hora actual (UTC). El documento no se borra físicamente; deja de aparecer en los listados de pendientes, pagados y en proceso, que filtran por `FechaBaja == null`. **Solo se pueden eliminar documentos en estado Pendiente Precarga (EstadoId 1, código PendPrecarga) o Precarga Pendiente (EstadoId 2, código Precargado).** Si el documento está en otro estado, se devuelve `409 Conflict` con el mensaje indicando el estado actual.
+
+**Archivos:**
+- `DeleteDocumentCommand.cs`
+- `DeleteDocumentCommandHandler.cs`
+- `DeleteDocumentCommandValidator.cs`
+
+**Endpoint:**
+```
+DELETE /api/v1/Documents/{docId}
+```
+
+**Parámetros:**
+- `docId` (requerido) - ID del documento (int, en la ruta)
+
+**Respuestas:**
+- `200 OK` - Documento con `FechaBaja` actualizada (se devuelve el cuerpo con el documento actualizado)
+- `400 BadRequest` - Parámetros inválidos (por ejemplo DocId <= 0)
+- `401 Unauthorized` - Usuario no autenticado
+- `403 Forbidden` - Usuario no tiene los permisos requeridos (RequirePreloadWrite)
+- `404 NotFound` - Documento no encontrado
+- `409 Conflict` - El documento ya fue dado de baja (FechaBaja ya tiene valor), o el documento no está en un estado permitido para eliminación (solo se permite EstadoId 1 PendPrecarga o EstadoId 2 Precargado)
+- `500 InternalServerError` - Error del servidor
+
+**Ejemplo de uso:**
+```http
+DELETE /api/v1/Documents/123
+Authorization: Bearer {token}
+```
+
+**Respuesta exitosa (200 OK):**
+```json
+{
+  "docId": 123,
+  "proveedorCuit": "20123456789",
+  "proveedorRazonSocial": "Proveedor S.A.",
+  "sociedadCuit": "30123456789",
+  "sociedadDescripcion": "Sociedad Ejemplo",
+  "tipoDocId": 1,
+  "tipoDocDescripcion": "Factura A",
+  "puntoDeVenta": "0001",
+  "numeroComprobante": "00001234",
+  "fechaEmisionComprobante": "2024-01-15",
+  "moneda": "ARS",
+  "montoBruto": 100000.50,
+  "codigoDeBarras": null,
+  "caecai": null,
+  "vencimientoCaecai": null,
+  "estadoId": 3,
+  "estadoDescripcion": "Aprobado",
+  "fechaCreacion": "2024-01-15T10:30:00Z",
+  "fechaBaja": "2024-02-12T14:30:00Z",
+  "idDocument": 123,
+  "nombreSolicitante": "Juan Pérez",
+  "idDetalleDePago": null,
+  "idMetodoDePago": null,
+  "fechaPago": null,
+  "userCreate": "admin@example.com",
+  "purchaseOrders": [],
+  "notes": []
+}
+```
+
+**Nota:** Este endpoint requiere autenticación y el permiso `RequirePreloadWrite`. Solo se puede eliminar un documento si su `EstadoId` es 1 (Pendiente Precarga / PendPrecarga) o 2 (Precarga Pendiente / Precargado); en cualquier otro estado se responde `409 Conflict` (Document.InvalidStateForDelete) con el mensaje "No se puede eliminar un documento en estado {descripción del estado}". Si se invoca de nuevo con el mismo `docId` después de una eliminación lógica exitosa, se responde `409 Conflict` (Document.AlreadyDeleted).
 
 ---
 
@@ -552,6 +617,7 @@ _(Pendiente de implementar)_
 | GET | `/api/v1/Documents/by-dates-and-provider` | Obtener documentos por rango de fechas de emisión y CUIT del proveedor (excluye EstadoId 1, 2, 5) | 200, 400, 401, 403, 500 |
 | GET | `/api/v1/Documents/pending` | Obtener documentos pendientes según rol del usuario | 200, 400, 401, 403, 500 |
 | GET | `/api/v1/Documents/pending-by-provider` | Obtener documentos pendientes por CUIT del proveedor | 200, 400, 401, 403, 500 |
+| DELETE | `/api/v1/Documents/{docId}` | Eliminación lógica del documento (setea FechaBaja) | 200, 400, 401, 403, 404, 409, 500 |
 
 ---
 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.CreateDocument;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.DeleteDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocuments;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentById;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDates;
@@ -491,6 +492,39 @@ public sealed class DocumentsController : VersionedApiController
             request.VencimientoCaecai,
             request.EstadoId,
             request.NombreSolicitante);
+
+        Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.MatchUpdated(this);
+    }
+
+    /// <summary>
+    /// Logically deletes a document by setting FechaBaja to the current UTC date/time.
+    /// The document is not physically removed; it will no longer appear in pending, paid, or processed lists.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The document with FechaBaja set.</returns>
+    /// <response code="200">Returns the document with FechaBaja set.</response>
+    /// <response code="400">If the docId parameter is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the document was not found.</response>
+    /// <response code="409">If the document has already been logically deleted, or if the document is not in a state that allows deletion (only EstadoId 1 PendPrecarga or 2 Precargado are allowed).</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpDelete("{docId}")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("DeleteDocument", "Logically deletes a document by setting FechaBaja.")]
+    public async Task<ActionResult<DocumentResponse>> DeleteAsync(int docId, CancellationToken cancellationToken)
+    {
+        DeleteDocumentCommand command = new(docId);
 
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 
