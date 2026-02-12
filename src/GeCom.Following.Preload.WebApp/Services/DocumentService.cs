@@ -226,5 +226,14 @@ internal sealed class DocumentService : IDocumentService
 
         return response;
     }
+
+    /// <inheritdoc />
+    public async Task DeleteAsync(int docId, CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}", UriKind.Relative);
+
+        await _httpClientService.DeleteAsync(requestUri, cancellationToken);
+    }
 }
 

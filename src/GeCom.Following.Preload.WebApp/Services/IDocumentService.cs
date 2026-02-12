@@ -141,5 +141,12 @@ public interface IDocumentService
         int docId,
         IBrowserFile file,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Logically deletes a document by setting FechaBaja (DELETE /api/v1/Documents/{docId}).
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DeleteAsync(int docId, CancellationToken cancellationToken = default);
 }
 

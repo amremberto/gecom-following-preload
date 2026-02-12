@@ -1,4 +1,4 @@
-﻿
+
 using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
@@ -44,6 +44,7 @@ public partial class Pending : IAsyncDisposable
     private IJSObjectReference? _tableDatatableModule;
     private IJSObjectReference? _formWizardModule;
     private PreloadDocumentModal? _preloadModal;
+    private ConfirmDeleteDocumentModal? _confirmDeleteModal;
     private Toast? _toast;
     private DotNetObjectReference<Pending>? _dotNetObjectReference;
 
@@ -341,14 +342,13 @@ public partial class Pending : IAsyncDisposable
 
     /// <summary>
     /// Checks if the document can be deleted based on status and user role.
+    /// Only documents in state PendPrecarga (EstadoId 1) or Precargado (EstadoId 2) can be deleted.
     /// </summary>
     /// <param name="document">The document to check.</param>
     /// <returns>True if the document can be deleted, false otherwise.</returns>
     private bool CanDeleteDocument(DocumentResponse document)
     {
-        bool hasCorrectStatus =
-            document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PRECARGA PENDIENTE" ||
-            document.EstadoDescripcion?.Trim().ToUpperInvariant() == "PENDIENTE PRECARGA";
+        bool hasCorrectStatus = document.EstadoId is 1 or 2;
         bool canDelete = hasCorrectStatus && _hasSupportedRole;
 
         return canDelete;
@@ -1556,22 +1556,54 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
-    /// Handles the delete document action.
+    /// Opens the confirm delete document modal.
     /// </summary>
     /// <param name="document">The document to delete.</param>
-    /// <returns></returns>
     private async Task DeleteDocument(DocumentResponse document)
     {
+        if (_confirmDeleteModal is not null)
+        {
+            await _confirmDeleteModal.ShowAsync(document);
+        }
+    }
+
+    /// <summary>
+    /// Handles the confirm delete from the modal: revalidates state, calls API, refreshes list and shows toast.
+    /// Shows loading state during delete and refresh to prevent double-clicks.
+    /// </summary>
+    /// <param name="document">The document to delete.</param>
+    private async Task OnConfirmDeleteDocument(DocumentResponse document)
+    {
+        if (!CanDeleteDocument(document))
+        {
+            await ShowToast("El documento ya no puede ser eliminado. El estado ha cambiado.", ToastType.Warning);
+            return;
+        }
+
+        _isDataTableLoading = true;
+        StateHasChanged();
+
         try
         {
-            await JsRuntime.InvokeVoidAsync("console.log", $"Eliminando documento con ID: {document.DocId}");
-            // Implementar la lógica de eliminación (confirmación, llamada al servicio, etc.)
-            await ShowToast($"Funcionalidad de eliminación para el documento {document.DocId} pendiente de implementar.", ToastType.Info);
+            await DocumentService.DeleteAsync(document.DocId);
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            await GetPendingDocuments();
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
+            await ShowToast("Documento eliminado correctamente.", ToastType.Success);
+        }
+        catch (ApiRequestException ex)
+        {
+            await ShowToast(ex.Message);
         }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al eliminar documento:", ex.Message);
             await ShowToast("Error al intentar eliminar el documento.");
+        }
+        finally
+        {
+            _isDataTableLoading = false;
+            StateHasChanged();
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -80,8 +80,13 @@ internal sealed class HttpClientService : IHttpClientService
             throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
         }
 
-        response.EnsureSuccessStatusCode();
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorMessage = await ExtractErrorMessageAsync(response, cancellationToken);
+            throw new ApiRequestException(response.StatusCode, errorMessage);
+        }
+
+        return true;
     }
 
     /// <inheritdoc />
