@@ -1,4 +1,5 @@
-﻿using Dapper;
+﻿using System.Globalization;
+using Dapper;
 using GeCom.Following.Preload.Application.Abstractions.Monitor;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -89,7 +90,7 @@ internal sealed class MonitorService : IMonitorService
         IEnumerable<int> result = await connection.QueryAsync<int>(
             new CommandDefinition(
                 sql,
-                new { SapDocumentNumber = sapDocumentNumber },
+                new { SapDocumentNumber = sapDocumentNumber.ToString(CultureInfo.InvariantCulture) },
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         var list = result.ToList();
