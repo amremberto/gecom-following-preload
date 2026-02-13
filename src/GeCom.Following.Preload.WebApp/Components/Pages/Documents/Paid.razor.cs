@@ -108,7 +108,8 @@ public partial class Paid : IAsyncDisposable
                     await InvokeAsync(StateHasChanged); // Fuerza renderizado
 
                     // If user has a supported role (Provider, Societies, Administrator, or ReadOnly), automatically load documents
-                    // The new endpoint will handle filtering automatically based on role
+                    // The new endpoint will handle filtering automatically based on role.
+                    // Load DataTable only after the table is in the DOM: set _isDataTableLoading = false and re-render first.
                     if (_isProvider || _hasSupportedRole)
                     {
                         try
@@ -116,8 +117,11 @@ public partial class Paid : IAsyncDisposable
                             _isDataTableLoading = true;
                             StateHasChanged();
 
-                            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
                             await GetPaidDocuments();
+                            _isDataTableLoading = false;
+                            StateHasChanged();
+                            await Task.Delay(50); // Allow Blazor to render the table into the DOM
+                            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
                             await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
                         }
                         finally
@@ -128,6 +132,9 @@ public partial class Paid : IAsyncDisposable
                     }
                     else
                     {
+                        _isDataTableLoading = false;
+                        StateHasChanged();
+                        await Task.Delay(50);
                         await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
                     }
                 }
@@ -276,11 +283,23 @@ public partial class Paid : IAsyncDisposable
                 return;
             }
 
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException)
+            {
+                // Ignore: table may not exist or already destroyed
+            }
+
             _isDataTableLoading = true;
             StateHasChanged();
 
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
             await GetPaidDocuments();
+            _isDataTableLoading = false;
+            StateHasChanged();
+            await Task.Delay(50); // Allow Blazor to render the table into the DOM
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
             await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
         }
         catch (Exception ex)
@@ -812,6 +831,15 @@ public partial class Paid : IAsyncDisposable
             return;
         }
 
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            // Ignore: table may not exist or already destroyed; we still hide and refresh
+        }
+
         _isDataTableLoading = true;
         StateHasChanged();
 
@@ -825,8 +853,11 @@ public partial class Paid : IAsyncDisposable
 
             _ = await DocumentService.ConfirmPaymentAsync(paymentData.DocumentId, request);
 
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
             await GetPaidDocuments();
+            _isDataTableLoading = false;
+            StateHasChanged();
+            await Task.Delay(50); // Allow Blazor to render the table into the DOM
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
             await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
             await ShowToast("Pago confirmado correctamente.", ToastType.Success);
         }

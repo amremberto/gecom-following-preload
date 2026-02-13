@@ -149,16 +149,29 @@ public partial class Pending : IAsyncDisposable
 
 
                 // If user has a supported role (Provider, Societies, Administrator, or ReadOnly), automatically load documents
-                // The new endpoint will handle filtering automatically based on role
+                // The new endpoint will handle filtering automatically based on role.
+                // Load DataTable only after the table is in the DOM: set _isDataTableLoading = false and re-render first.
                 if (UserHasSupportedRole())
                 {
                     try
                     {
+                        try
+                        {
+                            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                        }
+                        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+                        {
+                            // Ignore: table may not exist on first load
+                        }
+
                         _isDataTableLoading = true;
                         StateHasChanged();
 
-                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
                         await GetPendingDocuments();
+                        _isDataTableLoading = false;
+                        StateHasChanged();
+                        await Task.Delay(50); // Allow Blazor to render the table into the DOM
+                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
                         await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
                     }
                     catch (Exception ex)
@@ -174,6 +187,9 @@ public partial class Pending : IAsyncDisposable
                 }
                 else
                 {
+                    _isDataTableLoading = false;
+                    StateHasChanged();
+                    await Task.Delay(50);
                     await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
                     await ShowToast("No tiene los permisos necesarios para ver los documentos pendientes. Por favor, contacte al administrador del sistema.", ToastType.Warning);
                 }
@@ -223,18 +239,26 @@ public partial class Pending : IAsyncDisposable
                 // Ensure the grid is loaded with the latest data (including the newly created document)
                 if (UserHasSupportedRole())
                 {
+                    try
+                    {
+                        await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                    }
+                    catch (Exception ex) when (ex is JSException or InvalidOperationException)
+                    {
+                        // Ignore: table may not exist or already destroyed
+                    }
+
                     _isDataTableLoading = true;
                     StateHasChanged();
 
-                    await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
                     await GetPendingDocuments();
-                    await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
-
                     _isDataTableLoading = false;
                     StateHasChanged();
+                    await Task.Delay(50); // Allow Blazor to render the table into the DOM
+                    await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
 
-                    // Wait a bit to ensure the data table is fully rendered
-                    await Task.Delay(300);
+                    await Task.Delay(300); // Wait for DataTable to be fully ready before opening modal
                 }
 
                 // Find the document in the pending documents list
@@ -1385,20 +1409,24 @@ public partial class Pending : IAsyncDisposable
     {
         try
         {
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException)
+            {
+                // Ignore: table may not exist or already destroyed
+            }
+
             _isDataTableLoading = true;
             StateHasChanged();
 
-            // Destroy current dataTable
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
-
-            // Reload all documents from server
             await GetPendingDocuments();
-
-            // Reload dataTable with fresh data
-            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
-
             _isDataTableLoading = false;
             StateHasChanged();
+            await Task.Delay(50); // Allow Blazor to render the table into the DOM
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
 
             await JsRuntime.InvokeVoidAsync("console.log", "DataTable de documentos pendientes actualizado desde el servidor.");
         }
@@ -1580,14 +1608,26 @@ public partial class Pending : IAsyncDisposable
             return;
         }
 
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            // Ignore: table may not exist or already destroyed (e.g. modal open); we still hide and refresh
+        }
+
         _isDataTableLoading = true;
         StateHasChanged();
 
         try
         {
             await DocumentService.DeleteAsync(document.DocId);
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
             await GetPendingDocuments();
+            _isDataTableLoading = false;
+            StateHasChanged();
+            await Task.Delay(50); // Allow Blazor to render the table into the DOM
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
             await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
             await ShowToast("Documento eliminado correctamente.", ToastType.Success);
         }
@@ -1845,15 +1885,24 @@ public partial class Pending : IAsyncDisposable
             await ShowToast($"Documento #{document.DocId} precargado exitosamente.", ToastType.Success);
 
             // Recargar la grilla de documentos pendientes
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException)
+            {
+                // Ignore: table may not exist or already destroyed
+            }
+
             _isDataTableLoading = true;
             StateHasChanged();
 
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
             await GetPendingDocuments();
-            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
-
             _isDataTableLoading = false;
             StateHasChanged();
+            await Task.Delay(50); // Allow Blazor to render the table into the DOM
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "pending-documents-datatable");
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "pending-documents-datatable");
 
             // Abrir el modal de edición del documento
             // Find the document in the pending documents list (it should be there after reload)
