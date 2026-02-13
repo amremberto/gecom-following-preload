@@ -34,6 +34,17 @@ public interface IStorageService
     Task<byte[]> ReadFileAsync(string filePath, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads a payment detail (recibo) PDF from the PaymentDetailPath location using Windows impersonation.
+    /// The path is built as PaymentDetailPath\{year}\{month}\{fileName}.
+    /// </summary>
+    /// <param name="fileName">The name of the file (e.g. from PaymentDetail.NamePdf).</param>
+    /// <param name="year">Year for the subfolder.</param>
+    /// <param name="month">Month for the subfolder (1-12).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The file content as byte array.</returns>
+    Task<byte[]> ReadPaymentDetailFileAsync(string fileName, int year, int month, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Deletes a file from storage by its path using Windows impersonation.
     /// </summary>
     /// <param name="filePath">The full path to the file to delete.</param>

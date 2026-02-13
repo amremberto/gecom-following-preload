@@ -96,6 +96,16 @@ public interface IDocumentService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Downloads the payment detail (recibo) PDF for a document by DocId. The document must have payment confirmed.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The PDF file content as byte array, or null if not found or error.</returns>
+    Task<byte[]?> DownloadPaymentDetailPdfAsync(
+        int docId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets pending documents by provider CUIT from the API.
     /// Pending documents are those with EstadoId == 2 or EstadoId == 5 and have FechaEmisionComprobante set.
     /// </summary>

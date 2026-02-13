@@ -46,6 +46,11 @@ public partial class Paid : IAsyncDisposable
     private ConfirmPaymentModal? _confirmPaymentModal;
 
     /// <summary>
+    /// DocId of the document whose payment detail PDF is currently being downloaded (null when none).
+    /// </summary>
+    private int? _downloadingPaymentDetailDocId;
+
+    /// <summary>
     /// This method is called when the component is initialized.
     /// </summary>
     /// <returns></returns>
@@ -735,8 +740,63 @@ public partial class Paid : IAsyncDisposable
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al confirmar el pago:", ex.Message);
+
             await ShowToast("Error al confirmar el pago del documento.");
         }
+    }
+
+    /// <summary>
+    /// Downloads the payment detail (recibo) PDF for the document. Triggers file download in the browser; shows toast on error.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    private async Task DownloadPaymentDetailPdf(int docId)
+    {
+        if (_downloadingPaymentDetailDocId.HasValue)
+        {
+            return;
+        }
+
+        _downloadingPaymentDetailDocId = docId;
+        StateHasChanged();
+
+        try
+        {
+            byte[]? pdfBytes = await DocumentService.DownloadPaymentDetailPdfAsync(docId, cancellationToken: default);
+
+            if (pdfBytes is null || pdfBytes.Length == 0)
+            {
+                await ShowToast("No se encontró el archivo de detalle de pago.", ToastType.Warning);
+                return;
+            }
+
+            // Load the script that provides downloadPdfFile (attaches to window)
+            await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/pdf-viewer.js");
+            string base64 = Convert.ToBase64String(pdfBytes);
+            await JsRuntime.InvokeVoidAsync("downloadPdfFile", base64, $"DetallePago-{docId}.pdf");
+        }
+        catch (ApiRequestException ex)
+        {
+            Logger.LogWarning(ex, "Error de API al descargar detalle de pago documento {DocId}: {Message}", docId, ex.Message);
+            await ShowToast(ex.Message, ToastType.Error);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al descargar el detalle de pago del documento {DocId}", docId);
+            await ShowToast("Error al descargar el detalle de pago.", ToastType.Error);
+        }
+        finally
+        {
+            _downloadingPaymentDetailDocId = null;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Handles the "Descargar comprobante" button click. Not implemented yet (Fase 2).
+    /// </summary>
+    private Task OnDownloadComprobanteClick()
+    {
+        return ShowToast("Próximamente: descarga de comprobante.", ToastType.Info);
     }
 
     /// <summary>

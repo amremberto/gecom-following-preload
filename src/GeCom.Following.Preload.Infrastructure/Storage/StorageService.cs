@@ -147,6 +147,29 @@ internal sealed class StorageService : IStorageService
     }
 
     /// <inheritdoc />
+    public Task<byte[]> ReadPaymentDetailFileAsync(string fileName, int year, int month, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+
+        string basePath = _options.PaymentDetailPath;
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            throw new InvalidOperationException("Storage PaymentDetailPath is not configured.");
+        }
+
+        if (!basePath.EndsWith('\\'))
+        {
+            basePath += "\\";
+        }
+
+        string yearStr = year.ToString(CultureInfo.InvariantCulture);
+        string monthStr = month.ToString("d2", CultureInfo.InvariantCulture);
+        string fullPath = Path.Combine(basePath, yearStr, monthStr, fileName);
+
+        return ReadFileAsync(fullPath, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task DeleteFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);

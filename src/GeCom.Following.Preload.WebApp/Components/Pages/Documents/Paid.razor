@@ -136,21 +136,46 @@ else
                             {
                                 <tr>
                                     <td class="text-start align-middle p-0">
-                                        <div class="d-flex gap-1 justify-content-start">
+                                        <div class="d-flex gap-1 justify-content-start align-items-center">
                                             <button type="button"
-                                                    class="btn btn-primary btn-sm p-0"
-                                                    style="width: 24px; height: 24px; line-height: 1;"
+                                                    class="btn btn-primary btn-sm p-0 rounded-circle"
+                                                    style="width: 28px; height: 28px; line-height: 1;"
                                                     @onclick="@(() => OpenPaidDocumentDetails(doc.DocId))"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#full-width-modal"
                                                     title="Ver detalles">
                                                 <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
                                             </button>
+                                            @if (doc.EstadoDescripcion?.ToUpperInvariant() == "PAGADO" && doc.IdDetalleDePago.HasValue)
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-success btn-sm p-0 rounded-circle"
+                                                        style="width: 28px; height: 28px; line-height: 1;"
+                                                        disabled="@(_downloadingPaymentDetailDocId == doc.DocId)"
+                                                        @onclick="@(() => DownloadPaymentDetailPdf(doc.DocId))"
+                                                        title="@(_downloadingPaymentDetailDocId == doc.DocId ? "Descargando..." : "Descargar detalle de pago")">
+                                                    @if (_downloadingPaymentDetailDocId == doc.DocId)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="vertical-align: middle;"></span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="ri-file-download-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                    }
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-info btn-sm p-0 rounded-circle"
+                                                        style="width: 28px; height: 28px; line-height: 1;"
+                                                        @onclick="@(() => OnDownloadComprobanteClick())"
+                                                        title="Descargar comprobante">
+                                                    <i class="ri-file-text-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                </button>
+                                            }
                                             @if (doc.EstadoDescripcion?.ToUpperInvariant() == "PAGADO" && !doc.IdDetalleDePago.HasValue)
                                             {
                                                 <button type="button"
-                                                        class="btn btn-success btn-sm p-0"
-                                                        style="width: 24px; height: 24px; line-height: 1;"
+                                                        class="btn btn-success btn-sm p-0 rounded-circle"
+                                                        style="width: 28px; height: 28px; line-height: 1;"
                                                         @onclick="@(() => ConfirmarPago(doc))"
                                                         title="Confirmar el Pago">
                                                     <i class="ri-checkbox-circle-line" style="font-size: 1rem; vertical-align: middle;"></i>
