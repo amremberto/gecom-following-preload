@@ -95,6 +95,8 @@ else
                             </button>
                         </div>
                     }
+                    @if (!_isDataTableLoading)
+                    {
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <ul class="nav nav-tabs" id="documentsTab" role="tablist">
                             <li class="nav-item" role="presentation">
@@ -114,7 +116,7 @@ else
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>Estado</th>
+                                <th>Conf. de Pago</th>
                                 <th>Cliente</th>
                                 @if (!_isProvider)
                                 {
@@ -127,7 +129,6 @@ else
                                 <th>Fecha Creación</th>
                                 <th>Moneda</th>
                                 <th>Monto Bruto Facturado</th>
-                                <th>Conf. de Pago</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -145,7 +146,7 @@ else
                                                     title="Ver detalles">
                                                 <i class="ri-eye-fill" style="font-size: 1rem; vertical-align: middle;"></i>
                                             </button>
-                                            @if (doc.IdMetodoDePago is null)
+                                            @if (doc.EstadoDescripcion?.ToUpperInvariant() == "PAGADO" && !doc.IdDetalleDePago.HasValue)
                                             {
                                                 <button type="button"
                                                         class="btn btn-success btn-sm p-0"
@@ -157,10 +158,15 @@ else
                                             }
                                         </div>
                                     </td>
-                                    <td>
-                                        <span class="@GetEstadoBadgeClass(doc.EstadoDescripcion)">
-                                            @doc.EstadoDescripcion
-                                        </span>
+                                    <td class="text-center">
+                                        @if (doc.EstadoDescripcion!.ToUpperInvariant() == "PAGADO" && doc.IdDetalleDePago.HasValue)
+                                        {
+                                            <span class="badge badge-outline-success rounded-pill">Confirmado</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-outline-danger rounded-pill">No-Confirmado</span>
+                                        }
                                     </td>
                                     <td>@doc.SociedadDescripcion</td>
                                     @if (!_isProvider)
@@ -178,20 +184,11 @@ else
                                     </td>
                                     <td>@doc.Moneda</td>
                                     <td>@(doc.MontoBruto?.ToString("N2"))</td>
-                                    <td class="text-center">
-                                        @if (doc.EstadoDescripcion!.ToUpperInvariant() == "PAGADO")
-                                        {
-                                            <span class="badge badge-outline-success rounded-pill">Confirmado</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge badge-outline-danger rounded-pill">No-Confirmado</span>
-                                        }
-                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                    }
                 </div>
             </div>
         </div>

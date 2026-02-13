@@ -1,9 +1,13 @@
+using GeCom.Following.Preload.Application.Abstractions.Monitor;
+using GeCom.Following.Preload.Application.Abstractions.Pdf;
 using GeCom.Following.Preload.Application.Abstractions.Repositories;
 using GeCom.Following.Preload.Application.Abstractions.Storage;
 using GeCom.Following.Preload.Application.Preload.Attachments.Interfaces;
+using GeCom.Following.Preload.Infrastructure.Monitor;
 using GeCom.Following.Preload.Infrastructure.Persistence;
 using GeCom.Following.Preload.Infrastructure.Persistence.Repositories.Preload;
 using GeCom.Following.Preload.Infrastructure.Persistence.Repositories.Spd_Sap;
+using GeCom.Following.Preload.Infrastructure.Pdf;
 using GeCom.Following.Preload.Infrastructure.Storage;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +57,7 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IStateRepository, StateRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<IPaymentTypeRepository, PaymentTypeRepository>();
+        services.AddScoped<IPaymentDetailRepository, PaymentDetailRepository>();
         services.AddScoped<ISocietyRepository, SocietyRepository>();
         services.AddScoped<IProviderRepository, ProviderRepository>();
         services.AddScoped<IActionsRegisterRepository, ActionsRegisterRepository>();
@@ -73,6 +78,12 @@ public static class InfrastructureDependencyInjection
         services.Configure<ImpersonationOptions>(configuration.GetSection("Storage:Impersonation"));
         services.AddScoped<IImpersonationService, WindowsImpersonationService>();
         services.AddScoped<IStorageService, StorageService>();
+
+        // PDF generation (QuestPDF)
+        services.AddScoped<IPdfDocumentService, QuestPdfDocumentService>();
+
+        // Monitores database (Dapper)
+        services.AddScoped<IMonitorService, MonitorService>();
 
         return services;
     }

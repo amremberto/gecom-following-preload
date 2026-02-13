@@ -16,6 +16,16 @@ public interface IStorageService
     Task<string> SaveFileAsync(byte[] fileContent, string fileName, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Saves a payment detail (recibo) PDF to the PaymentDetailPath location using Windows impersonation.
+    /// Creates the directory structure (Year/Month) if it doesn't exist.
+    /// </summary>
+    /// <param name="fileContent">The file content as a byte array.</param>
+    /// <param name="fileName">The name of the file to save.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The full path where the file was saved.</returns>
+    Task<string> SavePaymentDetailFileAsync(byte[] fileContent, string fileName, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Reads a file from storage by its path using Windows impersonation.
     /// </summary>
     /// <param name="filePath">The full path to the file.</param>

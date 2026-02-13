@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.WebApp.Components.Modals;
 using GeCom.Following.Preload.WebApp.Components.Shared;
@@ -739,25 +740,39 @@ public partial class Paid : IAsyncDisposable
     }
 
     /// <summary>
-    /// Handles the payment confirmation event from the modal.
+    /// Handles the payment confirmation event from the modal: revalidates that the document does not already have IdDetalleDePago, calls API, refreshes list and shows toast.
     /// </summary>
     /// <param name="paymentData">The payment confirmation data.</param>
-    /// <returns></returns>
     private async Task OnPaymentConfirmed(PaymentConfirmationData paymentData)
     {
+        DocumentResponse? doc = _paidDocuments.FirstOrDefault(d => d.DocId == paymentData.DocumentId);
+        if (doc is not null && doc.IdDetalleDePago.HasValue)
+        {
+            await ShowToast("El pago de este documento ya fue confirmado.", ToastType.Warning);
+            return;
+        }
+
+        _isDataTableLoading = true;
+        StateHasChanged();
+
         try
         {
+            var request = new ConfirmPaymentRequest(
+                paymentData.PaymentMethod,
+                paymentData.NumeroCheque,
+                paymentData.Banco,
+                paymentData.Vencimiento);
 
-            // Por ahora solo mostramos un mensaje de éxito
-            await ShowToast($"Pago confirmado para el documento #{paymentData.DocumentId}. Método: {paymentData.PaymentMethod}", ToastType.Success);
-
-            // Recargar los documentos para reflejar el cambio
-            _isDataTableLoading = true;
-            StateHasChanged();
+            _ = await DocumentService.ConfirmPaymentAsync(paymentData.DocumentId, request);
 
             await JsRuntime.InvokeVoidAsync("destroyDataTable", "documents-datatable");
             await GetPaidDocuments();
             await JsRuntime.InvokeVoidAsync("loadDataTable", "documents-datatable");
+            await ShowToast("Pago confirmado correctamente.", ToastType.Success);
+        }
+        catch (ApiRequestException ex)
+        {
+            await ShowToast(ex.Message, ToastType.Error);
         }
         catch (Exception ex)
         {

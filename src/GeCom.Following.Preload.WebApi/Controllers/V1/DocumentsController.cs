@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Asp.Versioning;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.CreateDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.DeleteDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocuments;
@@ -13,6 +14,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocu
 using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocumentPdf;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.SharedKernel.Results;
@@ -529,6 +531,49 @@ public sealed class DocumentsController : VersionedApiController
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 
         return result.MatchUpdated(this);
+    }
+
+    /// <summary>
+    /// Confirms payment for a document. The document must be in paid state and must not already have payment confirmed.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="request">Payment confirmation data (method, cheque details if applicable).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The document (payment confirmation persistence in a future iteration).</returns>
+    /// <response code="200">Returns the document.</response>
+    /// <response code="400">If the request data is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the document was not found.</response>
+    /// <response code="409">If the document payment was already confirmed or document is not in a state that allows confirm payment.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpPost("{docId}/confirm-payment")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("ConfirmPayment", "Confirms payment for a document.")]
+    public async Task<ActionResult<DocumentResponse>> ConfirmPaymentAsync(
+        int docId,
+        [FromBody] ConfirmPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        ConfirmPaymentCommand command = new(
+            docId,
+            request.PaymentMethod,
+            request.NumeroCheque,
+            request.Banco,
+            request.Vencimiento);
+
+        Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
+
+        return result.Match(this);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Globalization;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using Microsoft.AspNetCore.Components.Forms;
@@ -234,6 +235,25 @@ internal sealed class DocumentService : IDocumentService
         Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}", UriKind.Relative);
 
         await _httpClientService.DeleteAsync(requestUri, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<DocumentResponse?> ConfirmPaymentAsync(
+        int docId,
+        ConfirmPaymentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}/confirm-payment", UriKind.Relative);
+
+        DocumentResponse? response = await _httpClientService.PostAsync<ConfirmPaymentRequest, DocumentResponse>(
+            requestUri,
+            request,
+            cancellationToken);
+
+        return response;
     }
 }
 

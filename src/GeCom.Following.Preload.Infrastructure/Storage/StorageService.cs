@@ -84,6 +84,50 @@ internal sealed class StorageService : IStorageService
     }
 
     /// <inheritdoc />
+    public Task<string> SavePaymentDetailFileAsync(byte[] fileContent, string fileName, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(fileContent);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+
+        string basePath = _options.PaymentDetailPath;
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            throw new InvalidOperationException("Storage PaymentDetailPath is not configured.");
+        }
+
+        if (!basePath.EndsWith('\\'))
+        {
+            basePath += "\\";
+        }
+
+        string year = DateTime.UtcNow.Year.ToString(CultureInfo.InvariantCulture);
+        string month = DateTime.UtcNow.Month.ToString("d2", CultureInfo.InvariantCulture);
+        string yearPath = Path.Combine(basePath, year);
+        string monthPath = Path.Combine(yearPath, month);
+        string fullPath = Path.Combine(monthPath, fileName);
+
+        return _impersonationService.RunAsAsync(async cancellationToken =>
+        {
+            if (!Directory.Exists(yearPath))
+            {
+                Directory.CreateDirectory(yearPath);
+                _logger.LogInformation("Created year directory: {YearPath}", yearPath);
+            }
+
+            if (!Directory.Exists(monthPath))
+            {
+                Directory.CreateDirectory(monthPath);
+                _logger.LogInformation("Created month directory: {MonthPath}", monthPath);
+            }
+
+            await File.WriteAllBytesAsync(fullPath, fileContent, cancellationToken);
+            _logger.LogInformation("Payment detail file saved successfully: {FullPath}", fullPath);
+
+            return fullPath;
+        }, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task<byte[]> ReadFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -132,6 +176,11 @@ public sealed class StorageOptions
     /// Gets or sets the base path for file storage.
     /// </summary>
     public string BasePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the base path for payment detail (recibo) PDF storage.
+    /// </summary>
+    public string? PaymentDetailPath { get; set; }
 
     /// <summary>
     /// Gets or sets the impersonation settings.

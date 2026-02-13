@@ -1,4 +1,5 @@
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using Microsoft.AspNetCore.Components.Forms;
 
@@ -148,5 +149,17 @@ public interface IDocumentService
     /// <param name="docId">Document ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task DeleteAsync(int docId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confirms payment for a document (POST /api/v1/Documents/{docId}/confirm-payment).
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="request">Payment confirmation data (method, cheque details if applicable).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated document.</returns>
+    Task<DocumentResponse?> ConfirmPaymentAsync(
+        int docId,
+        ConfirmPaymentRequest request,
+        CancellationToken cancellationToken = default);
 }
 
