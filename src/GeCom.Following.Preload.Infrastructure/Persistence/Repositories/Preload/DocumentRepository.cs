@@ -416,4 +416,18 @@ internal sealed class DocumentRepository : GenericRepository<Document, PreloadDb
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Document>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        var idsList = ids?.Distinct().ToList();
+        if (idsList is null || idsList.Count == 0)
+        {
+            return [];
+        }
+
+        return await GetTrackedQueryable()
+            .Where(d => idsList.Contains(d.DocId))
+            .ToListAsync(cancellationToken);
+    }
 }

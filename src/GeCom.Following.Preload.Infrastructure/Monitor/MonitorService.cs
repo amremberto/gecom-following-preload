@@ -35,7 +35,7 @@ internal sealed class MonitorService : IMonitorService
     }
 
     /// <inheritdoc />
-    public async Task<int?> GetSapDocumentNumberAsync(GetSapDocumentNumberRequest request, CancellationToken cancellationToken = default)
+    public async Task<int> GetSapDocumentNumberAsync(GetSapDocumentNumberRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Getting SapDocumentNumber for DocumentNumber: {DocumentNumber}, ProviderNumber: {ProviderNumber}, ClientNumber: {ClientNumber}, SalePoint: {SalePoint}, Letter: {Letter}",
             request.DocumentNumber, request.ProviderNumber, request.ClientNumber, request.SalePoint, request.Letter);
@@ -55,7 +55,7 @@ internal sealed class MonitorService : IMonitorService
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-        int? result = await connection.QuerySingleOrDefaultAsync<int?>(
+        int result = await connection.QuerySingleOrDefaultAsync<int>(
             new CommandDefinition(
                 sql,
                 new
@@ -69,5 +69,32 @@ internal sealed class MonitorService : IMonitorService
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<int>> GetDocumentIdsBySapDocumentNumberAsync(int sapDocumentNumber, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Getting DocumentIds for SapDocumentNumber: {SapDocumentNumber}", sapDocumentNumber);
+
+        const string sql = """
+            SELECT PD.DocId
+            FROM [Precarga].[dbo].[Documentos] PD
+            INNER JOIN [Monitores].[dbo].[Documents] MD on PD.idDocument = MD.idDocument
+            WHERE MD.SapDocumentNumber = @SapDocumentNumber
+            """;
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        IEnumerable<int> result = await connection.QueryAsync<int>(
+            new CommandDefinition(
+                sql,
+                new { SapDocumentNumber = sapDocumentNumber },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        var list = result.ToList();
+        _logger.LogInformation("Found {Count} DocumentId(s) for SapDocumentNumber: {SapDocumentNumber}", list.Count, sapDocumentNumber);
+
+        return list;
     }
 }

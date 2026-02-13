@@ -1,4 +1,4 @@
-﻿using GeCom.Following.Preload.Domain.Preloads.Documents;
+using GeCom.Following.Preload.Domain.Preloads.Documents;
 using GeCom.Following.Preload.SharedKernel.Interfaces;
 
 namespace GeCom.Following.Preload.Application.Abstractions.Repositories;
@@ -165,4 +165,12 @@ public interface IDocumentRepository : IRepository<Document>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of documents.</returns>
     Task<IEnumerable<Document>> GetByEmissionDatesEstadoIdAndSocietyCuitsAsync(DateOnly dateFrom, DateOnly dateTo, int estadoId, IEnumerable<string> societyCuits, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents whose primary key (DocId) is in the given collection of ids.
+    /// </summary>
+    /// <param name="ids">Document IDs to look up. If null or empty, returns an empty list.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of documents; order is not guaranteed.</returns>
+    Task<IReadOnlyList<Document>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
 }

@@ -134,7 +134,7 @@ internal sealed class ConfirmPaymentCommandHandler : ICommandHandler<ConfirmPaym
             NroCheque = request.NumeroCheque,
             Banco = request.Banco,
             Vencimiento = request.Vencimiento,
-            OrdenDePago = (sapDocumentNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            OrdenDePago = sapDocumentNumber.HasValue ? sapDocumentNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : null
         };
 
         var pdfRequest = new PdfDocumentRequest
@@ -179,8 +179,29 @@ internal sealed class ConfirmPaymentCommandHandler : ICommandHandler<ConfirmPaym
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        DocumentResponse response = DocumentMappings.ToResponse(document);
+        // Update documents with same sapDocumentNumber to have same payment details (in case there are multiple documents for same invoice)
+        if (!sapDocumentNumber.HasValue)
+        {
+            return Result.Success(DocumentMappings.ToResponse(document));
+        }
 
-        return Result.Success(response);
+        IReadOnlyList<int> relatedDocumentIds = await _monitorService.GetDocumentIdsBySapDocumentNumberAsync(sapDocumentNumber.Value, cancellationToken);
+        var idsToUpdate = relatedDocumentIds.Where(id => id != request.DocId).ToList();
+        if (idsToUpdate.Count == 0)
+        {
+            return Result.Success(DocumentMappings.ToResponse(document));
+        }
+
+        IReadOnlyList<Document> documentsToUpdate = await _documentRepository.GetByIdsAsync(idsToUpdate, cancellationToken);
+        foreach (Document relatedDocument in documentsToUpdate)
+        {
+            relatedDocument.IdDetalleDePago = addedPaymentDetail.Id;
+            relatedDocument.IdMetodoDePago = paymentType.Id;
+            relatedDocument.FechaPago = DateTime.UtcNow;
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(DocumentMappings.ToResponse(document));
     }
 }
