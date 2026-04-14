@@ -77,6 +77,7 @@ public partial class Pending : IAsyncDisposable
     private string _selectedPuntoDeVenta = string.Empty;
     private string _selectedNumeroComprobante = string.Empty;
     private string _selectedCaecai = string.Empty;
+    private string _selectedNombreSolicitante = string.Empty;
     private decimal? _selectedMontoBruto;
 #pragma warning restore S4487
 
@@ -496,6 +497,7 @@ public partial class Pending : IAsyncDisposable
         _selectedPuntoDeVenta = string.Empty;
         _selectedNumeroComprobante = string.Empty;
         _selectedCaecai = string.Empty;
+        _selectedNombreSolicitante = string.Empty;
         _selectedMontoBruto = null;
         _sapPurchaseOrders = []; // Reset SAP purchase orders
         _isLoadingSapPurchaseOrders = false;
@@ -531,6 +533,7 @@ public partial class Pending : IAsyncDisposable
             _selectedPuntoDeVenta = _selectedDocument.PuntoDeVenta ?? string.Empty;
             _selectedNumeroComprobante = _selectedDocument.NumeroComprobante ?? string.Empty;
             _selectedCaecai = _selectedDocument.Caecai ?? string.Empty;
+            _selectedNombreSolicitante = _selectedDocument.NombreSolicitante ?? string.Empty;
             _selectedMontoBruto = _selectedDocument.MontoBruto;
 
             await JsRuntime.InvokeVoidAsync("console.log", $"[OpenDocumentEdit] Valores del documento establecidos. SociedadCuit: {_selectedDocument.SociedadCuit}, ProveedorCuit: {_selectedDocument.ProveedorCuit}");
@@ -1319,7 +1322,9 @@ public partial class Pending : IAsyncDisposable
                 Caecai: caecai,
                 VencimientoCaecai: vencimiento,
                 EstadoId: null,
-                NombreSolicitante: null);
+                NombreSolicitante: string.IsNullOrWhiteSpace(_selectedNombreSolicitante)
+                    ? null
+                    : _selectedNombreSolicitante.Trim());
 
             // Call update service
             DocumentResponse? updatedDocument = await DocumentService.UpdateAsync(docId, request, default);
@@ -1346,6 +1351,7 @@ public partial class Pending : IAsyncDisposable
             _selectedPuntoDeVenta = updatedDocument.PuntoDeVenta ?? string.Empty;
             _selectedNumeroComprobante = updatedDocument.NumeroComprobante ?? string.Empty;
             _selectedCaecai = updatedDocument.Caecai ?? string.Empty;
+            _selectedNombreSolicitante = updatedDocument.NombreSolicitante ?? string.Empty;
             _selectedMontoBruto = updatedDocument.MontoBruto;
 
             // Update SELECT2 components with new values
@@ -1380,6 +1386,96 @@ public partial class Pending : IAsyncDisposable
             {
                 Success = false,
                 Message = $"Error al actualizar el documento: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Updates only NombreSolicitante from the purchase orders step.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <param name="nombreSolicitante">Nombre y apellido del solicitante.</param>
+    /// <returns>An object with success status and message.</returns>
+    [JSInvokable]
+    public async Task<UpdateDocumentResult> UpdateRequesterNameFromPurchaseOrdersStep(int docId, string? nombreSolicitante)
+    {
+        try
+        {
+            if (_selectedDocument is null)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "No hay documento seleccionado."
+                };
+            }
+
+            if (_selectedDocument.DocId != docId)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "El documento seleccionado no coincide con el documento a actualizar."
+                };
+            }
+
+            string? nombreSolicitanteNormalizado = string.IsNullOrWhiteSpace(nombreSolicitante)
+                ? null
+                : nombreSolicitante.Trim();
+
+            UpdateDocumentRequest request = new(
+                DocId: docId,
+                ProveedorCuit: null,
+                SociedadCuit: null,
+                TipoDocId: null,
+                PuntoDeVenta: null,
+                NumeroComprobante: null,
+                FechaEmisionComprobante: null,
+                Moneda: null,
+                MontoBruto: null,
+                CodigoDeBarras: null,
+                Caecai: null,
+                VencimientoCaecai: null,
+                EstadoId: null,
+                NombreSolicitante: nombreSolicitanteNormalizado);
+
+            DocumentResponse? updatedDocument = await DocumentService.UpdateAsync(docId, request, default);
+            if (updatedDocument is null)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "Error al actualizar el solicitante. No se recibió respuesta del servidor."
+                };
+            }
+
+            _selectedDocument = updatedDocument;
+            _selectedNombreSolicitante = updatedDocument.NombreSolicitante ?? string.Empty;
+            _documentWasUpdated = true;
+            StateHasChanged();
+
+            return new UpdateDocumentResult
+            {
+                Success = true,
+                Message = "Solicitante actualizado exitosamente."
+            };
+        }
+        catch (TaskCanceledException)
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", "Actualización de solicitante cancelada (componente desmontado o navegación).");
+            return new UpdateDocumentResult
+            {
+                Success = false,
+                Message = "La actualización del solicitante fue cancelada."
+            };
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al actualizar solicitante:", ex.Message);
+            return new UpdateDocumentResult
+            {
+                Success = false,
+                Message = $"Error al actualizar el solicitante: {ex.Message}"
             };
         }
     }

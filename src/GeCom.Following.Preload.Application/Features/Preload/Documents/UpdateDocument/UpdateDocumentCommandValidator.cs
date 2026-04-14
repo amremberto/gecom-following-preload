@@ -81,5 +81,19 @@ internal sealed class UpdateDocumentCommandValidator : AbstractValidator<UpdateD
                 vencimiento.Value >= command.FechaEmisionComprobante.Value)
             .WithMessage("La fecha Venc. CAE/CAI no puede ser anterior a la fecha de factura.")
             .When(x => x.VencimientoCaecai.HasValue && x.FechaEmisionComprobante.HasValue);
+
+        RuleFor(x => x.NombreSolicitante)
+            .MaximumLength(100)
+            .WithMessage("El nombre y apellido del solicitante no debe superar los 100 caracteres.")
+            .Must(nombreSolicitante => nombreSolicitante is null || TieneNombreYApellido(nombreSolicitante))
+            .WithMessage("Debe ingresar nombre y apellido del solicitante.")
+            .When(x => x.NombreSolicitante is not null);
+    }
+
+    private static bool TieneNombreYApellido(string nombreSolicitante)
+    {
+        string[] partes = nombreSolicitante.Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length >= 2;
     }
 }

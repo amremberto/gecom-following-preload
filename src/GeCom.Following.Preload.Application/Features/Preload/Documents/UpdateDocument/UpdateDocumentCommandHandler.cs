@@ -159,4 +159,5 @@ internal sealed class UpdateDocumentCommandHandler : ICommandHandler<UpdateDocum
 
         return Result.Success(response);
     }
+
 }

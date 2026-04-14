@@ -691,6 +691,9 @@
                                                         </h5>
                                                     </div>
                                                     <div class="card-body">
+                                                        <input type="hidden"
+                                                               id="associated-purchase-orders-count"
+                                                               value="@(_selectedDocument?.PurchaseOrders.Count ?? 0)" />
                                                         @if (IsPendingPreloadStatus(_selectedDocument))
                                                         {
                                                             <div class="alert alert-info mb-0">
@@ -772,6 +775,25 @@
                                                                 <i class="ri-information-line me-2"></i>No se encontraron órdenes de compra SAP para este documento.
                                                             </div>
                                                         }
+
+                                                        <div class="mt-4">
+                                                            <label class="fw-bold text-primary" for="nombre-solicitante-edit">
+                                                                Si su producto o servicio no requiere una Orden de Compra previa, indique nombre y apellido del solicitante:
+                                                            </label>
+                                                            <input id="nombre-solicitante-edit"
+                                                                   name="nombre-solicitante-edit"
+                                                                   type="text"
+                                                                   class="form-control"
+                                                                   @bind="_selectedNombreSolicitante"
+                                                                   @bind:event="oninput"
+                                                                   maxlength="100" />
+                                                            <div class="invalid-feedback">
+                                                                Debe ingresar al menos una OC o nombre y apellido del solicitante
+                                                            </div>
+                                                            <p class="text-danger mt-2 mb-0">
+                                                                NOTA: Las Ordenes de Compras se actualizan diariamente a las 07:00hs y 13:30hs.
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </form>

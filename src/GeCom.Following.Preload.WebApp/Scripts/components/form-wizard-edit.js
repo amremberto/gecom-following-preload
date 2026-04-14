@@ -839,6 +839,38 @@ function getFormData(form) {
     return result;
 }
 
+function validatePurchaseOrdersOrRequesterName() {
+    var requesterInput = document.getElementById('nombre-solicitante-edit');
+    if (!requesterInput) {
+        return true;
+    }
+
+    var purchaseOrdersTable = document.getElementById('edit-document-oc-datatable');
+    var hasAssociatedPurchaseOrders = false;
+
+    // Determine if there is at least one associated OC from the visible purchase-orders step.
+    // A linked OC is represented by a "Desvincular" action button (btn-danger).
+    if (purchaseOrdersTable) {
+        var unlinkButtons = purchaseOrdersTable.querySelectorAll('button.btn-danger[title*="Desvincular"]');
+        hasAssociatedPurchaseOrders = unlinkButtons.length > 0;
+    }
+
+    var requesterName = (requesterInput.value || '').trim();
+    var hasRequesterNameAndSurname = requesterName.split(/\s+/).filter(function (part) {
+        return part.length > 0;
+    }).length >= 2;
+
+    if (hasAssociatedPurchaseOrders || hasRequesterNameAndSurname) {
+        requesterInput.classList.remove('is-invalid');
+        requesterInput.classList.add('is-valid');
+        return true;
+    }
+
+    requesterInput.classList.add('is-invalid');
+    requesterInput.classList.remove('is-valid');
+    return false;
+}
+
 /**
  * Stores the initial state of form fields for change detection
  * @param {HTMLElement} form - The form element
@@ -1162,6 +1194,70 @@ function setupNavigationRestrictions(wizardElement, isPendingPreload, dotNetRefe
                     }, 100);
                 }
             } else {
+                if (activeTabHref === '#purchase-orders-step' && !validatePurchaseOrdersOrRequesterName()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    showValidationToast(dotNetReference, 'Debe ingresar al menos una OC o nombre y apellido del solicitante');
+                    return false;
+                }
+
+                if (activeTabHref === '#purchase-orders-step') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    var requesterInput = document.getElementById('nombre-solicitante-edit');
+                    var requesterName = requesterInput ? (requesterInput.value || '').trim() : '';
+                    var docIdForRequesterUpdate = wizardElement.getAttribute('data-doc-id') ?
+                        parseInt(wizardElement.getAttribute('data-doc-id')) : 0;
+
+                    if (!docIdForRequesterUpdate) {
+                        showValidationToast(dotNetReference, 'Error: No se pudo obtener el ID del documento.');
+                        return false;
+                    }
+
+                    if (dotNetReference && typeof dotNetReference.invokeMethodAsync === 'function') {
+                        try {
+                            var requesterUpdateResult = await dotNetReference.invokeMethodAsync(
+                                'UpdateRequesterNameFromPurchaseOrdersStep',
+                                docIdForRequesterUpdate,
+                                requesterName);
+
+                            if (!requesterUpdateResult || !requesterUpdateResult.success) {
+                                showValidationToast(
+                                    dotNetReference,
+                                    (requesterUpdateResult && requesterUpdateResult.message)
+                                        ? requesterUpdateResult.message
+                                        : 'Error al actualizar el solicitante. No se pudo avanzar.');
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('Error al actualizar solicitante desde paso Órdenes de Compra:', error);
+                            showValidationToast(dotNetReference, 'Error al actualizar el solicitante. No se pudo avanzar.');
+                            return false;
+                        }
+                    } else {
+                        showValidationToast(dotNetReference, 'Error: No se pudo comunicar con el servidor para actualizar el solicitante.');
+                        return false;
+                    }
+
+                    isNavigatingFromNextButton = true;
+                    setTimeout(function() {
+                        var currentTabIndex = Array.from(wizardElement.querySelectorAll('.nav-link')).indexOf(activeTab);
+                        var nextTabLink = wizardElement.querySelectorAll('.nav-link')[currentTabIndex + 1];
+                        if (nextTabLink) {
+                            var nextTab = new bootstrap.Tab(nextTabLink);
+                            nextTab.show();
+                        }
+
+                        setTimeout(function() {
+                            isNavigatingFromNextButton = false;
+                        }, 200);
+                    }, 50);
+                    return true;
+                }
+
                 // Not on first tab - allow normal navigation without checking for changes
                 isNavigatingFromNextButton = true;
                 
@@ -1298,6 +1394,14 @@ window.initEditDocumentWizard = function (isPendingPreload, dotNetReference, doc
 
             // Set up event listener to update save button visibility when tab changes
             setupSaveButtonVisibility(wizardElement, dotNetReference);
+
+            // Live validation for requester field on purchase orders step.
+            // This ensures invalid feedback is removed as soon as input becomes valid.
+            var requesterInput = document.getElementById('nombre-solicitante-edit');
+            if (requesterInput) {
+                requesterInput.removeEventListener('input', validatePurchaseOrdersOrRequesterName);
+                requesterInput.addEventListener('input', validatePurchaseOrdersOrRequesterName);
+            }
 
             console.log('Edit document wizard initialized successfully');
             return true;
