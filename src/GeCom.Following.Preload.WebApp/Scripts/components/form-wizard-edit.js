@@ -1487,6 +1487,60 @@ function setupSaveButtonVisibility(wizardElement, dotNetReference) {
             }, 100);
         });
     });
+
+    // Wire save button click to confirm document in backend.
+    var saveButton = wizardElement.querySelector('.wizard .last a');
+    if (saveButton) {
+        saveButton.onclick = async function (e) {
+            e.preventDefault();
+
+            var docId = wizardElement.getAttribute('data-doc-id') ?
+                parseInt(wizardElement.getAttribute('data-doc-id')) : 0;
+
+            if (!docId) {
+                showValidationToast(dotNetReference, 'Error: No se pudo obtener el ID del documento.');
+                return false;
+            }
+
+            if (!dotNetReference || typeof dotNetReference.invokeMethodAsync !== 'function') {
+                showValidationToast(dotNetReference, 'Error: No se pudo comunicar con el servidor.');
+                return false;
+            }
+
+            var isConfirmed = false;
+            try {
+                isConfirmed = await dotNetReference.invokeMethodAsync(
+                    'ShowConfirmationDialog',
+                    'Si esta seguro de enviar el documento a Mesa de Entrada?');
+            } catch (error) {
+                console.error('Error showing confirmation dialog:', error);
+            }
+
+            if (!isConfirmed) {
+                return false;
+            }
+
+            try {
+                var result = await dotNetReference.invokeMethodAsync('ConfirmDocumentFromWizard', docId);
+                if (result && result.success) {
+                    var modalElement = document.getElementById('edit-document-modal');
+                    if (modalElement && typeof bootstrap !== 'undefined') {
+                        var modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                        modalInstance.hide();
+                    }
+                } else {
+                    showValidationToast(dotNetReference, (result && result.message)
+                        ? result.message
+                        : 'No se pudo confirmar el documento.');
+                }
+            } catch (error) {
+                console.error('Error confirming document from wizard:', error);
+                showValidationToast(dotNetReference, 'Error al confirmar el documento.');
+            }
+
+            return false;
+        };
+    }
 }
 
 /**

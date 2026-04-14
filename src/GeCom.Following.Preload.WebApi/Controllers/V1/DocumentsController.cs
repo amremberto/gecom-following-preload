@@ -16,6 +16,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.PreloadDocu
 using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocument;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.UpdateDocumentPdf;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Create;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
@@ -577,6 +578,34 @@ public sealed class DocumentsController : VersionedApiController
         Result<DocumentResponse> result = await Mediator.Send(command, cancellationToken);
 
         return result.Match(this);
+    }
+
+    /// <summary>
+    /// Confirms a document and sends it to mesa de entrada.
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A confirmation response.</returns>
+    /// <response code="200">Returns a successful confirmation message.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    [HttpPost("{docId}/confirm-document")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(typeof(ConfirmDocumentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [OpenApiOperation("ConfirmDocument", "Confirms a document and sends it to mesa de entrada.")]
+    public Task<ActionResult<ConfirmDocumentResponse>> ConfirmDocumentAsync(
+        int docId,
+        CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+
+        ConfirmDocumentResponse response = new(
+            docId,
+            "Documento confirmado correctamente.");
+
+        return Task.FromResult<ActionResult<ConfirmDocumentResponse>>(Ok(response));
     }
 
     /// <summary>

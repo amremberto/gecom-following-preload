@@ -1,5 +1,6 @@
 using System.Globalization;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
@@ -13,6 +14,10 @@ namespace GeCom.Following.Preload.WebApp.Services;
 /// </summary>
 internal sealed class DocumentService : IDocumentService
 {
+    private sealed class EmptyRequest
+    {
+    }
+
     private readonly IHttpClientService _httpClientService;
     private readonly PreloadApiSettings _apiSettings;
 
@@ -277,6 +282,22 @@ internal sealed class DocumentService : IDocumentService
         DocumentResponse? response = await _httpClientService.PostAsync<ConfirmPaymentRequest, DocumentResponse>(
             requestUri,
             request,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<ConfirmDocumentResponse?> ConfirmDocumentAsync(
+        int docId,
+        CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}/confirm-document", UriKind.Relative);
+
+        ConfirmDocumentResponse? response = await _httpClientService.PostAsync<EmptyRequest, ConfirmDocumentResponse>(
+            requestUri,
+            new EmptyRequest(),
             cancellationToken);
 
         return response;

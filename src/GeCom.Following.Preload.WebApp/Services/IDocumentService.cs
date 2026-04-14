@@ -1,4 +1,5 @@
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmPayment;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using Microsoft.AspNetCore.Components.Forms;
@@ -180,6 +181,16 @@ public interface IDocumentService
     Task<DocumentResponse?> ConfirmPaymentAsync(
         int docId,
         ConfirmPaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confirms a document and sends it to mesa de entrada (POST /api/v1/Documents/{docId}/confirm-document).
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The confirmation result.</returns>
+    Task<ConfirmDocumentResponse?> ConfirmDocumentAsync(
+        int docId,
         CancellationToken cancellationToken = default);
 }
 

@@ -4,6 +4,7 @@ using System.Security.Claims;
 using GeCom.Following.Preload.Contracts.Preload.Attachments;
 using GeCom.Following.Preload.Contracts.Preload.Currencies;
 using GeCom.Following.Preload.Contracts.Preload.Documents;
+using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
@@ -1481,6 +1482,70 @@ public partial class Pending : IAsyncDisposable
     }
 
     /// <summary>
+    /// Confirms the selected document and sends it to mesa de entrada.
+    /// </summary>
+    /// <param name="docId">The document ID.</param>
+    /// <returns>An object with success status and message.</returns>
+    [JSInvokable]
+    public async Task<UpdateDocumentResult> ConfirmDocumentFromWizard(int docId)
+    {
+        try
+        {
+            if (docId <= 0)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "No se pudo obtener el ID del documento."
+                };
+            }
+
+            ConfirmDocumentResponse? response = await DocumentService.ConfirmDocumentAsync(docId, default);
+            if (response is null)
+            {
+                return new UpdateDocumentResult
+                {
+                    Success = false,
+                    Message = "No se recibió respuesta al confirmar el documento."
+                };
+            }
+
+            _documentWasUpdated = true;
+
+            if (_selectedDocument is not null && _selectedDocument.DocId == docId)
+            {
+                _selectedDocument = await DocumentService.GetByIdAsync(docId, default) ?? _selectedDocument;
+            }
+
+            StateHasChanged();
+
+            return new UpdateDocumentResult
+            {
+                Success = true,
+                Message = response.Message
+            };
+        }
+        catch (TaskCanceledException)
+        {
+            await JsRuntime.InvokeVoidAsync("console.log", "Confirmación de documento cancelada (componente desmontado o navegación).");
+            return new UpdateDocumentResult
+            {
+                Success = false,
+                Message = "La confirmación del documento fue cancelada."
+            };
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al confirmar documento:", ex.Message);
+            return new UpdateDocumentResult
+            {
+                Success = false,
+                Message = $"Error al confirmar el documento: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
     /// Refreshes the pending documents dataTable by reloading all documents from the server.
     /// This ensures the dataTable shows the latest data, especially after updates.
     /// Called when modal closes if document was updated.
@@ -1492,6 +1557,7 @@ public partial class Pending : IAsyncDisposable
         if (_documentWasUpdated)
         {
             _documentWasUpdated = false; // Reset flag
+            await ShowToast("El documento fue enviado a Mesa de Entrada. Actualizando grilla...", ToastType.Info);
             await RefreshPendingDocumentsDataTable();
         }
     }
