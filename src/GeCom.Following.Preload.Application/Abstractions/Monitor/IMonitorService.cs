@@ -20,4 +20,18 @@ public interface IMonitorService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of document IDs; empty if no matches.</returns>
     Task<IReadOnlyList<int>> GetDocumentIdsBySapDocumentNumberAsync(int sapDocumentNumber, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the PaymentId of a document in [Monitores].[dbo].[Documents] matching the given criteria.
+    /// </summary>
+    /// <param name="documentNumber"></param>
+    /// <param name="providerNumber"></param>
+    /// <param name="clientNumber"></param>
+    /// <param name="salePoint"></param>
+    /// <param name="letter"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<int> GetIdPaymentByDocInfoAsync(string documentNumber, string providerNumber, string clientNumber, string salePoint, string letter, CancellationToken cancellationToken = default);
+
+    Task<string> GetRetentionReceiptPdfPathByPaymentIdAsync(int paymentId, CancellationToken cancellationToken = default);
 }

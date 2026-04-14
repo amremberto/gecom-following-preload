@@ -7,6 +7,7 @@ using GeCom.Following.Preload.Application.Features.Preload.Documents.GetAllDocum
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentById;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPaymentDetailPdfByDocId;
+using GeCom.Following.Preload.Application.Features.Preload.Documents.GetRetentionReceiptPdfByDocId;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetDocumentsByEmissionDatesAndProvider;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPaidDocumentsByEmissionDates;
 using GeCom.Following.Preload.Application.Features.Preload.Documents.GetPendingDocuments;
@@ -619,6 +620,50 @@ public sealed class DocumentsController : VersionedApiController
         }
 
         PaymentDetailPdfResult pdfResult = result.Value;
+        return File(pdfResult.Content, "application/pdf", pdfResult.FileName);
+    }
+
+    /// <summary>
+    /// Downloads the retention receipt (comprobante de retención) PDF for a document by DocId. Uses the document's active attachment (preload PDF).
+    /// </summary>
+    /// <param name="docId">Document ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The PDF file (retention receipt).</returns>
+    /// <response code="200">Returns the PDF file.</response>
+    /// <response code="400">If the docId parameter is invalid.</response>
+    /// <response code="401">If the user is not authenticated.</response>
+    /// <response code="403">If the user does not have the required permissions.</response>
+    /// <response code="404">If the document was not found, has no active attachment, or the PDF file does not exist.</response>
+    /// <response code="500">If an error occurred while processing the request.</response>
+    [HttpGet("{docId}/retention-receipt-pdf")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK, "application/pdf")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [OpenApiOperation("GetRetentionReceiptPdf", "Downloads the retention receipt (comprobante de retención) PDF for a document by DocId.")]
+    public async Task<ActionResult> GetRetentionReceiptPdfAsync(int docId, CancellationToken cancellationToken)
+    {
+        GetRetentionReceiptPdfByDocIdQuery query = new(docId);
+
+        Result<RetentionReceiptPdfResult> result = await Mediator.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            Error error = result.Error;
+            return error.Type switch
+            {
+                ErrorType.NotFound => NotFound(error.Description),
+                ErrorType.Validation => BadRequest(error.Description),
+                ErrorType.Unauthorized => Unauthorized(),
+                ErrorType.Forbidden => Forbid(),
+                _ => StatusCode(500, error.Description)
+            };
+        }
+
+        RetentionReceiptPdfResult pdfResult = result.Value;
         return File(pdfResult.Content, "application/pdf", pdfResult.FileName);
     }
 

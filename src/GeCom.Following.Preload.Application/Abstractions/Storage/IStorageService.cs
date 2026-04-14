@@ -1,10 +1,18 @@
-namespace GeCom.Following.Preload.Application.Abstractions.Storage;
+﻿namespace GeCom.Following.Preload.Application.Abstractions.Storage;
 
 /// <summary>
 /// Service interface for file storage operations with Windows impersonation.
 /// </summary>
 public interface IStorageService
 {
+    /// <summary>
+    /// Checks if a file exists in storage by its path using Windows impersonation.
+    /// </summary>
+    /// <param name="filePath">The full path to the file.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the file exists, otherwise false.</returns>
+    Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Saves a file to the storage location using Windows impersonation.
     /// Creates the directory structure (Year/Month) if it doesn't exist.
@@ -43,6 +51,14 @@ public interface IStorageService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The file content as byte array.</returns>
     Task<byte[]> ReadPaymentDetailFileAsync(string fileName, int year, int month, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads a retention receipt PDF from the RetentionReceiptPath location using Windows impersonation.
+    /// </summary>
+    /// <param name="fileName">The name of the file (e.g. from RetentionReceipt.NamePdf).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The file content as byte array.</returns>
+    Task<byte[]> ReadRetentionReceiptPdfAsync(string fileName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes a file from storage by its path using Windows impersonation.

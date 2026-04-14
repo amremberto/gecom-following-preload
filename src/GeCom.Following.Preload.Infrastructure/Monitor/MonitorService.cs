@@ -94,8 +94,71 @@ internal sealed class MonitorService : IMonitorService
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         var list = result.ToList();
-        _logger.LogInformation("Found {Count} DocumentId(s) for SapDocumentNumber: {SapDocumentNumber}", list.Count, sapDocumentNumber);
+        _logger.LogInformation(
+            "Found {Count} DocumentId(s) for SapDocumentNumber: {SapDocumentNumber}",
+            list.Count, sapDocumentNumber);
 
         return list;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> GetIdPaymentByDocInfoAsync(string documentNumber, string providerNumber, string clientNumber, string salePoint, string letter, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Getting PaymentId for DocumentNumber: {DocumentNumber}, ProviderNumber: {ProviderNumber}, ClientNumber: {ClientNumber}, SalePoint: {SalePoint}, Letter: {Letter}",
+            documentNumber, providerNumber, clientNumber, salePoint, letter);
+
+        const string sql = """
+            SELECT PD.idPayment
+            FROM [Precarga].[dbo].[Documentos] PD
+            WHERE PD.DocumentNumber LIKE '%@DocumentNumber%'
+              AND PD.ProviderNumber = @ProviderNumber
+              AND PD.ClientNumber = @ClientNumber
+              AND PD.SalePoint = @SalePoint
+              AND PD.Letter = @Letter
+            """;
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        int result = await connection.QuerySingleOrDefaultAsync<int>(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    DocumentNumber = documentNumber,
+                    ProviderNumber = providerNumber,
+                    ClientNumber = clientNumber,
+                    SalePoint = salePoint,
+                    Letter = letter
+                },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<string> GetRetentionReceiptPdfPathByPaymentIdAsync(int paymentId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Getting RetentionReceiptPdfPath for PaymentId: {PaymentId}",
+            paymentId);
+
+        const string sql = """
+            SELECT fileName
+            FROM [Monitores].[dbo].[Payments]
+            WHERE idPayment = @PaymentId
+            """;
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        string result = await connection.QuerySingleOrDefaultAsync<string>(
+            new CommandDefinition(
+                sql,
+                new { PaymentId = paymentId },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        return result;
     }
 }

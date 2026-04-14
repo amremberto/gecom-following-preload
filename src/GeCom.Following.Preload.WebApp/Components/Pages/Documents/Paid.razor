@@ -166,9 +166,17 @@ else
                                                 <button type="button"
                                                         class="btn btn-info btn-sm p-0 rounded-circle"
                                                         style="width: 28px; height: 28px; line-height: 1;"
-                                                        @onclick="@(() => OnDownloadComprobanteClick())"
-                                                        title="Descargar comprobante">
-                                                    <i class="ri-file-text-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                        disabled="@(_downloadingComprobanteDocId == doc.DocId)"
+                                                        @onclick="@(() => OnDownloadComprobanteClick(doc.DocId))"
+                                                        title="@(_downloadingComprobanteDocId == doc.DocId ? "Descargando..." : "Descargar comprobante")">
+                                                    @if (_downloadingComprobanteDocId == doc.DocId)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="vertical-align: middle;"></span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="ri-file-text-line" style="font-size: 1rem; vertical-align: middle;"></i>
+                                                    }
                                                 </button>
                                             }
                                             @if (doc.EstadoDescripcion?.ToUpperInvariant() == "PAGADO" && !doc.IdDetalleDePago.HasValue)

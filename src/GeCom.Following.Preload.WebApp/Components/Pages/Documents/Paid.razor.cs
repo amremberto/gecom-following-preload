@@ -51,6 +51,11 @@ public partial class Paid : IAsyncDisposable
     private int? _downloadingPaymentDetailDocId;
 
     /// <summary>
+    /// DocId of the document whose retention receipt (comprobante) PDF is currently being downloaded (null when none).
+    /// </summary>
+    private int? _downloadingComprobanteDocId;
+
+    /// <summary>
     /// This method is called when the component is initialized.
     /// </summary>
     /// <returns></returns>
@@ -811,11 +816,48 @@ public partial class Paid : IAsyncDisposable
     }
 
     /// <summary>
-    /// Handles the "Descargar comprobante" button click. Not implemented yet (Fase 2).
+    /// Downloads the retention receipt (comprobante de retención) PDF for the document. Triggers file download in the browser; shows toast on error.
     /// </summary>
-    private Task OnDownloadComprobanteClick()
+    /// <param name="docId">Document ID.</param>
+    private async Task OnDownloadComprobanteClick(int docId)
     {
-        return ShowToast("Próximamente: descarga de comprobante.", ToastType.Info);
+        if (_downloadingComprobanteDocId.HasValue)
+        {
+            return;
+        }
+
+        _downloadingComprobanteDocId = docId;
+        StateHasChanged();
+
+        try
+        {
+            byte[]? pdfBytes = await DocumentService.DownloadRetentionReceiptPdfAsync(docId, cancellationToken: default);
+
+            if (pdfBytes is null || pdfBytes.Length == 0)
+            {
+                await ShowToast("No se encontró el comprobante.", ToastType.Warning);
+                return;
+            }
+
+            await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/pdf-viewer.js");
+            string base64 = Convert.ToBase64String(pdfBytes);
+            await JsRuntime.InvokeVoidAsync("downloadPdfFile", base64, $"RetentionReceipt-{docId}.pdf");
+        }
+        catch (ApiRequestException ex)
+        {
+            Logger.LogWarning(ex, "Error de API al descargar comprobante documento {DocId}: {Message}", docId, ex.Message);
+            await ShowToast(ex.Message, ToastType.Error);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al descargar el comprobante del documento {DocId}", docId);
+            await ShowToast("Error al descargar el comprobante.", ToastType.Error);
+        }
+        finally
+        {
+            _downloadingComprobanteDocId = null;
+            StateHasChanged();
+        }
     }
 
     /// <summary>

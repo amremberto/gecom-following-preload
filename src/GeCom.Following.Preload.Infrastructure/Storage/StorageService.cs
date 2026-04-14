@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using GeCom.Following.Preload.Application.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -170,11 +170,37 @@ internal sealed class StorageService : IStorageService
     }
 
     /// <inheritdoc />
+    public Task<byte[]> ReadRetentionReceiptPdfAsync(string fileName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+
+        string basePath = !string.IsNullOrWhiteSpace(_options.RetentionReceiptPath)
+            ? _options.RetentionReceiptPath
+            : _options.BasePath;
+
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            throw new InvalidOperationException("Storage RetentionReceiptPath/BasePath is not configured.");
+        }
+
+        string fullPath = Path.Combine(basePath, fileName);
+        return ReadFileAsync(fullPath, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        return _impersonationService.RunAsAsync(_ => Task.FromResult(File.Exists(filePath)), cancellationToken);
+    }
+
+    /// <inheritdoc />
     public Task DeleteFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        return _impersonationService.RunAsAsync(cancellationToken =>
+        return _impersonationService.RunAsAsync(_ =>
         {
             if (!File.Exists(filePath))
             {
@@ -204,6 +230,11 @@ public sealed class StorageOptions
     /// Gets or sets the base path for payment detail (recibo) PDF storage.
     /// </summary>
     public string? PaymentDetailPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets the base path for retention receipt PDF storage.
+    /// </summary>
+    public string? RetentionReceiptPath { get; set; }
 
     /// <summary>
     /// Gets or sets the impersonation settings.

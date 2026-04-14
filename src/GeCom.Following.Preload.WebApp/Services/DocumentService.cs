@@ -168,6 +168,19 @@ internal sealed class DocumentService : IDocumentService
     }
 
     /// <inheritdoc />
+    public async Task<byte[]?> DownloadRetentionReceiptPdfAsync(
+        int docId,
+        CancellationToken cancellationToken = default)
+    {
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/Documents/{docId}/retention-receipt-pdf", UriKind.Relative);
+
+        byte[]? fileContent = await _httpClientService.DownloadFileAsync(requestUri, cancellationToken);
+
+        return fileContent;
+    }
+
+    /// <inheritdoc />
     public async Task<IEnumerable<DocumentResponse>?> GetPendingDocumentsByProviderAsync(
         string providerCuit,
         CancellationToken cancellationToken = default)
