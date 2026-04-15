@@ -1467,13 +1467,31 @@ function setupSaveButtonVisibility(wizardElement, dotNetReference) {
     // Listen for Bootstrap tab show events
     wizardElement.addEventListener('shown.bs.tab', function (e) {
         updateSaveButtonVisibility(wizardElement);
-        
-        // Load SAP purchase orders when the purchase orders step is shown
+
         var targetHref = e.target.getAttribute('href');
+
+        // Load SAP purchase orders when the purchase orders step is shown
         if (targetHref === '#purchase-orders-step' && dotNetReference) {
             dotNetReference.invokeMethodAsync('LoadSapPurchaseOrders').catch(function(error) {
                 console.error('Error loading SAP purchase orders:', error);
             });
+        }
+
+        // Notes grid: init DataTable when this step is visible (same as pending / detail modal).
+        // Hidden tab-panes break column sizing if DataTable runs before the pane is shown.
+        if (targetHref === '#notes-step') {
+            setTimeout(function () {
+                var notesTable = document.getElementById('edit-document-notes-datatable');
+                if (!notesTable) {
+                    return;
+                }
+                if (typeof destroyDataTable === 'function') {
+                    destroyDataTable('edit-document-notes-datatable');
+                }
+                if (typeof loadDataTable === 'function') {
+                    loadDataTable('edit-document-notes-datatable');
+                }
+            }, 150);
         }
     });
 

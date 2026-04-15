@@ -12,6 +12,8 @@ using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
 using GeCom.Following.Preload.WebApi.Extensions.Results;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using NSwag.Annotations;
 
 namespace GeCom.Following.Preload.WebApi.Controllers.V1;
@@ -140,7 +142,17 @@ public sealed class NotesController : VersionedApiController
 
         Result<NoteResponse> result = await Mediator.Send(command, cancellationToken);
 
-        return result.MatchCreated(this, nameof(GetAllAsync));
+        if (result.IsSuccess)
+        {
+            // 201 sin CreatedAtAction: evita "No route matches the supplied values" con api versioning.
+            ObjectResult objectResult = new(result.Value)
+            {
+                StatusCode = StatusCodes.Status201Created
+            };
+            return objectResult;
+        }
+
+        return CustomResults.ProblemActionResult(this, result);
     }
 
     /// <summary>

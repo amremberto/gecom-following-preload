@@ -244,6 +244,10 @@
                                     <li class="nav-item" role="presentation">
                                         <button class="nav-link" id="notas-tab" data-bs-toggle="tab" data-bs-target="#notas" type="button" role="tab" aria-controls="notas" aria-selected="false">
                                             <i class="ri-sticky-note-line"></i> Notas
+                                            @if (_selectedDocument is not null && _selectedDocument.Notes.Any())
+                                            {
+                                                <span class="badge bg-primary ms-1">@_selectedDocument.Notes.Count</span>
+                                            }
                                         </button>
                                     </li>
                                 </ul>
@@ -304,7 +308,7 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        @foreach (var note in _selectedDocument.Notes)
+                                                        @foreach (var note in _selectedDocument.Notes.OrderByDescending(x => x.FechaCreacion))
                                                         {
                                                             <tr>
                                                                 <td>@note.UsuarioCreacion</td>
@@ -432,7 +436,13 @@
                                                 @onclick:preventDefault="@IsPendingPreloadStatus(_selectedDocument)"
                                                 style="@(IsPendingPreloadStatus(_selectedDocument) ? "pointer-events: none; opacity: 0.5; cursor: not-allowed;" : "")">
                                                 <i class="ri-sticky-note-line fs-18 align-middle me-1"></i>
-                                                <span class="d-none d-sm-inline">Notas</span>
+                                                <span class="d-none d-sm-inline">
+                                                    Notas
+                                                    @if (_selectedDocument is not null && _selectedDocument.Notes.Any())
+                                                    {
+                                                        <span class="badge bg-primary ms-1">@_selectedDocument.Notes.Count</span>
+                                                    }
+                                                </span>
                                             </a>
                                         </li>
                                     </ul>
@@ -451,7 +461,7 @@
                                                 <div class="card shadow-sm mb-3 border border-primary-subtle">
                                                     <div class="card-header bg-primary-subtle">
                                                         <h5 class="card-title mb-0">
-                                                            <span class="@GetEstadoBadgeClass(_selectedDocument.EstadoDescripcion) fs-6">@_selectedDocument.EstadoDescripcion</span>
+                                                            <span class="@GetEstadoBadgeClass(_selectedDocument?.EstadoDescripcion) fs-6">@_selectedDocument?.EstadoDescripcion</span>
                                                         </h5>
                                                     </div>
                                                     <div class="card-body">
@@ -816,35 +826,75 @@
                                                                 <strong>Información:</strong> Solo podrá editar notas cuando el documento no esté en estado "Pendiente Precarga".
                                                             </div>
                                                         }
-                                                        else if (_selectedDocument is not null && _selectedDocument.Notes.Any())
+                                                        else if (_selectedDocument is not null)
                                                         {
-                                                            <div>
-                                                                <table id="edit-document-notes-datatable" class="table table-striped w-100 nowrap">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th>Usuario</th>
-                                                                            <th>Fecha</th>
-                                                                            <th>Observaciones</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        @foreach (var note in _selectedDocument.Notes)
-                                                                        {
+                                                            <div class="card border border-success-subtle bg-light-subtle mb-3">
+                                                                <div class="card-body py-3">
+                                                                    <div class="row g-2 align-items-center">
+                                                                        <div class="col-md-9">
+                                                                            <label class="fw-bold text-primary" for="new-note-description">Nueva nota</label>
+                                                                            <textarea id="new-note-description"
+                                                                                      class="form-control"
+                                                                                      rows="3"
+                                                                                      maxlength="1000"
+                                                                                      @bind="_newNoteDescription"
+                                                                                      @bind:event="oninput"
+                                                                                      placeholder="Escriba una observación para el documento..."></textarea>
+                                                                            <div class="form-text">Puede agregar varias notas. Cada nota se guarda al presionar “Agregar nota”.</div>
+                                                                        </div>
+                                                                        <div class="col-md-3 d-flex align-items-center">
+                                                                            <div class="d-grid w-100">
+                                                                                <button type="button"
+                                                                                        class="btn btn-success"
+                                                                                        @onclick="AddNoteAsync"
+                                                                                        disabled="@_isAddingNote">
+                                                                                    @if (_isAddingNote)
+                                                                                    {
+                                                                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                                                                        <span>Guardando...</span>
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        <i class="ri-add-line me-1"></i>
+                                                                                        <span>Agregar nota</span>
+                                                                                    }
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            @if (_selectedDocument.Notes.Any())
+                                                            {
+                                                                <div>
+                                                                    <table id="edit-document-notes-datatable" class="table table-striped w-100 nowrap">
+                                                                        <thead>
                                                                             <tr>
-                                                                                <td>@note.UsuarioCreacion</td>
-                                                                                <td>@note.FechaCreacion.ToString("dd/MM/yyyy")</td>
-                                                                                <td>@note.Descripcion</td>
+                                                                                <th>Usuario</th>
+                                                                                <th>Fecha</th>
+                                                                                <th>Observaciones</th>
                                                                             </tr>
-                                                                        }
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        }
-                                                        else
-                                                        {
-                                                            <div class="alert alert-info mb-0">
-                                                                <i class="ri-information-line me-2"></i>No hay notas disponibles.
-                                                            </div>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            @foreach (var note in _selectedDocument.Notes.OrderByDescending(x => x.FechaCreacion))
+                                                                            {
+                                                                                <tr>
+                                                                                    <td>@note.UsuarioCreacion</td>
+                                                                                    <td>@note.FechaCreacion.ToString("dd/MM/yyyy")</td>
+                                                                                    <td>@note.Descripcion</td>
+                                                                                </tr>
+                                                                            }
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="alert alert-info mb-0">
+                                                                    <i class="ri-information-line me-2"></i>No hay notas disponibles.
+                                                                </div>
+                                                            }
                                                         }
                                                     </div>
                                                 </div>

@@ -67,6 +67,9 @@ public static class ServiceCollectionExtensions
         // Register SAP purchase order service
         services.AddScoped<ISapPurchaseOrderService, SapPurchaseOrderService>();
 
+        // Register note service
+        services.AddScoped<INoteService, NoteService>();
+
         return services;
     }
 }

@@ -7,6 +7,8 @@ using GeCom.Following.Preload.Contracts.Preload.Documents;
 using GeCom.Following.Preload.Contracts.Preload.Documents.ConfirmDocument;
 using GeCom.Following.Preload.Contracts.Preload.Documents.Update;
 using GeCom.Following.Preload.Contracts.Preload.DocumentTypes;
+using GeCom.Following.Preload.Contracts.Preload.Notes;
+using GeCom.Following.Preload.Contracts.Preload.Notes.Create;
 using GeCom.Following.Preload.Contracts.Preload.Providers;
 using GeCom.Following.Preload.Contracts.Preload.Societies;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
@@ -34,6 +36,7 @@ public partial class Pending : IAsyncDisposable
     [Inject] private ISapProviderSocietyService SapProviderSocietyService { get; set; } = default!;
     [Inject] private IProviderService ProviderService { get; set; } = default!;
     [Inject] private ISapPurchaseOrderService SapPurchaseOrderService { get; set; } = default!;
+    [Inject] private INoteService NoteService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IToastService ToastService { get; set; } = default!;
 
@@ -73,6 +76,8 @@ public partial class Pending : IAsyncDisposable
     private string? _selectedProviderCuit;
     private IEnumerable<SapPurchaseOrderResponse> _sapPurchaseOrders = []; // SAP purchase orders for the selected document
     private bool _isLoadingSapPurchaseOrders;
+    private string _newNoteDescription = string.Empty;
+    private bool _isAddingNote;
 
 #pragma warning disable S4487 // Unread private fields - Used in Razor @bind directive
     private string _selectedPuntoDeVenta = string.Empty;
@@ -502,6 +507,8 @@ public partial class Pending : IAsyncDisposable
         _selectedMontoBruto = null;
         _sapPurchaseOrders = []; // Reset SAP purchase orders
         _isLoadingSapPurchaseOrders = false;
+        _newNoteDescription = string.Empty;
+        _isAddingNote = false;
         StateHasChanged();
 
         // Note: Role verification (_isProvider, _providerCuit, _isSociety, _userEmail) 
@@ -1543,6 +1550,99 @@ public partial class Pending : IAsyncDisposable
                 Message = $"Error al confirmar el documento: {ex.Message}"
             };
         }
+    }
+
+    /// <summary>
+    /// Creates a note for the selected document from the notes step.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task AddNoteAsync()
+    {
+        if (_isAddingNote)
+        {
+            return;
+        }
+
+        if (_selectedDocument is null)
+        {
+            await ShowToast("No hay documento seleccionado.", ToastType.Warning);
+            return;
+        }
+
+        string noteDescription = _newNoteDescription.Trim();
+        if (string.IsNullOrWhiteSpace(noteDescription))
+        {
+            await ShowToast("Debe ingresar una descripción para la nota.", ToastType.Warning);
+            return;
+        }
+
+        try
+        {
+            _isAddingNote = true;
+            StateHasChanged();
+
+            string userName = await GetCurrentUserNameForNoteAsync();
+            CreateNoteRequest request = new(
+                _selectedDocument.DocId,
+                noteDescription,
+                userName);
+
+            NoteResponse? createdNote = await NoteService.CreateAsync(request, default);
+            if (createdNote is null)
+            {
+                await ShowToast("No se pudo guardar la nota. Intente nuevamente.", ToastType.Error);
+                return;
+            }
+
+            _selectedDocument.Notes.Add(createdNote);
+            _newNoteDescription = string.Empty;
+            await ShowToast("Nota agregada correctamente.", ToastType.Success);
+
+            if (_selectedDocument.Notes.Any())
+            {
+                await Task.Delay(50);
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-notes-datatable");
+                await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-notes-datatable");
+            }
+        }
+        catch (ApiRequestException ex)
+        {
+            await ShowToast(ex.Message, ToastType.Error);
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al agregar nota:", ex.Message);
+            await ShowToast("Ocurrió un error al agregar la nota.", ToastType.Error);
+        }
+        finally
+        {
+            _isAddingNote = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Gets the current user identifier used to register note creation.
+    /// </summary>
+    /// <returns>The user identifier.</returns>
+    private async Task<string> GetCurrentUserNameForNoteAsync()
+    {
+        AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        ClaimsPrincipal user = authState.User;
+
+        string? email = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst("email")?.Value;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return email;
+        }
+
+        string? userName = user.Identity?.Name;
+        if (!string.IsNullOrWhiteSpace(userName))
+        {
+            return userName;
+        }
+
+        return "Sistema";
     }
 
     /// <summary>
