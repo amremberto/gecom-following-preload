@@ -37,5 +37,6 @@ public sealed record SapPurchaseOrderResponse(
     // Campos adicionales calculados o provenientes de Precarga.OrdenesCompra
     decimal? CantidadFaltaFacturar = null,
     decimal? CantidadAFacturar = null,
-    string? CodigoRecepcion = null
+    string? CodigoRecepcion = null,
+    decimal? ImporteTotal = null
 );

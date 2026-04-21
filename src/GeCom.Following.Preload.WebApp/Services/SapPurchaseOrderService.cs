@@ -1,4 +1,4 @@
-using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
+﻿using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.WebApp.Configurations.Settings;
 using Microsoft.Extensions.Options;
 
@@ -55,6 +55,24 @@ internal sealed class SapPurchaseOrderService : ISapPurchaseOrderService
 
         IEnumerable<SapPurchaseOrderResponse>? response = await _httpClientService.GetAsync<IEnumerable<SapPurchaseOrderResponse>>(
             requestUri,
+            cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task<GetReceptionCodeDateResponse?> GetReceptionCodeDateAsync(
+        GetReceptionCodeDateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapPurchaseOrders/reception-code-date", UriKind.Relative);
+
+        GetReceptionCodeDateResponse? response = await _httpClientService.PostAsync<GetReceptionCodeDateRequest, GetReceptionCodeDateResponse>(
+            requestUri,
+            request,
             cancellationToken);
 
         return response;

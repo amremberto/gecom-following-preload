@@ -2,6 +2,7 @@
 using Asp.Versioning;
 using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetSapPurchaseOrders;
 using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetSapPurchaseOrdersByProviderSocietyAndDocId;
+using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetReceptionCodeDate;
 using GeCom.Following.Preload.Contracts.Spd_Sap.SapPurchaseOrders;
 using GeCom.Following.Preload.SharedKernel.Results;
 using GeCom.Following.Preload.WebApi.Extensions.Auth;
@@ -117,5 +118,43 @@ public sealed class SapPurchaseOrdersController : VersionedApiController
             await Mediator.Send(query, cancellationToken);
 
         return result.Match(this);
+    }
+
+    /// <summary>
+    /// Gets the reception code date for a SAP purchase order, based on
+    /// the order primary key and reception code.
+    /// </summary>
+    /// <param name="request">Request payload containing order ID and reception code.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The reception code date information.</returns>
+    /// <response code="200">Returns the reception code date information.</response>
+    /// <response code="404">If no purchase order is found for the given data.</response>
+    [HttpPost("reception-code-date")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadRead)]
+    [ProducesResponseType(typeof(GetReceptionCodeDateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [OpenApiOperation("GetReceptionCodeDate", "Gets the reception code date for a SAP purchase order.")]
+    public async Task<ActionResult<GetReceptionCodeDateResponse?>> GetReceptionCodeDateAsync(
+        [FromBody] GetReceptionCodeDateRequest request,
+        CancellationToken cancellationToken)
+    {
+        GetReceptionCodeDateQuery query = new(request);
+
+        Result<GetReceptionCodeDateResponse?> result =
+            await Mediator.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return result.Match(this);
+        }
+
+        GetReceptionCodeDateResponse? value = result.Value;
+
+        if (value is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(value);
     }
 }

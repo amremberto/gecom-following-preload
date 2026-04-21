@@ -211,4 +211,39 @@ internal sealed class SapPurchaseOrderRepository : GenericRepository<SapPurchase
 
         return results;
     }
+
+    /// <summary>
+    /// Gets the reception code date for a SAP purchase order by primary key (Idorden)
+    /// and reception code.
+    /// </summary>
+    /// <param name="ordenCompraId">SAP internal order identifier (primary key).</param>
+    /// <param name="codigoRecepcion">Reception code to validate for that order.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The reception code date, or null if not found.</returns>
+    public async Task<DateTime?> GetReceptionCodeDateAsync(
+        long ordenCompraId,
+        string codigoRecepcion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ordenCompraId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(codigoRecepcion);
+
+        FormattableString sql = $@"
+            SELECT TOP 1 o.fechadocumento
+            FROM ordenes o
+            INNER JOIN Precarga.dbo.OrdenesCompra po
+                ON po.codigoSociedadFI = o.codigosociedadfi
+                   AND po.proveedorSAP = o.proveedor
+                   AND po.NroOC = o.nrodocumento
+                   AND po.posicionOC = o.posicion
+            WHERE o.idorden = {ordenCompraId}
+                  AND UPPER(LTRIM(RTRIM(po.CodigoRecepcion))) = UPPER(LTRIM(RTRIM({codigoRecepcion})))
+            ORDER BY o.fechadocumento DESC";
+
+        List<DateTime?> fechas = await _context.Database
+            .SqlQuery<DateTime?>(sql)
+            .ToListAsync(cancellationToken);
+
+        return fechas.FirstOrDefault();
+    }
 }

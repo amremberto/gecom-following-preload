@@ -32,4 +32,12 @@ public interface ISapPurchaseOrderService
         string societyCuit,
         int docId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the reception code date for a SAP purchase order.
+    /// Returns null when the backend responds with 404 (code not found for the given OC).
+    /// </summary>
+    Task<GetReceptionCodeDateResponse?> GetReceptionCodeDateAsync(
+        GetReceptionCodeDateRequest request,
+        CancellationToken cancellationToken = default);
 }

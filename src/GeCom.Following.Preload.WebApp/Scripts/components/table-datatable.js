@@ -5,6 +5,12 @@
  */
 
 window.loadDataTable = function (tableId) {
+    const ocEditTableIds = ['edit-document-oc-datatable', 'edit-document-available-oc-datatable'];
+    const isOcEditTable = ocEditTableIds.includes(tableId);
+    const defaultPageLength = isOcEditTable ? 3 : 10;
+    const pageLengthOptions = isOcEditTable
+        ? [[3, 10, 25, 50], [3, 10, 25, 50]]
+        : [[10, 25, 50], [10, 25, 50]];
 
     // Check if jQuery is loaded
     if (typeof jQuery === 'undefined') {
@@ -45,8 +51,8 @@ window.loadDataTable = function (tableId) {
                 search: "Buscar:",
                 zeroRecords: "No se encontraron registros coincidentes"
             },
-            pageLength: 10,
-            lengthMenu: [[10, 25, 50], [10, 25, 50]],
+            pageLength: defaultPageLength,
+            lengthMenu: pageLengthOptions,
             drawCallback: function () {
                 $(".dataTables_paginate > .pagination").addClass("pagination-rounded");
             },

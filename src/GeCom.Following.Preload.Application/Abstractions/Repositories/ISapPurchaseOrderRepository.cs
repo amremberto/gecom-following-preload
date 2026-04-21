@@ -55,4 +55,16 @@ public interface ISapPurchaseOrderRepository : IRepository<SapPurchaseOrder>
         string societyCode,
         int docId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the reception code date for a SAP purchase order by its primary key and reception code.
+    /// </summary>
+    /// <param name="ordenCompraId">SAP internal order identifier (primary key).</param>
+    /// <param name="codigoRecepcion">Reception code to validate for that order.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The reception code date, or null if not found.</returns>
+    Task<DateTime?> GetReceptionCodeDateAsync(
+        long ordenCompraId,
+        string codigoRecepcion,
+        CancellationToken cancellationToken = default);
 }

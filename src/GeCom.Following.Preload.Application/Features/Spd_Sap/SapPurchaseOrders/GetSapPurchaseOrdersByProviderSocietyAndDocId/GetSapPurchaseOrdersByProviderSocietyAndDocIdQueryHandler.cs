@@ -236,7 +236,8 @@ internal sealed class GetSapPurchaseOrdersByProviderSocietyAndDocIdQueryHandler
             // Campos adicionales calculados
             extended.CantidadFaltaFacturar,
             extended.CantidadAFacturar,
-            extended.CodigoRecepcion);
+            extended.CodigoRecepcion,
+            extended.ImporteTotal);
     }
 
     /// <summary>

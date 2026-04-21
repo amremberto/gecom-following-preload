@@ -75,7 +75,19 @@ public partial class Pending : IAsyncDisposable
     private string? _selectedSocietyCuit;
     private string? _selectedProviderCuit;
     private IEnumerable<SapPurchaseOrderResponse> _sapPurchaseOrders = []; // SAP purchase orders for the selected document
+    private IEnumerable<SapPurchaseOrderResponse> _associatedSapPurchaseOrders = [];
+    private IEnumerable<SapPurchaseOrderResponse> _availableSapPurchaseOrders = [];
+    private decimal _totalAssociatedPurchaseOrders;
     private bool _isLoadingSapPurchaseOrders;
+    private bool _showPurchaseOrderLinkCard;
+    private SapPurchaseOrderResponse? _selectedSapPurchaseOrderToLink;
+    private decimal? _linkCantidadAFacturar;
+    private string _linkCodigoRecepcion = string.Empty;
+    private DateTime? _linkFechaCodigoRecepcion;
+    private bool _linkFacturaAnticipo;
+    private decimal? _linkImporteNetoAnticipo;
+    private string _linkPurchaseOrderValidationMessage = string.Empty;
+    private bool _isLinkingPurchaseOrder;
     private string _newNoteDescription = string.Empty;
     private bool _isAddingNote;
 
@@ -506,7 +518,11 @@ public partial class Pending : IAsyncDisposable
         _selectedNombreSolicitante = string.Empty;
         _selectedMontoBruto = null;
         _sapPurchaseOrders = []; // Reset SAP purchase orders
+        _associatedSapPurchaseOrders = [];
+        _availableSapPurchaseOrders = [];
+        _totalAssociatedPurchaseOrders = 0;
         _isLoadingSapPurchaseOrders = false;
+        ResetPurchaseOrderLinkForm();
         _newNoteDescription = string.Empty;
         _isAddingNote = false;
         StateHasChanged();
@@ -1777,7 +1793,11 @@ public partial class Pending : IAsyncDisposable
                     _selectedDocument.DocId);
 
             _sapPurchaseOrders = purchaseOrders ?? [];
+            _associatedSapPurchaseOrders = _sapPurchaseOrders.Where(po => po.CantidadAFacturar is not null);
+            _availableSapPurchaseOrders = _sapPurchaseOrders.Where(po => po.CantidadAFacturar is null);
+            RecalculateAssociatedPurchaseOrdersTotal();
             _isLoadingSapPurchaseOrders = false;
+            ResetPurchaseOrderLinkForm();
             StateHasChanged();
 
             await JsRuntime.InvokeVoidAsync("console.log", $"Órdenes de compra SAP cargadas: {_sapPurchaseOrders.Count()}");
@@ -1799,9 +1819,25 @@ public partial class Pending : IAsyncDisposable
                 {
                     // Ignore if DataTable doesn't exist yet
                 }
+                try
+                {
+                    await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-available-oc-datatable");
+                }
+                catch
+                {
+                    // Ignore if DataTable doesn't exist yet
+                }
 
                 // Initialize DataTable with the new data
-                await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-oc-datatable");
+                if (_associatedSapPurchaseOrders.Any())
+                {
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-oc-datatable");
+                }
+
+                if (_availableSapPurchaseOrders.Any())
+                {
+                    await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-available-oc-datatable");
+                }
             }
         }
         catch (Exception ex)
@@ -1834,15 +1870,286 @@ public partial class Pending : IAsyncDisposable
             {
                 // Ignore if DataTable doesn't exist
             }
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-available-oc-datatable");
+            }
+            catch
+            {
+                // Ignore if DataTable doesn't exist
+            }
 
             // Reset SAP purchase orders
             _sapPurchaseOrders = [];
+            _associatedSapPurchaseOrders = [];
+            _availableSapPurchaseOrders = [];
+            _totalAssociatedPurchaseOrders = 0;
             _isLoadingSapPurchaseOrders = false;
+            ResetPurchaseOrderLinkForm();
         }
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("console.error", "Error al limpiar SELECT2 y Flatpickr:", ex.Message);
         }
+    }
+
+    private void StartPurchaseOrderLink(SapPurchaseOrderResponse purchaseOrder)
+    {
+        _selectedSapPurchaseOrderToLink = purchaseOrder;
+        _showPurchaseOrderLinkCard = true;
+        _linkCantidadAFacturar = purchaseOrder.CantidadFaltaFacturar;
+        _linkCodigoRecepcion = string.Empty;
+        _linkFechaCodigoRecepcion = null;
+        _linkFacturaAnticipo = false;
+        _linkImporteNetoAnticipo = null;
+        _linkPurchaseOrderValidationMessage = string.Empty;
+        _isLinkingPurchaseOrder = false;
+    }
+
+    private void CancelPurchaseOrderLink()
+    {
+        ResetPurchaseOrderLinkForm();
+    }
+
+    private void OnFacturaAnticipoChanged(ChangeEventArgs args)
+    {
+        _linkFacturaAnticipo = args.Value is bool isChecked && isChecked;
+        if (_linkFacturaAnticipo)
+        {
+            _linkCantidadAFacturar = null;
+            _linkCodigoRecepcion = string.Empty;
+            _linkFechaCodigoRecepcion = null;
+        }
+        else
+        {
+            _linkImporteNetoAnticipo = null;
+        }
+
+        _linkPurchaseOrderValidationMessage = string.Empty;
+    }
+
+    private void OnReceptionCodeChanged()
+    {
+        // If reception code changes, invalidate any previously fetched date.
+        _linkFechaCodigoRecepcion = null;
+        _linkPurchaseOrderValidationMessage = string.Empty;
+    }
+
+    private bool CanEnableLinkPurchaseOrder()
+    {
+        if (_selectedSapPurchaseOrderToLink is null)
+        {
+            return false;
+        }
+
+        if (_linkFacturaAnticipo)
+        {
+            return _linkImporteNetoAnticipo.HasValue && _linkImporteNetoAnticipo.Value > 0;
+        }
+
+        return _linkCantidadAFacturar.HasValue
+               && _linkCantidadAFacturar.Value > 0
+               && !string.IsNullOrWhiteSpace(_linkCodigoRecepcion)
+               && _linkFechaCodigoRecepcion.HasValue;
+    }
+
+    private async Task OnReceptionCodeBlurAsync(FocusEventArgs args)
+    {
+        _linkPurchaseOrderValidationMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_linkCodigoRecepcion) || _selectedSapPurchaseOrderToLink is null)
+        {
+            _linkFechaCodigoRecepcion = null;
+            return;
+        }
+
+        try
+        {
+            GetReceptionCodeDateRequest request = new(
+                OrdenCompraId: _selectedSapPurchaseOrderToLink.Idorden,
+                CodigoRecepcion: _linkCodigoRecepcion.Trim());
+
+            GetReceptionCodeDateResponse? response = await SapPurchaseOrderService.GetReceptionCodeDateAsync(request);
+
+            if (response is null)
+            {
+                _linkFechaCodigoRecepcion = null;
+                _linkPurchaseOrderValidationMessage = "El código de recepción ingresado no existe para esta OC.";
+                await ShowToast("El código de recepción proporcionado no pertenece a esta OC.", ToastType.Warning);
+            }
+            else
+            {
+                _linkFechaCodigoRecepcion = response.FechaCodigoRecepcion;
+            }
+        }
+        catch (ApiRequestException ex)
+        {
+            _linkPurchaseOrderValidationMessage = ex.Message;
+            _linkFechaCodigoRecepcion = null;
+        }
+        catch (Exception)
+        {
+            _linkPurchaseOrderValidationMessage = "Ocurrió un error al obtener la fecha del código de recepción.";
+            _linkFechaCodigoRecepcion = null;
+        }
+    }
+
+    private bool ValidatePurchaseOrderLinkForm()
+    {
+        _linkPurchaseOrderValidationMessage = string.Empty;
+
+        if (_selectedSapPurchaseOrderToLink is null)
+        {
+            _linkPurchaseOrderValidationMessage = "Debe seleccionar una orden de compra para vincular.";
+            return false;
+        }
+
+        if (_linkFacturaAnticipo)
+        {
+            if (!_linkImporteNetoAnticipo.HasValue || _linkImporteNetoAnticipo <= 0)
+            {
+                _linkPurchaseOrderValidationMessage = "Debe ingresar un Importe NETO anticipo mayor a 0.";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (!_linkCantidadAFacturar.HasValue || _linkCantidadAFacturar <= 0)
+        {
+            _linkPurchaseOrderValidationMessage = "Debe ingresar una Cantidad a Facturar mayor a 0.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_linkCodigoRecepcion))
+        {
+            _linkPurchaseOrderValidationMessage = "Debe ingresar un Cód. de Recepción.";
+            return false;
+        }
+
+        if (!_linkFechaCodigoRecepcion.HasValue)
+        {
+            _linkPurchaseOrderValidationMessage = "Debe ingresar la Fe.Cód. Recepción.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task ConfirmPurchaseOrderLinkAsync()
+    {
+        if (_isLinkingPurchaseOrder)
+        {
+            return;
+        }
+
+        if (!ValidatePurchaseOrderLinkForm())
+        {
+            return;
+        }
+
+        if (_selectedSapPurchaseOrderToLink is null)
+        {
+            return;
+        }
+
+        _isLinkingPurchaseOrder = true;
+
+        try
+        {
+            decimal? cantidadAFacturar = _linkFacturaAnticipo ? null : _linkCantidadAFacturar;
+            string? codigoRecepcion = _linkFacturaAnticipo ? null : _linkCodigoRecepcion.Trim();
+            decimal? netoAnticipo = _linkFacturaAnticipo ? _linkImporteNetoAnticipo : _selectedSapPurchaseOrderToLink.NetoAnticipo;
+
+            SapPurchaseOrderResponse linkedPurchaseOrder = _selectedSapPurchaseOrderToLink with
+            {
+                CantidadAFacturar = cantidadAFacturar,
+                CodigoRecepcion = codigoRecepcion,
+                NetoAnticipo = netoAnticipo
+            };
+
+            _associatedSapPurchaseOrders = [.. _associatedSapPurchaseOrders, linkedPurchaseOrder];
+            _availableSapPurchaseOrders = _availableSapPurchaseOrders
+                .Where(po => po.Idorden != linkedPurchaseOrder.Idorden || po.Posicion != linkedPurchaseOrder.Posicion)
+                .ToList();
+            _sapPurchaseOrders = [.. _associatedSapPurchaseOrders, .. _availableSapPurchaseOrders];
+            RecalculateAssociatedPurchaseOrdersTotal();
+
+            await ReloadPurchaseOrderDataTablesAsync();
+            ResetPurchaseOrderLinkForm();
+            await ShowToast("Orden de compra vinculada (modo UI).", ToastType.Success);
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("console.error", "Error al vincular orden de compra (UI):", ex.Message);
+            _linkPurchaseOrderValidationMessage = "No se pudo vincular la orden de compra. Intente nuevamente.";
+        }
+        finally
+        {
+            _isLinkingPurchaseOrder = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadPurchaseOrderDataTablesAsync()
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-oc-datatable");
+        }
+        catch
+        {
+            // Ignore if DataTable doesn't exist yet.
+        }
+
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-available-oc-datatable");
+        }
+        catch
+        {
+            // Ignore if DataTable doesn't exist yet.
+        }
+
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(100);
+
+        if (_associatedSapPurchaseOrders.Any())
+        {
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-oc-datatable");
+        }
+
+        if (_availableSapPurchaseOrders.Any())
+        {
+            await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-available-oc-datatable");
+        }
+    }
+
+    private void ResetPurchaseOrderLinkForm()
+    {
+        _showPurchaseOrderLinkCard = false;
+        _selectedSapPurchaseOrderToLink = null;
+        _linkCantidadAFacturar = null;
+        _linkCodigoRecepcion = string.Empty;
+        _linkFechaCodigoRecepcion = null;
+        _linkFacturaAnticipo = false;
+        _linkImporteNetoAnticipo = null;
+        _linkPurchaseOrderValidationMessage = string.Empty;
+        _isLinkingPurchaseOrder = false;
+    }
+
+    private void RecalculateAssociatedPurchaseOrdersTotal()
+    {
+        _totalAssociatedPurchaseOrders = CalculateAssociatedPurchaseOrdersTotal(_associatedSapPurchaseOrders);
+    }
+
+    private static decimal CalculateAssociatedPurchaseOrdersTotal(IEnumerable<SapPurchaseOrderResponse> purchaseOrders)
+    {
+        ArgumentNullException.ThrowIfNull(purchaseOrders);
+
+        return purchaseOrders
+            .Where(po => !string.IsNullOrWhiteSpace(po.CodigoRecepcion))
+            .Sum(po => po.ImporteTotal ?? ((po.CantidadAFacturar ?? 0m) * po.Importeoriginal));
     }
 
     /// <summary>

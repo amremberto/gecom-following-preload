@@ -393,6 +393,10 @@
             <div class="modal-header bg-white align-items-center rounded-top border-bottom">
                 <h4 class="modal-title mb-0 d-flex align-items-center text-secondary" id="editDocumentModalLabel">
                     <i class="ri-edit-line me-2"></i> Editar Documento
+                    @if (_selectedDocument is not null)
+                    {
+                        <span class="ms-2">(@_selectedDocument.DocId)</span>
+                    }
                 </h4>
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -722,61 +726,232 @@
                                                         }
                                                         else if (_sapPurchaseOrders.Any())
                                                         {
-                                                            <div>
-                                                                <table id="edit-document-oc-datatable" class="table table-striped w-100 nowrap">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th style="width: 80px;">Acciones</th>
-                                                                            <th>Nro. OC</th>
-                                                                            <th>Posición</th>
-                                                                            <th>Desc. Producto</th>
-                                                                            <th>Cant. Falta Fact.</th>
-                                                                            <th>Importe Unitario</th>
-                                                                            <th>Cant. a Facturar</th>
-                                                                            <th>Cod. Recepcion</th>
-                                                                            <th>Neto Anticipo</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        @foreach (var po in _sapPurchaseOrders)
+                                                            @if (_associatedSapPurchaseOrders.Any())
+                                                            {
+                                                                <div class="card border border-info-subtle bg-light-subtle mb-3">
+                                                                    <div class="card-header bg-info-subtle">
+                                                                        <h6 class="card-title mb-0 fw-bold text-primary">Órdenes de Compra asociadas</h6>
+                                                                    </div>
+                                                                    <div class="card-body">
+                                                                        <table id="edit-document-oc-datatable" class="table table-striped w-100 nowrap">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th style="width: 80px;">Acciones</th>
+                                                                                    <th>Nro. OC</th>
+                                                                                    <th>Posición</th>
+                                                                                    <th>Desc. Producto</th>
+                                                                                    <th>Cant. Falta Fact.</th>
+                                                                                    <th>Importe Unitario</th>
+                                                                                    <th>Cant. a Facturar</th>
+                                                                                    <th>Cod. Recepcion</th>
+                                                                                    <th>Neto Anticipo</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                @foreach (var po in _associatedSapPurchaseOrders)
+                                                                                {
+                                                                                    <tr>
+                                                                                        <td class="text-center align-middle">
+                                                                                            <div class="d-flex gap-1 justify-content-center">
+                                                                                                <button type="button"
+                                                                                                        class="btn btn-danger btn-sm p-0"
+                                                                                                        style="width: 28px; height: 28px; line-height: 1;"
+                                                                                                        title="Desvincular orden de compra"
+                                                                                                        disabled>
+                                                                                                    <i class="ri-unlink" style="font-size: 1.1rem; vertical-align: middle;"></i>
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                        <td>@po.Nrodocumento</td>
+                                                                                        <td>@po.Posicion</td>
+                                                                                        <td>@(po.Textobreve ?? "-")</td>
+                                                                                        <td>@(po.CantidadFaltaFacturar?.ToString("N2") ?? "-")</td>
+                                                                                        <td>@po.Importeoriginal.ToString("N2")</td>
+                                                                                        <td>@(po.CantidadAFacturar?.ToString("N2") ?? "-")</td>
+                                                                                        <td>@(po.CodigoRecepcion ?? "-")</td>
+                                                                                        <td>@(po.NetoAnticipo?.ToString("N2") ?? "-")</td>
+                                                                                    </tr>
+                                                                                }
+                                                                            </tbody>
+                                                                        </table>
+                                                                        <div class="d-flex justify-content-end mt-3">
+                                                                            <div class="d-flex align-items-center gap-2">
+                                                                                <label class="fw-bold text-primary mb-0" for="total-associated-ocs">Total OCs</label>
+                                                                                <input id="total-associated-ocs"
+                                                                                       name="total-associated-ocs"
+                                                                                       type="text"
+                                                                                       class="form-control text-end"
+                                                                                       style="width: 180px;"
+                                                                                       value="@_totalAssociatedPurchaseOrders.ToString("N2")"
+                                                                                       readonly
+                                                                                       disabled />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+
+                                                            @if (_showPurchaseOrderLinkCard && _selectedSapPurchaseOrderToLink is not null)
+                                                            {
+                                                                <div class="card border border-warning-subtle bg-light-subtle mb-3">
+                                                                    <div class="card-header bg-warning-subtle">
+                                                                        <h6 class="card-title mb-0 fw-bold text-primary">
+                                                                            Vincular Orden de Compra (@_selectedSapPurchaseOrderToLink.Nrodocumento - Pos. @_selectedSapPurchaseOrderToLink.Posicion)
+                                                                        </h6>
+                                                                    </div>
+                                                                    <div class="card-body">
+                                                                        @if (!string.IsNullOrWhiteSpace(_linkPurchaseOrderValidationMessage))
                                                                         {
-                                                                            <tr>
-                                                                                <td class="text-center align-middle">
-                                                                                    <div class="d-flex gap-1 justify-content-center">
-                                                                                        @if (po.CantidadAFacturar is null)
-                                                                                        {
-                                                                                            <button type="button"
-                                                                                                    class="btn btn-success btn-sm p-0"
-                                                                                                    style="width: 28px; height: 28px; line-height: 1;"
-                                                                                                    title="Vincular orden de compra"
-                                                                                                    disabled>
-                                                                                                <i class="ri-link" style="font-size: 1.1rem; vertical-align: middle;"></i>
-                                                                                            </button>
-                                                                                        }
-                                                                                        else
-                                                                                        {
-                                                                                            <button type="button"
-                                                                                                    class="btn btn-danger btn-sm p-0"
-                                                                                                    style="width: 28px; height: 28px; line-height: 1;"
-                                                                                                    title="Desvincular orden de compra"
-                                                                                                    disabled>
-                                                                                                <i class="ri-unlink" style="font-size: 1.1rem; vertical-align: middle;"></i>
-                                                                                            </button>
-                                                                                        }
-                                                                                    </div>
-                                                                                </td>
-                                                                                <td>@po.Nrodocumento</td>
-                                                                                <td>@po.Posicion</td>
-                                                                                <td>@(po.Textobreve ?? "-")</td>
-                                                                                <td>@(po.CantidadFaltaFacturar?.ToString("N2") ?? "-")</td>
-                                                                                <td>@po.Importeoriginal.ToString("N2")</td>
-                                                                                <td>@(po.CantidadAFacturar?.ToString("N2") ?? "-")</td>
-                                                                                <td>@(po.CodigoRecepcion ?? "-")</td>
-                                                                                <td>@(po.NetoAnticipo?.ToString("N2") ?? "-")</td>
-                                                                            </tr>
+                                                                            <div class="alert alert-warning mb-3">
+                                                                                <i class="ri-alert-line me-2"></i>@_linkPurchaseOrderValidationMessage
+                                                                            </div>
                                                                         }
-                                                                    </tbody>
-                                                                </table>
+
+                                                                        <div class="row g-3">
+                                                                            <div class="col-md-3">
+                                                                                <label class="fw-bold text-primary" for="link-cantidad-a-facturar">Cantidad a Facturar</label>
+                                                                                <input id="link-cantidad-a-facturar"
+                                                                                       name="link-cantidad-a-facturar"
+                                                                                       type="number"
+                                                                                       step="0.01"
+                                                                                       min="0.01"
+                                                                                       class="form-control"
+                                                                                       @bind="_linkCantidadAFacturar"
+                                                                                       @bind:event="oninput"
+                                                                                       disabled="@_linkFacturaAnticipo" />
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="fw-bold text-primary" for="link-codigo-recepcion">Cód. de Recepción</label>
+                                                                                <input id="link-codigo-recepcion"
+                                                                                       name="link-codigo-recepcion"
+                                                                                       type="text"
+                                                                                       maxlength="50"
+                                                                                       class="form-control"
+                                                                                       @bind="_linkCodigoRecepcion"
+                                                                                       @bind:event="oninput"
+                                                                                       @bind:after="OnReceptionCodeChanged"
+                                                                                       @onblur="OnReceptionCodeBlurAsync"
+                                                                                       disabled="@_linkFacturaAnticipo" />
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="fw-bold text-primary" for="link-fecha-codigo-recepcion">Fe.Cód. Recepción</label>
+                                                                                <input id="link-fecha-codigo-recepcion"
+                                                                                       name="link-fecha-codigo-recepcion"
+                                                                                       type="date"
+                                                                                       class="form-control"
+                                                                                       @bind="_linkFechaCodigoRecepcion"
+                                                                                       disabled />
+                                                                            </div>
+                                                                            <div class="col-md-3 d-flex align-items-end">
+                                                                                <div class="form-check mb-2">
+                                                                                    <input id="link-factura-anticipo"
+                                                                                           name="link-factura-anticipo"
+                                                                                           type="checkbox"
+                                                                                           class="form-check-input"
+                                                                                           checked="@_linkFacturaAnticipo"
+                                                                                           @onchange="OnFacturaAnticipoChanged" />
+                                                                                    <label class="form-check-label fw-bold text-primary" for="link-factura-anticipo">
+                                                                                        Factura anticipo
+                                                                                    </label>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-4">
+                                                                                <label class="fw-bold text-primary" for="link-neto-anticipo">Importe NETO anticipo</label>
+                                                                                <input id="link-neto-anticipo"
+                                                                                       name="link-neto-anticipo"
+                                                                                       type="number"
+                                                                                       step="0.01"
+                                                                                       min="0.01"
+                                                                                       class="form-control"
+                                                                                       @bind="_linkImporteNetoAnticipo"
+                                                                                       @bind:event="oninput"
+                                                                                       disabled="@(!_linkFacturaAnticipo)" />
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div class="d-flex justify-content-end gap-2 mt-3">
+                                                                            <button type="button"
+                                                                                    class="btn btn-light"
+                                                                                    @onclick="CancelPurchaseOrderLink"
+                                                                                    disabled="@_isLinkingPurchaseOrder">
+                                                                                Cancelar
+                                                                            </button>
+                                                                            <button type="button"
+                                                                                    class="btn btn-success"
+                                                                                    @onclick="ConfirmPurchaseOrderLinkAsync"
+                                                                                    disabled="@(_isLinkingPurchaseOrder || !CanEnableLinkPurchaseOrder())">
+                                                                                @if (_isLinkingPurchaseOrder)
+                                                                                {
+                                                                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                                                                    <span>Vinculando...</span>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    <i class="ri-link me-1"></i>
+                                                                                    <span>Vincular</span>
+                                                                                }
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+
+                                                            <div class="card border border-info-subtle bg-light-subtle">
+                                                                <div class="card-header bg-info-subtle">
+                                                                    <h6 class="card-title mb-0 fw-bold text-primary">Órdenes de Compra disponibles para asociar</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    @if (_availableSapPurchaseOrders.Any())
+                                                                    {
+                                                                        <table id="edit-document-available-oc-datatable" class="table table-striped w-100 nowrap">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th style="width: 80px;">Acciones</th>
+                                                                                    <th>Nro. OC</th>
+                                                                                    <th>Posición</th>
+                                                                                    <th>Desc. Producto</th>
+                                                                                    <th>Cant. Falta Fact.</th>
+                                                                                    <th>Importe Unitario</th>
+                                                                                    <th>Cant. a Facturar</th>
+                                                                                    <th>Cod. Recepcion</th>
+                                                                                    <th>Neto Anticipo</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                @foreach (var po in _availableSapPurchaseOrders)
+                                                                                {
+                                                                                    <tr>
+                                                                                        <td class="text-center align-middle">
+                                                                                            <div class="d-flex gap-1 justify-content-center">
+                                                                                                <button type="button"
+                                                                                                        class="btn btn-success btn-sm p-0"
+                                                                                                        style="width: 28px; height: 28px; line-height: 1;"
+                                                                                                        title="Vincular orden de compra"
+                                                                                                    @onclick="() => StartPurchaseOrderLink(po)">
+                                                                                                    <i class="ri-link" style="font-size: 1.1rem; vertical-align: middle;"></i>
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                        <td>@po.Nrodocumento</td>
+                                                                                        <td>@po.Posicion</td>
+                                                                                        <td>@(po.Textobreve ?? "-")</td>
+                                                                                        <td>@(po.CantidadFaltaFacturar?.ToString("N2") ?? "-")</td>
+                                                                                        <td>@po.Importeoriginal.ToString("N2")</td>
+                                                                                        <td>@(po.CantidadAFacturar?.ToString("N2") ?? "-")</td>
+                                                                                        <td>@(po.CodigoRecepcion ?? "-")</td>
+                                                                                        <td>@(po.NetoAnticipo?.ToString("N2") ?? "-")</td>
+                                                                                    </tr>
+                                                                                }
+                                                                            </tbody>
+                                                                        </table>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <div class="alert alert-info mb-0">
+                                                                            <i class="ri-information-line me-2"></i>No hay órdenes de compra disponibles para asociar.
+                                                                        </div>
+                                                                    }
+                                                                </div>
                                                             </div>
                                                         }
                                                         else
