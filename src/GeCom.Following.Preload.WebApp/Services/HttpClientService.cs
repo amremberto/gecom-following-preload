@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components;
 
 namespace GeCom.Following.Preload.WebApp.Services;
 
@@ -17,14 +18,16 @@ internal sealed class HttpClientService : IHttpClientService
     };
 
     private readonly HttpClient _httpClient;
+    private readonly NavigationManager _navigationManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HttpClientService"/> class.
     /// </summary>
     /// <param name="httpClient">The HTTP client.</param>
-    public HttpClientService(HttpClient httpClient)
+    public HttpClientService(HttpClient httpClient, NavigationManager navigationManager)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _navigationManager = navigationManager ?? throw new ArgumentNullException(nameof(navigationManager));
     }
 
     /// <inheritdoc />
@@ -77,6 +80,7 @@ internal sealed class HttpClientService : IHttpClientService
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
+            ForceReAuthentication();
             throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
         }
 
@@ -149,6 +153,7 @@ internal sealed class HttpClientService : IHttpClientService
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 response.Dispose();
+                ForceReAuthentication();
                 throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
             }
 
@@ -187,7 +192,7 @@ internal sealed class HttpClientService : IHttpClientService
     /// <summary>
     /// Handles the HTTP response and deserializes it if successful.
     /// </summary>
-    private static async Task<TResponse?> HandleResponseAsync<TResponse>(
+    private async Task<TResponse?> HandleResponseAsync<TResponse>(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
         where TResponse : class
@@ -197,6 +202,7 @@ internal sealed class HttpClientService : IHttpClientService
             // Handle special cases before ensuring success status
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
+                ForceReAuthentication();
                 throw new UnauthorizedAccessException("The request was unauthorized. Please sign in again.");
             }
 
@@ -302,6 +308,11 @@ internal sealed class HttpClientService : IHttpClientService
             // If we can't parse the error, return a generic message
             return $"The request failed with status code {(int)response.StatusCode} ({response.StatusCode}).";
         }
+    }
+
+    private void ForceReAuthentication()
+    {
+        _navigationManager.NavigateTo("/Account/Logout", forceLoad: true);
     }
 }
 

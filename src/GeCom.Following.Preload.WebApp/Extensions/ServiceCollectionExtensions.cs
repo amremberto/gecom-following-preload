@@ -29,6 +29,16 @@ public static class ServiceCollectionExtensions
 
         // Register the authentication delegating handler as transient
         services.AddTransient<AuthenticationDelegatingHandler>();
+        services.AddScoped<ITokenRefreshService, TokenRefreshService>();
+
+        // Register token endpoint client used to refresh access tokens.
+        services.AddHttpClient("OidcTokenClient", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        });
 
         // Register HttpClient for HTTP client service with authentication handler
         services.AddHttpClient<IHttpClientService, HttpClientService>(client =>
