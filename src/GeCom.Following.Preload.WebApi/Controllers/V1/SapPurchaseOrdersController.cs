@@ -1,5 +1,7 @@
 ﻿using System.Security.Claims;
 using Asp.Versioning;
+using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.LinkSapPurchaseOrderToDocument;
+using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.UnlinkSapPurchaseOrderFromDocument;
 using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetSapPurchaseOrders;
 using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetSapPurchaseOrdersByProviderSocietyAndDocId;
 using GeCom.Following.Preload.Application.Features.Spd_Sap.SapPurchaseOrders.GetReceptionCodeDate;
@@ -156,5 +158,85 @@ public sealed class SapPurchaseOrdersController : VersionedApiController
         }
 
         return Ok(value);
+    }
+
+    /// <summary>
+    /// Links a SAP purchase order to a preload document.
+    /// Compatible with the legacy action semantics of <c>api/oc/link-document</c>.
+    /// </summary>
+    /// <param name="request">Request payload containing document and purchase order link data.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created link data.</returns>
+    /// <response code="201">Returns the linked purchase order data.</response>
+    /// <response code="400">If request validation fails.</response>
+    /// <response code="404">If the target document does not exist.</response>
+    /// <response code="409">If an active link already exists.</response>
+    [HttpPost("link-document")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(typeof(LinkSapPurchaseOrderToDocumentResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [OpenApiOperation("LinkSapPurchaseOrderToDocument", "Links a SAP purchase order to a preload document.")]
+    public async Task<ActionResult<LinkSapPurchaseOrderToDocumentResponse>> LinkToDocumentAsync(
+        [FromBody] LinkSapPurchaseOrderToDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        LinkSapPurchaseOrderToDocumentCommand command = new(
+            request.Ocid,
+            request.CodigoRecepcion,
+            request.CantidadAFacturar,
+            request.DocId,
+            request.OrdenCompraId,
+            request.NroOc,
+            request.PosicionOc,
+            request.CodigoSociedadFi,
+            request.ProveedorSap,
+            request.ImporteNetoAnticipo);
+
+        Result<LinkSapPurchaseOrderToDocumentResponse> result =
+            await Mediator.Send(command, cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            // 201 sin CreatedAtAction: evita "No route matches the supplied values" con api versioning.
+            ObjectResult objectResult = new(result.Value)
+            {
+                StatusCode = StatusCodes.Status201Created
+            };
+            return objectResult;
+        }
+
+        return CustomResults.ProblemActionResult(this, result);
+    }
+
+    /// <summary>
+    /// Unlinks a SAP purchase order from a preload document.
+    /// Compatible with the legacy action semantics of <c>api/oc/unlink-document</c>.
+    /// </summary>
+    /// <param name="request">Request payload containing legacy unlink key data.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content when the link was successfully removed.</returns>
+    /// <response code="204">If the link was successfully unlinked.</response>
+    /// <response code="400">If request validation fails.</response>
+    /// <response code="404">If an active link was not found for provided data.</response>
+    [HttpPost("unlink-document")]
+    [Authorize(Policy = AuthorizationConstants.Policies.RequirePreloadWrite)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [OpenApiOperation("UnlinkSapPurchaseOrderFromDocument", "Unlinks a SAP purchase order from a preload document.")]
+    public async Task<ActionResult> UnlinkFromDocumentAsync(
+        [FromBody] UnlinkSapPurchaseOrderFromDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        UnlinkSapPurchaseOrderFromDocumentCommand command = new(
+            request.DocId,
+            request.Posicion,
+            request.NumeroDocumento,
+            request.CodigoRecepcion);
+
+        Result result = await Mediator.Send(command, cancellationToken);
+        return result.MatchDeleted(this);
     }
 }

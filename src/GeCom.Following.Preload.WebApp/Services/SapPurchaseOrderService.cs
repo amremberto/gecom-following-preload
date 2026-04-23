@@ -77,4 +77,39 @@ internal sealed class SapPurchaseOrderService : ISapPurchaseOrderService
 
         return response;
     }
+
+    /// <inheritdoc />
+    public async Task<LinkSapPurchaseOrderToDocumentResponse?> LinkToDocumentAsync(
+        LinkSapPurchaseOrderToDocumentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapPurchaseOrders/link-document", UriKind.Relative);
+
+        LinkSapPurchaseOrderToDocumentResponse? response =
+            await _httpClientService.PostAsync<LinkSapPurchaseOrderToDocumentRequest, LinkSapPurchaseOrderToDocumentResponse>(
+                requestUri,
+                request,
+                cancellationToken);
+
+        return response;
+    }
+
+    /// <inheritdoc />
+    public async Task UnlinkFromDocumentAsync(
+        UnlinkSapPurchaseOrderFromDocumentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string apiVersion = _apiSettings.Version;
+        Uri requestUri = new($"/api/{apiVersion}/SapPurchaseOrders/unlink-document", UriKind.Relative);
+
+        await _httpClientService.PostAsync<UnlinkSapPurchaseOrderFromDocumentRequest, object>(
+            requestUri,
+            request,
+            cancellationToken);
+    }
 }

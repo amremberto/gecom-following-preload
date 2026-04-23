@@ -47,4 +47,40 @@ public interface IPurchaseOrderRepository : IRepository<PurchaseOrder>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A collection of purchase orders with their related documents.</returns>
     Task<IEnumerable<PurchaseOrder>> GetWithDocumentsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks whether an active purchase order-document link already exists.
+    /// </summary>
+    /// <param name="docId">Document identifier.</param>
+    /// <param name="ordenCompraId">Purchase order identifier.</param>
+    /// <param name="nroOc">Purchase order number.</param>
+    /// <param name="posicionOc">Purchase order position.</param>
+    /// <param name="codigoSociedadFi">Society code.</param>
+    /// <param name="proveedorSap">Provider SAP code.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True when an active link exists; otherwise false.</returns>
+    Task<bool> ExistsActiveLinkAsync(
+        int docId,
+        int ordenCompraId,
+        string nroOc,
+        int posicionOc,
+        string codigoSociedadFi,
+        string proveedorSap,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets an active purchase order-document link for unlinking using legacy key data.
+    /// </summary>
+    /// <param name="docId">Document identifier.</param>
+    /// <param name="numeroDocumento">Purchase order number.</param>
+    /// <param name="posicion">Purchase order position.</param>
+    /// <param name="codigoRecepcion">Reception code.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The active purchase order link if found; otherwise null.</returns>
+    Task<PurchaseOrder?> GetActiveLinkForUnlinkAsync(
+        int docId,
+        string numeroDocumento,
+        int posicion,
+        string codigoRecepcion,
+        CancellationToken cancellationToken = default);
 }

@@ -754,11 +754,19 @@
                                                                                         <td class="text-center align-middle">
                                                                                             <div class="d-flex gap-1 justify-content-center">
                                                                                                 <button type="button"
-                                                                                                        class="btn btn-danger btn-sm p-0"
-                                                                                                        style="width: 28px; height: 28px; line-height: 1;"
+                                                                                                        class="btn btn-outline-danger btn-sm p-0"
+                                                                                                        style="width: 30px; height: 30px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;"
                                                                                                         title="Desvincular orden de compra"
-                                                                                                        disabled>
-                                                                                                    <i class="ri-unlink" style="font-size: 1.1rem; vertical-align: middle;"></i>
+                                                                                                        @onclick="() => ConfirmPurchaseOrderUnlinkAsync(po)"
+                                                                                                        disabled="@_isUnlinkingPurchaseOrder">
+                                                                                                    @if (_isUnlinkingPurchaseOrder)
+                                                                                                    {
+                                                                                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                                                                    }
+                                                                                                    else
+                                                                                                    {
+                                                                                                        <i class="ri-link-unlink" style="font-size: 1.1rem;"></i>
+                                                                                                    }
                                                                                                 </button>
                                                                                             </div>
                                                                                         </td>
@@ -924,8 +932,8 @@
                                                                                         <td class="text-center align-middle">
                                                                                             <div class="d-flex gap-1 justify-content-center">
                                                                                                 <button type="button"
-                                                                                                        class="btn btn-success btn-sm p-0"
-                                                                                                        style="width: 28px; height: 28px; line-height: 1;"
+                                                                                                        class="btn btn-outline-success btn-sm p-0"
+                                                                                                        style="width: 30px; height: 30px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;"
                                                                                                         title="Vincular orden de compra"
                                                                                                     @onclick="() => StartPurchaseOrderLink(po)">
                                                                                                     <i class="ri-link" style="font-size: 1.1rem; vertical-align: middle;"></i>

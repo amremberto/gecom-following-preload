@@ -54,4 +54,58 @@ internal sealed class PurchaseOrderRepository : GenericRepository<PurchaseOrder,
             .Include(po => po.Document)
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<bool> ExistsActiveLinkAsync(
+        int docId,
+        int ordenCompraId,
+        string nroOc,
+        int posicionOc,
+        string codigoSociedadFi,
+        string proveedorSap,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nroOc);
+        ArgumentException.ThrowIfNullOrWhiteSpace(codigoSociedadFi);
+        ArgumentException.ThrowIfNullOrWhiteSpace(proveedorSap);
+
+        string normalizedNroOc = nroOc.Trim();
+        string normalizedSocietyCode = codigoSociedadFi.Trim();
+        string normalizedProviderSap = proveedorSap.Trim();
+
+        return await GetQueryable()
+            .AnyAsync(po =>
+                    po.DocId == docId &&
+                    po.OrdenCompraId == ordenCompraId &&
+                    po.NroOc == normalizedNroOc &&
+                    po.PosicionOc == posicionOc &&
+                    po.CodigoSociedadFi == normalizedSocietyCode &&
+                    po.ProveedorSap == normalizedProviderSap &&
+                    po.FechaBaja == null,
+                cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<PurchaseOrder?> GetActiveLinkForUnlinkAsync(
+        int docId,
+        string numeroDocumento,
+        int posicion,
+        string codigoRecepcion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(numeroDocumento);
+        ArgumentException.ThrowIfNullOrWhiteSpace(codigoRecepcion);
+
+        string normalizedNumeroDocumento = numeroDocumento.Trim();
+        string normalizedCodigoRecepcion = codigoRecepcion.Trim();
+
+        return await GetQueryable()
+            .FirstOrDefaultAsync(po =>
+                    po.DocId == docId &&
+                    po.NroOc == normalizedNumeroDocumento &&
+                    po.PosicionOc == posicion &&
+                    po.CodigoRecepcion == normalizedCodigoRecepcion &&
+                    po.FechaBaja == null,
+                cancellationToken);
+    }
 }

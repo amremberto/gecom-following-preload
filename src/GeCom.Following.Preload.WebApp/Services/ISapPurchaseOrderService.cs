@@ -40,4 +40,22 @@ public interface ISapPurchaseOrderService
     Task<GetReceptionCodeDateResponse?> GetReceptionCodeDateAsync(
         GetReceptionCodeDateRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Links a SAP purchase order to a preload document.
+    /// </summary>
+    /// <param name="request">The link request payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<LinkSapPurchaseOrderToDocumentResponse?> LinkToDocumentAsync(
+        LinkSapPurchaseOrderToDocumentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unlinks a SAP purchase order from a preload document.
+    /// </summary>
+    /// <param name="request">The unlink request payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task UnlinkFromDocumentAsync(
+        UnlinkSapPurchaseOrderFromDocumentRequest request,
+        CancellationToken cancellationToken = default);
 }

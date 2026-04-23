@@ -212,6 +212,11 @@ internal sealed class HttpClientService : IHttpClientService
                 throw new ApiRequestException(response.StatusCode, errorMessage);
             }
 
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                return null;
+            }
+
             // Deserialize directly from the response content
             TResponse? result = await response.Content.ReadFromJsonAsync<TResponse>(
                 JsonSerializerOptions,

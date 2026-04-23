@@ -88,6 +88,7 @@ public partial class Pending : IAsyncDisposable
     private decimal? _linkImporteNetoAnticipo;
     private string _linkPurchaseOrderValidationMessage = string.Empty;
     private bool _isLinkingPurchaseOrder;
+    private bool _isUnlinkingPurchaseOrder;
     private string _newNoteDescription = string.Empty;
     private bool _isAddingNote;
 
@@ -2053,35 +2054,58 @@ public partial class Pending : IAsyncDisposable
             return;
         }
 
+        if (_selectedDocument is null)
+        {
+            await ShowToast("No hay documento seleccionado para vincular la OC.", ToastType.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedSapPurchaseOrderToLink.Codigosociedadfi))
+        {
+            await ShowToast("La OC no tiene código de sociedad FI válido.", ToastType.Warning);
+            return;
+        }
+
         _isLinkingPurchaseOrder = true;
 
         try
         {
+            long purchaseOrderId = _selectedSapPurchaseOrderToLink.Idorden;
+            if (purchaseOrderId > int.MaxValue)
+            {
+                _linkPurchaseOrderValidationMessage = "El identificador de OC supera el rango permitido.";
+                return;
+            }
+
+            int ordenCompraId = (int)purchaseOrderId;
             decimal? cantidadAFacturar = _linkFacturaAnticipo ? null : _linkCantidadAFacturar;
             string? codigoRecepcion = _linkFacturaAnticipo ? null : _linkCodigoRecepcion.Trim();
-            decimal? netoAnticipo = _linkFacturaAnticipo ? _linkImporteNetoAnticipo : _selectedSapPurchaseOrderToLink.NetoAnticipo;
+            decimal? netoAnticipo = _linkFacturaAnticipo ? _linkImporteNetoAnticipo : null;
 
-            SapPurchaseOrderResponse linkedPurchaseOrder = _selectedSapPurchaseOrderToLink with
-            {
-                CantidadAFacturar = cantidadAFacturar,
-                CodigoRecepcion = codigoRecepcion,
-                NetoAnticipo = netoAnticipo
-            };
+            LinkSapPurchaseOrderToDocumentRequest request = new(
+                Ocid: ordenCompraId,
+                CodigoRecepcion: codigoRecepcion,
+                CantidadAFacturar: cantidadAFacturar,
+                DocId: _selectedDocument.DocId,
+                OrdenCompraId: ordenCompraId,
+                NroOc: _selectedSapPurchaseOrderToLink.Nrodocumento,
+                PosicionOc: _selectedSapPurchaseOrderToLink.Posicion,
+                CodigoSociedadFi: _selectedSapPurchaseOrderToLink.Codigosociedadfi.Trim(),
+                ProveedorSap: _selectedSapPurchaseOrderToLink.Proveedor,
+                ImporteNetoAnticipo: netoAnticipo);
 
-            _associatedSapPurchaseOrders = [.. _associatedSapPurchaseOrders, linkedPurchaseOrder];
-            _availableSapPurchaseOrders = _availableSapPurchaseOrders
-                .Where(po => po.Idorden != linkedPurchaseOrder.Idorden || po.Posicion != linkedPurchaseOrder.Posicion)
-                .ToList();
-            _sapPurchaseOrders = [.. _associatedSapPurchaseOrders, .. _availableSapPurchaseOrders];
-            RecalculateAssociatedPurchaseOrdersTotal();
-
-            await ReloadPurchaseOrderDataTablesAsync();
+            await SapPurchaseOrderService.LinkToDocumentAsync(request);
+            await ShowToast("Orden de compra vinculada correctamente.", ToastType.Success);
+            await LoadSapPurchaseOrders();
             ResetPurchaseOrderLinkForm();
-            await ShowToast("Orden de compra vinculada (modo UI).", ToastType.Success);
         }
-        catch (Exception ex)
+        catch (ApiRequestException ex)
         {
-            await JsRuntime.InvokeVoidAsync("console.error", "Error al vincular orden de compra (UI):", ex.Message);
+            _linkPurchaseOrderValidationMessage = ex.Message;
+            await ShowToast(ex.Message, ToastType.Error);
+        }
+        catch (Exception)
+        {
             _linkPurchaseOrderValidationMessage = "No se pudo vincular la orden de compra. Intente nuevamente.";
         }
         finally
@@ -2091,37 +2115,53 @@ public partial class Pending : IAsyncDisposable
         }
     }
 
-    private async Task ReloadPurchaseOrderDataTablesAsync()
+    private async Task ConfirmPurchaseOrderUnlinkAsync(SapPurchaseOrderResponse purchaseOrder)
     {
-        try
+        if (_isUnlinkingPurchaseOrder)
         {
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-oc-datatable");
+            return;
         }
-        catch
+
+        if (_selectedDocument is null)
         {
-            // Ignore if DataTable doesn't exist yet.
+            await ShowToast("No hay documento seleccionado para desvincular la OC.", ToastType.Warning);
+            return;
         }
+
+        if (string.IsNullOrWhiteSpace(purchaseOrder.CodigoRecepcion))
+        {
+            await ShowToast("No se puede desvincular una OC sin código de recepción.", ToastType.Warning);
+            return;
+        }
+
+        string codigoRecepcion = purchaseOrder.CodigoRecepcion.Trim();
+
+        _isUnlinkingPurchaseOrder = true;
 
         try
         {
-            await JsRuntime.InvokeVoidAsync("destroyDataTable", "edit-document-available-oc-datatable");
-        }
-        catch
-        {
-            // Ignore if DataTable doesn't exist yet.
-        }
+            UnlinkSapPurchaseOrderFromDocumentRequest request = new(
+                DocId: _selectedDocument.DocId,
+                Posicion: purchaseOrder.Posicion,
+                NumeroDocumento: purchaseOrder.Nrodocumento,
+                CodigoRecepcion: codigoRecepcion);
 
-        await InvokeAsync(StateHasChanged);
-        await Task.Delay(100);
-
-        if (_associatedSapPurchaseOrders.Any())
-        {
-            await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-oc-datatable");
+            await SapPurchaseOrderService.UnlinkFromDocumentAsync(request);
+            await ShowToast("Orden de compra desvinculada correctamente.", ToastType.Success);
+            await LoadSapPurchaseOrders();
         }
-
-        if (_availableSapPurchaseOrders.Any())
+        catch (ApiRequestException ex)
         {
-            await JsRuntime.InvokeVoidAsync("loadDataTable", "edit-document-available-oc-datatable");
+            await ShowToast(ex.Message, ToastType.Error);
+        }
+        catch (Exception)
+        {
+            await ShowToast("No se pudo desvincular la orden de compra. Intente nuevamente.", ToastType.Error);
+        }
+        finally
+        {
+            _isUnlinkingPurchaseOrder = false;
+            StateHasChanged();
         }
     }
 
